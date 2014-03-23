@@ -94,12 +94,12 @@ func (m *Message) Eval(vm *VM, locals Interface) (result Interface) {
 		if m.Memo != nil {
 			result = m.Memo
 		} else {
+			// fmt.Println("target:", target)
 			switch m.Symbol.Kind {
 			case IdentSym:
-				var proto Interface
-				if target, proto = GetSlot(target, m.Symbol.Text); proto != nil {
+				if newtarget, proto := GetSlot(target, m.Symbol.Text); proto != nil {
 					// We have the slot.
-					switch a := target.(type) {
+					switch a := newtarget.(type) {
 					case Stop:
 						a.Result = result
 						return a
@@ -107,9 +107,11 @@ func (m *Message) Eval(vm *VM, locals Interface) (result Interface) {
 						// TODO: provide a Call
 						result = a.Activate(vm, target, locals, m)
 					default:
-						result = target
+						result = newtarget
 					}
+					target = newtarget
 				} else if forward, fp := GetSlot(target, "forward"); fp != nil {
+					// fmt.Println("forwarding", m.Symbol.Text)
 					if a, ok := forward.(Actor); ok {
 						// TODO: provide a Call
 						result = vm.SimpleActivate(a, target, locals, "forward")
@@ -117,6 +119,7 @@ func (m *Message) Eval(vm *VM, locals Interface) (result Interface) {
 						return vm.NewExceptionf("%s does not respond to %s", vm.TypeName(target), m.Symbol.Text)
 					}
 				} else {
+					// fmt.Println("couldn't find", m.Symbol.Text)
 					return vm.NewExceptionf("%s does not respond to %s", vm.TypeName(target), m.Symbol.Text)
 				}
 			case SemiSym:

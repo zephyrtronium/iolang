@@ -111,6 +111,7 @@ func (vm *VM) initNumber() {
 		"tan":                vm.NewCFunction(NumberTan, "NumberTan()"),
 		"toBase":             vm.NewCFunction(NumberToBase, "NumberToBase(b)"),
 		"toggle":             vm.NewCFunction(NumberToggle, "NumberToggle()"),
+		"type":               vm.NewString("Number"),
 	}
 	vm.DefaultSlots["Number"] = slots
 

@@ -29,9 +29,8 @@ func (vm *VM) initFalse() {
 		"ifTrue":         vm.False,
 		"isTrue":         vm.False,
 		"not":            vm.True,
-		// TODO: or
-		"then": vm.False,
-		"type": s,
+		"then":           vm.False,
+		"type":           s,
 	}
 }
 
@@ -51,8 +50,7 @@ func (vm *VM) initNil() {
 		"isNil":          vm.True,
 		"isTrue":         vm.False,
 		"not":            vm.True,
-		// TODO: or
-		"then": vm.Nil,
-		"type": s,
+		"then":           vm.Nil,
+		"type":           s,
 	}
 }

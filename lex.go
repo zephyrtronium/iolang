@@ -50,10 +50,10 @@ func accept(src *bufio.Reader, predicate func(rune) bool, b []byte) ([]byte, run
 		if err != nil {
 			return b, r, err
 		}
-		b = append(b, string(r)...)
 		if !predicate(r) {
 			break
 		}
+		b = append(b, string(r)...)
 		r, _, err = src.ReadRune()
 	}
 	src.UnreadRune()

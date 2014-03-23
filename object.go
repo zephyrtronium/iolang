@@ -2,6 +2,8 @@ package iolang
 
 import (
 	"fmt"
+	// "github.com/davecgh/go-spew/spew"
+	"strings"
 	"sync"
 )
 
@@ -47,17 +49,25 @@ func (*Object) isIoObject() {}
 func (vm *VM) initObject() {
 	vm.BaseObject.Protos = []Interface{vm.Lobby}
 	slots := Slots{
-		"":         vm.NewCFunction(ObjectEvalArg, "ObjectEvalArg(msg)"),
-		"Lobby":    vm.Lobby,
-		"break":    vm.NewCFunction(ObjectBreak, "ObjectBreak(result)"),
-		"clone":    vm.NewCFunction(ObjectClone, "ObjectClone()"),
-		"continue": vm.NewCFunction(ObjectContinue, "ObjectContinue()"),
-		"for":      vm.NewCFunction(ObjectFor, "ObjectFor(ctr, start, stop, [step,] msg)"),
-		"if":       vm.NewCFunction(ObjectIf, "ObjectIf(cond, onTrue, onFalse)"),
-		"isTrue":   vm.True,
-		"loop":     vm.NewCFunction(ObjectLoop, "ObjectLoop(msg)"),
-		"return":   vm.NewCFunction(ObjectReturn, "ObjectReturn(result)"),
-		"while":    vm.NewCFunction(ObjectWhile, "ObjectWhile(cond, msg)"),
+		"":           vm.NewCFunction(ObjectEvalArg, "ObjectEvalArg(msg)"),
+		"Lobby":      vm.Lobby,
+		"Object":     vm.BaseObject,
+		"break":      vm.NewCFunction(ObjectBreak, "ObjectBreak(result)"),
+		"clone":      vm.NewCFunction(ObjectClone, "ObjectClone()"),
+		"continue":   vm.NewCFunction(ObjectContinue, "ObjectContinue()"),
+		"false":      vm.False,
+		"for":        vm.NewCFunction(ObjectFor, "ObjectFor(ctr, start, stop, [step,] msg)"),
+		"getSlot":    vm.NewCFunction(ObjectGetSlot, "ObjectGetSlot(name)"),
+		"if":         vm.NewCFunction(ObjectIf, "ObjectIf(cond, onTrue, onFalse)"),
+		"isTrue":     vm.True,
+		"loop":       vm.NewCFunction(ObjectLoop, "ObjectLoop(msg)"),
+		"nil":        vm.Nil,
+		"return":     vm.NewCFunction(ObjectReturn, "ObjectReturn(result)"),
+		"setSlot":    vm.NewCFunction(ObjectSetSlot, "ObjectSetSlot(name, value)"),
+		"true":       vm.True,
+		"type":       vm.NewString("Object"),
+		"updateSlot": vm.NewCFunction(ObjectUpdateSlot, "ObjectUpdateSlot(name, value)"),
+		"while":      vm.NewCFunction(ObjectWhile, "ObjectWhile(cond, msg)"),
 	}
 	vm.BaseObject.Slots = slots
 
@@ -81,27 +91,30 @@ func GetSlot(o Interface, slot string) (value, proto Interface) {
 	return getSlotRecurse(o, slot, make(map[*Object]struct{}, len(o.SP().Protos)+1))
 }
 
+// var Debugvm *VM
+
 func getSlotRecurse(o Interface, slot string, checked map[*Object]struct{}) (Interface, Interface) {
 	obj := o.SP()
-	if obj.Slots == nil {
-		return nil, nil
-	}
-	obj.L.Lock()
-	// This will not unlock until the entire recursive search has finished.
-	// Do we care? Behavior is possibly more predictable this way, but
-	// performance may suffer.
-	defer obj.L.Unlock()
-	if s, ok := obj.Slots[slot]; ok {
-		return s, o
-	}
-	checked[obj] = struct{}{}
-	for _, proto := range obj.Protos {
-		p := proto.SP()
-		if _, skip := checked[p]; skip {
-			continue
+	if obj.Slots != nil {
+		obj.L.Lock()
+		// This will not unlock until the entire recursive search finishes.
+		// Do we care? Behavior is possibly more predictable this way, but
+		// performance may suffer.
+		defer obj.L.Unlock()
+		// spew.Dump(obj)
+		// fmt.Println(ObjectSlotNames(Debugvm, obj, nil, nil))
+		if s, ok := obj.Slots[slot]; ok {
+			return s, o
 		}
-		if s, pp := getSlotRecurse(p, slot, checked); pp != nil {
-			return s, pp
+		checked[obj] = struct{}{}
+		for _, proto := range obj.Protos {
+			p := proto.SP()
+			if _, skip := checked[p]; skip {
+				continue
+			}
+			if s, pp := getSlotRecurse(p, slot, checked); pp != nil {
+				return s, pp
+			}
 		}
 	}
 	return nil, nil
@@ -162,6 +175,56 @@ func ObjectClone(vm *VM, target, locals Interface, msg *Message) Interface {
 		}
 	}
 	return clone
+}
+
+func ObjectSetSlot(vm *VM, target, locals Interface, msg *Message) Interface {
+	slot, err := msg.StringArgAt(vm, locals, 0)
+	if err != nil {
+		return vm.IoError(err)
+	}
+	v := msg.EvalArgAt(vm, locals, 1)
+	if IsIoError(v) {
+		return v
+	}
+	SetSlot(target, slot.Value, v)
+	return v
+}
+
+func ObjectUpdateSlot(vm *VM, target, locals Interface, msg *Message) Interface {
+	slot, err := msg.StringArgAt(vm, locals, 0)
+	if err != nil {
+		return vm.IoError(err)
+	}
+	v := msg.EvalArgAt(vm, locals, 1)
+	if IsIoError(v) {
+		return v
+	}
+	_, proto := GetSlot(target, slot.Value)
+	if proto == nil {
+		return vm.NewExceptionf("slot %s not found", slot.Value)
+	}
+	SetSlot(proto, slot.Value, v)
+	return v
+}
+
+func ObjectGetSlot(vm *VM, target, locals Interface, msg *Message) Interface {
+	slot, err := msg.StringArgAt(vm, locals, 0)
+	if err != nil {
+		return vm.IoError(err)
+	}
+	v, _ := GetSlot(target, slot.Value)
+	return v
+}
+
+func ObjectSlotNames(vm *VM, target, locals Interface, msg *Message) Interface {
+	slots := target.SP().Slots
+	names := make([]string, len(slots))
+	i := 0
+	for name := range slots {
+		names[i] = name
+		i++
+	}
+	return vm.NewString(strings.Join(names, ", "))
 }
 
 func ObjectEvalArg(vm *VM, target, locals Interface, msg *Message) Interface {

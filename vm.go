@@ -31,7 +31,7 @@ func NewVM() *VM {
 		StringMemo: make(map[string]*String, 129),
 	}
 
-	vm.Lobby.Protos = []Interface{vm.Lobby}
+	vm.Lobby.Protos = []Interface{vm.BaseObject}
 	// NOTE: the number here should be >= the number of types
 	vm.DefaultSlots = make(map[string]Slots, 9)
 	// We have to make CFunction's slots exist first to use NewCFunction.
@@ -96,15 +96,9 @@ func (vm *VM) AsBool(obj Interface) bool {
 // Define extras in Io once the VM is capable of executing code.
 func (vm *VM) finalInit() {
 	const (
-		object = `Object do(
-			and := method(v, v isTrue)
-		)`
-		false_ = `false do(
-			or := method(v, v isTrue)
-		)`
-		nil_ = `nil do(
-			or := method(v, v isTrue)
-		)`
+		object = `Object setSlot("and", method(v, v isTrue))`
+		false_ = `false setSlot("or", method(v, v isTrue))`
+		nil_   = `nil setSlot("or", method(v, v isTrue))`
 		number = `Number do(
 			combinations := method(r, self factorial / ((self - r) factorial) / (r factorial))
 			permutations := method(r, self factorial / ((self - r) factorial))
