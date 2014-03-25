@@ -1,5 +1,7 @@
 package iolang
 
+import "fmt"
+
 type VM struct {
 	Lobby *Object
 
@@ -33,7 +35,7 @@ func NewVM() *VM {
 
 	vm.Lobby.Protos = []Interface{vm.BaseObject}
 	// NOTE: the number here should be >= the number of types
-	vm.DefaultSlots = make(map[string]Slots, 9)
+	vm.DefaultSlots = make(map[string]Slots, 20)
 	// We have to make CFunction's slots exist first to use NewCFunction.
 	vm.DefaultSlots["CFunction"] = Slots{}
 	vm.DefaultSlots["Message"] = Slots{}
@@ -91,6 +93,28 @@ func (vm *VM) AsBool(obj Interface) bool {
 		return vm.AsBool(vm.SimpleActivate(a, proto, vm.ObjectWith(Slots{}), "isTrue"))
 	}
 	return true
+}
+
+func (vm *VM) AsString(obj Interface) string {
+	if asString, proto := GetSlot(obj, "asString"); proto != nil {
+		for {
+			switch a := asString.(type) {
+			case Actor:
+				asString = vm.SimpleActivate(a, asString, obj, "asString")
+				continue
+			case *String:
+				return a.Value
+			}
+			if IsIoError(asString) {
+				return asString.(error).Error()
+			}
+			break
+		}
+	}
+	if s, ok := obj.(fmt.Stringer); ok {
+		return s.String()
+	}
+	return fmt.Sprintf("%T_%p", obj)
 }
 
 // Define extras in Io once the VM is capable of executing code.

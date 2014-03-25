@@ -52,6 +52,7 @@ func (vm *VM) initObject() {
 		"":           vm.NewCFunction(ObjectEvalArg, "ObjectEvalArg(msg)"),
 		"Lobby":      vm.Lobby,
 		"Object":     vm.BaseObject,
+		"asString":   vm.NewCFunction(ObjectAsString, "ObjectAsString()"),
 		"break":      vm.NewCFunction(ObjectBreak, "ObjectBreak(result)"),
 		"clone":      vm.NewCFunction(ObjectClone, "ObjectClone()"),
 		"continue":   vm.NewCFunction(ObjectContinue, "ObjectContinue()"),
@@ -246,4 +247,11 @@ func ObjectEvalArgAndReturnNil(vm *VM, target, locals Interface, msg *Message) I
 		return result
 	}
 	return vm.Nil
+}
+
+func ObjectAsString(vm *VM, target, locals Interface, msg *Message) Interface {
+	if stringer, ok := target.(fmt.Stringer); ok {
+		return vm.NewString(stringer.String())
+	}
+	return vm.NewString(fmt.Sprintf("%T_%p", target, target))
 }

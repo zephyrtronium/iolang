@@ -25,7 +25,7 @@ func main() {
 		ok := stdin.Scan()
 		x := vm.DoString(stdin.Text())
 		// spew.Dump(x)
-		fmt.Println(x)
+		fmt.Println(vm.AsString(x))
 		if !ok {
 			break
 		}
