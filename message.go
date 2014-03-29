@@ -94,9 +94,10 @@ func (m *Message) Eval(vm *VM, locals Interface) (result Interface) {
 		if m.Memo != nil {
 			result = m.Memo
 		} else {
-			// fmt.Println("target:", target)
+			// fmt.Println("target:", vm.AsString(target))
 			switch m.Symbol.Kind {
 			case IdentSym:
+				// fmt.Println("ident:", m.Symbol.Text)
 				if newtarget, proto := GetSlot(target, m.Symbol.Text); proto != nil {
 					// We have the slot.
 					switch a := newtarget.(type) {

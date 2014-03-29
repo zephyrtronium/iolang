@@ -40,10 +40,18 @@ func (b *Block) reallyActivate(vm *VM, target, locals Interface, msg *Message) I
 	return result
 }
 
+func (vm *VM) initBlock() {
+	slots := Slots{
+		"call": vm.NewCFunction(BlockCall, "BlockCall(...)"),
+	}
+	vm.DefaultSlots["Block"] = slots
+}
+
 func ObjectBlock(vm *VM, target, locals Interface, msg *Message) Interface {
 	blk := Block{
-		Object:   Object{Slots: vm.DefaultSlots["block"], Protos: []Interface{vm.BaseObject}},
+		Object:   Object{Slots: vm.DefaultSlots["Block"], Protos: []Interface{vm.BaseObject}},
 		Message:  msg.ArgAt(len(msg.Args) - 1),
+		Self:     locals,
 		ArgNames: make([]string, len(msg.Args)-1),
 	}
 	for i, arg := range msg.Args[:len(msg.Args)-1] {
@@ -53,8 +61,9 @@ func ObjectBlock(vm *VM, target, locals Interface, msg *Message) Interface {
 }
 
 func ObjectMethod(vm *VM, target, locals Interface, msg *Message) Interface {
-	blk := ObjectBlock(vm, target, locals, msg)
-	blk.(*Block).Activatable = true
+	blk := ObjectBlock(vm, target, locals, msg).(*Block)
+	blk.Activatable = true
+	blk.Self = nil
 	return blk
 }
 

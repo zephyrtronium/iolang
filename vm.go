@@ -44,6 +44,7 @@ func NewVM() *VM {
 	vm.DefaultSlots["ImmutableSequence"] = Slots{}
 	vm.DefaultSlots["Exception"] = Slots{}
 	vm.DefaultSlots["Error"] = Slots{}
+	vm.initBlock()
 	vm.initCall()
 	vm.initObject()
 	vm.initTrue()
@@ -100,7 +101,7 @@ func (vm *VM) AsString(obj Interface) string {
 		for {
 			switch a := asString.(type) {
 			case Actor:
-				asString = vm.SimpleActivate(a, asString, obj, "asString")
+				asString = vm.SimpleActivate(a, obj, obj, "asString")
 				continue
 			case *String:
 				return a.Value
