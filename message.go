@@ -1,6 +1,9 @@
 package iolang
 
-import "fmt"
+import (
+	"bytes"
+	"fmt"
+)
 
 type Message struct {
 	Object
@@ -105,7 +108,6 @@ func (m *Message) Eval(vm *VM, locals Interface) (result Interface) {
 						a.Result = result
 						return a
 					case Actor:
-						// TODO: provide a Call
 						result = a.Activate(vm, target, locals, m)
 					default:
 						result = newtarget
@@ -114,7 +116,6 @@ func (m *Message) Eval(vm *VM, locals Interface) (result Interface) {
 				} else if forward, fp := GetSlot(target, "forward"); fp != nil {
 					// fmt.Println("forwarding", m.Symbol.Text)
 					if a, ok := forward.(Actor); ok {
-						// TODO: provide a Call
 						result = vm.SimpleActivate(a, target, locals, "forward")
 					} else {
 						return vm.NewExceptionf("%s does not respond to %s", vm.TypeName(target), m.Symbol.Text)
@@ -162,4 +163,55 @@ func (m *Message) Name() string {
 
 func (m *Message) String() string {
 	return "message"
+}
+
+func (m *Message) stringRecurse(vm *VM, b *bytes.Buffer) {
+	if m.Memo != nil {
+		if msg, ok := m.Memo.(*Message); ok {
+			b.WriteString("<message(")
+			msg.stringRecurse(vm, b)
+			b.WriteString(")>")
+		} else {
+			b.WriteString(vm.AsString(m.Memo))
+		}
+	} else {
+		switch m.Symbol.Kind {
+		case SemiSym:
+			b.WriteString("; ")
+		case IdentSym:
+			b.WriteString(m.Symbol.Text)
+			if len(m.Args) > 0 {
+				b.WriteByte('(')
+				m.Args[0].stringRecurse(vm, b)
+				for _, arg := range m.Args[1:] {
+					b.WriteString(", ")
+					arg.stringRecurse(vm, b)
+				}
+				b.WriteByte(')')
+			}
+		case NumSym:
+			fmt.Fprint(b, m.Symbol.Num)
+		case StringSym:
+			fmt.Fprintf(b, "%q", m.Symbol.String)
+		default:
+			panic("iolang: unknown symbol kind")
+		}
+	}
+	if m.Next != nil {
+		b.WriteByte(' ')
+		m.Next.stringRecurse(vm, b)
+	}
+}
+
+func (vm *VM) initMessage() {
+	slots := Slots{
+		"asString": vm.NewCFunction(MessageAsString, "MessageAsString()"),
+	}
+	vm.DefaultSlots["Message"] = slots
+}
+
+func MessageAsString(vm *VM, target, locals Interface, msg *Message) Interface {
+	b := bytes.Buffer{}
+	target.(*Message).stringRecurse(vm, &b)
+	return vm.NewString(b.String())
 }

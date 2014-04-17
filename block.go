@@ -1,5 +1,10 @@
 package iolang
 
+import (
+	"bytes"
+	"strings"
+)
+
 type Block struct {
 	Object
 	Message     *Message
@@ -42,7 +47,8 @@ func (b *Block) reallyActivate(vm *VM, target, locals Interface, msg *Message) I
 
 func (vm *VM) initBlock() {
 	slots := Slots{
-		"call": vm.NewCFunction(BlockCall, "BlockCall(...)"),
+		"asString": vm.NewCFunction(BlockAsString, "BlockAsString()"),
+		"call":     vm.NewCFunction(BlockCall, "BlockCall(...)"),
 	}
 	vm.DefaultSlots["Block"] = slots
 }
@@ -65,6 +71,21 @@ func ObjectMethod(vm *VM, target, locals Interface, msg *Message) Interface {
 	blk.Activatable = true
 	blk.Self = nil
 	return blk
+}
+
+func BlockAsString(vm *VM, target, locals Interface, msg *Message) Interface {
+	blk := target.(*Block)
+	b := bytes.Buffer{}
+	if blk.Activatable {
+		b.WriteString("method(")
+	} else {
+		b.WriteString("block(")
+	}
+	b.WriteString(strings.Join(blk.ArgNames, ", "))
+	b.WriteString(",\n")
+	blk.Message.stringRecurse(vm, &b)
+	b.WriteString("\n)")
+	return vm.NewString(b.String())
 }
 
 func BlockCall(vm *VM, target, locals Interface, msg *Message) Interface {

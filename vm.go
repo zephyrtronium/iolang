@@ -10,6 +10,8 @@ type VM struct {
 	False      *Object
 	Nil        *Object
 
+	Operators *OpTable
+
 	NumberMemo map[float64]*Number
 	StringMemo map[string]*String
 
@@ -25,6 +27,8 @@ func NewVM() *VM {
 		True:       &Object{},
 		False:      &Object{},
 		Nil:        &Object{},
+
+		Operators: &OpTable{},
 
 		// Memoize all integers in [-1, 255], all mathematical constants
 		// defined in package math, +/- inf, and float/integer extrema.
@@ -50,6 +54,7 @@ func NewVM() *VM {
 	vm.initTrue()
 	vm.initFalse()
 	vm.initNil()
+	vm.initOpTable()
 
 	vm.MemoizeString("")
 	for i := rune(0); i <= 127; i++ {

@@ -153,14 +153,7 @@ func ObjectLoop(vm *VM, target, locals Interface, msg *Message) (result Interfac
 }
 
 func ObjectReturn(vm *VM, target, locals Interface, msg *Message) Interface {
-	var result Interface = vm.Nil
-	if msg.Next != nil {
-		result = msg.Next.Eval(vm, locals)
-	}
-	if len(msg.Args) > 0 {
-		result = msg.ArgAt(0).Eval(vm, locals)
-	}
-	return Stop{Status: ReturnStop, Result: result}
+	return Stop{Status: ReturnStop, Result: msg.ArgAt(0).Eval(vm, locals)}
 }
 
 func ObjectBreak(vm *VM, target, locals Interface, msg *Message) Interface {

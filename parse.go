@@ -172,7 +172,8 @@ func (vm *VM) DoReader(src io.Reader) Interface {
 	if err != nil {
 		return vm.IoError(err)
 	}
-	return msg.Eval(vm, vm.BaseObject)
+	vm.OpShuffle(msg)
+	return vm.DoMessage(msg, vm.BaseObject)
 }
 
 func (vm *VM) DoMessage(msg *Message, locals Interface) Interface {

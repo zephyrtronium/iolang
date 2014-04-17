@@ -14,7 +14,6 @@ func main() {
 	iolang.SetSlot(vm.Lobby, "ps1", vm.NewString("io> "))
 	iolang.SetSlot(vm.Lobby, "ps2", vm.NewString("... "))
 	iolang.SetSlot(vm.Lobby, "isRunning", vm.True)
-	// method() doesn't exist yet, but oh well.
 	vm.DoString(`Lobby setSlot("exit", method(Lobby setSlot("isRunning", false)))`)
 
 	stdin := bufio.NewScanner(os.Stdin)

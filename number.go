@@ -40,6 +40,7 @@ func (vm *VM) initNumber() {
 	slots := Slots{
 		"abs":               vm.NewCFunction(NumberAbs, "NumberAbs()"),
 		"acos":              vm.NewCFunction(NumberAcos, "NumberAcos()"),
+		"add":               vm.NewCFunction(NumberAdd, "NumberAdd(v)"),
 		"asBinary":          vm.NewCFunction(NumberAsBinary, "NumberAsBinary()"),
 		"asCharacter":       vm.NewCFunction(NumberAsCharacter, "NumberAsCharacter()"),
 		"asHex":             vm.NewCFunction(NumberAsHex, "NumberAsHex()"),
@@ -135,6 +136,7 @@ func (vm *VM) initNumber() {
 	vm.MemoizeNumber(math.MaxInt64)
 	vm.MemoizeNumber(math.Inf(1))
 	vm.MemoizeNumber(math.Inf(-1))
+	slots["+"] = slots["add"]
 	slots["%"] = slots["mod"]
 	slots["&"] = slots["bitwiseAnd"]
 	slots["|"] = slots["bitwiseOr"]
@@ -162,6 +164,14 @@ func NumberAbs(vm *VM, target, locals Interface, msg *Message) Interface {
 
 func NumberAcos(vm *VM, target, locals Interface, msg *Message) Interface {
 	return vm.NewNumber(math.Acos(target.(*Number).Value))
+}
+
+func NumberAdd(vm *VM, target, locals Interface, msg *Message) Interface {
+	arg, err := msg.NumberArgAt(vm, locals, 0)
+	if err != nil {
+		return vm.IoError(err)
+	}
+	return vm.NewNumber(target.(*Number).Value + arg.Value)
 }
 
 func NumberAsBinary(vm *VM, target, locals Interface, msg *Message) Interface {
