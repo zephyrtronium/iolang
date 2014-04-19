@@ -42,7 +42,7 @@ func NewVM() *VM {
 	vm.DefaultSlots = make(map[string]Slots, 20)
 	// We have to make CFunction's slots exist first to use NewCFunction.
 	vm.DefaultSlots["CFunction"] = Slots{}
-	vm.DefaultSlots["Message"] = Slots{}
+	vm.initMessage()
 	vm.initNumber()
 	vm.DefaultSlots["Sequence"] = Slots{}
 	vm.DefaultSlots["ImmutableSequence"] = Slots{}
