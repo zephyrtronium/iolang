@@ -76,13 +76,16 @@ func ObjectMethod(vm *VM, target, locals Interface, msg *Message) Interface {
 func BlockAsString(vm *VM, target, locals Interface, msg *Message) Interface {
 	blk := target.(*Block)
 	b := bytes.Buffer{}
-	if blk.Activatable {
+	if blk.Self == nil {
 		b.WriteString("method(")
 	} else {
 		b.WriteString("block(")
 	}
 	b.WriteString(strings.Join(blk.ArgNames, ", "))
-	b.WriteString(",\n")
+	if len(blk.ArgNames) > 0 {
+		b.WriteByte(',')
+	}
+	b.WriteByte('\n')
 	blk.Message.stringRecurse(vm, &b)
 	b.WriteString("\n)")
 	return vm.NewString(b.String())
