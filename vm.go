@@ -80,6 +80,9 @@ func (vm *VM) Bool(c bool) *Object {
 }
 
 func (vm *VM) AsBool(obj Interface) bool {
+	if obj == nil {
+		obj = vm.Nil
+	}
 	o := obj.SP()
 	isTrue, proto := GetSlot(o, "isTrue")
 	if proto == nil {
@@ -102,6 +105,9 @@ func (vm *VM) AsBool(obj Interface) bool {
 }
 
 func (vm *VM) AsString(obj Interface) string {
+	if obj == nil {
+		obj = vm.Nil
+	}
 	if asString, proto := GetSlot(obj, "asString"); proto != nil {
 		for {
 			switch a := asString.(type) {
