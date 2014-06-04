@@ -166,6 +166,10 @@ func (m *Message) String() string {
 }
 
 func (m *Message) stringRecurse(vm *VM, b *bytes.Buffer) {
+	if m == nil {
+		b.WriteString("<nil>")
+		return
+	}
 	if m.Memo != nil {
 		if msg, ok := m.Memo.(*Message); ok {
 			b.WriteString("<message(")
