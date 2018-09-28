@@ -38,9 +38,11 @@ func (n *Number) String() string {
 
 func (vm *VM) initNumber() {
 	slots := Slots{
+		"*":                 vm.NewCFunction(NumberMul, "NumberMul(v)"),
+		"+":                 vm.NewCFunction(NumberAdd, "NumberAdd(v)"),
+		"/":                 vm.NewCFunction(NumberDiv, "NumberDiv(v)"),
 		"abs":               vm.NewCFunction(NumberAbs, "NumberAbs()"),
 		"acos":              vm.NewCFunction(NumberAcos, "NumberAcos()"),
-		"add":               vm.NewCFunction(NumberAdd, "NumberAdd(v)"),
 		"asBinary":          vm.NewCFunction(NumberAsBinary, "NumberAsBinary()"),
 		"asCharacter":       vm.NewCFunction(NumberAsCharacter, "NumberAsCharacter()"),
 		"asHex":             vm.NewCFunction(NumberAsHex, "NumberAsHex()"),
@@ -136,7 +138,6 @@ func (vm *VM) initNumber() {
 	vm.MemoizeNumber(math.MaxInt64)
 	vm.MemoizeNumber(math.Inf(1))
 	vm.MemoizeNumber(math.Inf(-1))
-	slots["+"] = slots["add"]
 	slots["%"] = slots["mod"]
 	slots["&"] = slots["bitwiseAnd"]
 	slots["|"] = slots["bitwiseOr"]
@@ -306,6 +307,14 @@ func NumberCubed(vm *VM, target, locals Interface, msg *Message) Interface {
 	return vm.NewNumber(x * x * x)
 }
 
+func NumberDiv(vm *VM, target, locals Interface, msg *Message) Interface {
+	arg, err := msg.NumberArgAt(vm, locals, 0)
+	if err != nil {
+		return vm.IoError(err)
+	}
+	return vm.NewNumber(target.(*Number).Value / arg.Value)
+}
+
 func NumberExp(vm *VM, target, locals Interface, msg *Message) Interface {
 	return vm.NewNumber(math.Exp(target.(*Number).Value))
 }
@@ -431,6 +440,14 @@ func NumberNegate(vm *VM, target, locals Interface, msg *Message) Interface {
 	return vm.NewNumber(-target.(*Number).Value)
 }
 
+func NumberMul(vm *VM, target, locals Interface, msg *Message) Interface {
+	arg, err := msg.NumberArgAt(vm, locals, 0)
+	if err != nil {
+		return vm.IoError(err)
+	}
+	return vm.NewNumber(target.(*Number).Value * arg.Value)
+}
+
 func NumberPow(vm *VM, target, locals Interface, msg *Message) Interface {
 	arg, err := msg.NumberArgAt(vm, locals, 0)
 	if err != nil {
@@ -480,6 +497,14 @@ func NumberSqrt(vm *VM, target, locals Interface, msg *Message) Interface {
 func NumberSquared(vm *VM, target, locals Interface, msg *Message) Interface {
 	x := target.(*Number).Value
 	return vm.NewNumber(x * x)
+}
+
+func NumberSub(vm *VM, target, locals Interface, msg *Message) Interface {
+	arg, err := msg.NumberArgAt(vm, locals, 0)
+	if err != nil {
+		return vm.IoError(err)
+	}
+	return vm.NewNumber(target.(*Number).Value - arg.Value)
 }
 
 func NumberTan(vm *VM, target, locals Interface, msg *Message) Interface {

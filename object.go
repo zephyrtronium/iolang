@@ -95,7 +95,8 @@ func GetSlot(o Interface, slot string) (value, proto Interface) {
 	return getSlotRecurse(o, slot, make(map[*Object]struct{}, len(o.SP().Protos)+1))
 }
 
-// var Debugvm *VM
+var Debugvm *VM
+var _ = Debugvm
 
 func getSlotRecurse(o Interface, slot string, checked map[*Object]struct{}) (Interface, Interface) {
 	obj := o.SP()

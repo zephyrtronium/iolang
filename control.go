@@ -22,7 +22,6 @@ type StopStatus int
 
 const (
 	// I have resisted the urge to name this DontStopBelieving.
-	// Unfortunately, I have just realized it is now a rape joke.
 	NoStop StopStatus = iota
 	ReturnStop
 	BreakStop

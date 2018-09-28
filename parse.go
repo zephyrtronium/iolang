@@ -25,7 +25,13 @@ func (vm *VM) parseRecurse(open rune, src *bufio.Reader, tokens chan token) (tok
 			// We didn't parse any messages.
 			msg = nil
 		} else {
-			m.Prev.Next = nil
+			// If the final message wasn't already one, add a SemiSym to
+			// conclude the expression.
+			if open == -1 && m.Prev.Symbol.Kind != SemiSym {
+				m.Symbol.Kind = SemiSym
+			} else {
+				m.Prev.Next = nil
+			}
 		}
 	}()
 	for tok = range tokens {
@@ -172,7 +178,9 @@ func (vm *VM) DoReader(src io.Reader) Interface {
 	if err != nil {
 		return vm.IoError(err)
 	}
-	vm.OpShuffle(msg)
+	if err := vm.OpShuffle(msg); err != nil {
+		return err
+	}
 	return vm.DoMessage(msg, vm.BaseObject)
 }
 
@@ -187,5 +195,11 @@ func (vm *VM) DoMessage(msg *Message, locals Interface) Interface {
 // Determine whether this message is the start of a "statement." This is true
 // if it has no previous link or if the previous link is a SemiSym.
 func (m *Message) IsStart() bool {
-	return m.Prev == nil || m.Prev.Symbol.Kind == SemiSym
+	return m.Prev.IsTerminator()
+}
+
+// IsTerminator determines whether this message is the end of an expression.
+// This is true if it is nil or its symbol is a SemiSym.
+func (m *Message) IsTerminator() bool {
+	return m == nil || m.Symbol.Kind == SemiSym
 }

@@ -126,7 +126,7 @@ func (vm *VM) AsString(obj Interface) string {
 	if s, ok := obj.(fmt.Stringer); ok {
 		return s.String()
 	}
-	return fmt.Sprintf("%T_%p", obj)
+	return fmt.Sprintf("%T_%p", obj, obj)
 }
 
 // Define extras in Io once the VM is capable of executing code.
