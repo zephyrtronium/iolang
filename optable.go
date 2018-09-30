@@ -40,18 +40,10 @@ func (o *OpTable) String() string {
 	w := tabwriter.NewWriter(&b, 4, 0, 1, ' ', 0)
 	if len(s) > 0 {
 		prev := s[0]
-		r := "left"
-		if prev.op.Right {
-			r = "right"
-		}
-		fmt.Fprintf(w, "\t%d/%s\t%s", prev.op.Prec, r, prev.name)
+		fmt.Fprintf(w, "\t%d\t%s", prev.op.Prec, prev.name)
 		for _, v := range s[1:] {
 			if prev.op != v.op {
-				r = "left"
-				if v.op.Right {
-					r = "right"
-				}
-				fmt.Fprintf(w, "\n\t%d/%s", v.op.Prec, r)
+				fmt.Fprintf(w, "\n\t%d", v.op.Prec)
 			}
 			fmt.Fprintf(w, "\t%s", v.name)
 			prev = v
@@ -76,27 +68,16 @@ type Operator struct {
 	Calls string
 	// Precedence. Lower is more binding.
 	Prec int
-	// Associativity. Right-associativity is more binding than
-	// left-associativity for operators of equal precedence.
-	// This is an iolang extension.
-	Right bool
 }
 
 // leastBindingOp is the least binding operator, used internally to manage the
 // operator shuffling stack.
 var leastBindingOp = Operator{Prec: int((^uint(0)) >> 1)}
 
-// assignPrecedence is the precedence of assignment operators.
-// In the original, assignment operators are handled separately from others and
-// live in a different place in the OperatorTable. The behavior here won't be
-// identical, especially with regard to return, which has lower precedence than
-// assignment operators.
-const assignPrecedence = 13
-
 // MoreBinding determines whether this Operator is at least as binding as
 // another.
 func (op Operator) MoreBinding(than Operator) bool {
-	return op.Prec < than.Prec || op.Prec == than.Prec && op.Right
+	return op.Prec <= than.Prec
 }
 
 func (vm *VM) initOpTable() {
@@ -107,49 +88,51 @@ func (vm *VM) initOpTable() {
 		"precedenceLevelCount": vm.NewNumber(32), // not really
 		"type":                 vm.NewString("OperatorTable"),
 	}
+	// The VM already created an OpTable so that initObject() can refer to it
+	// to create the slot on BaseObject.
 	vm.Operators.Object = Object{Slots: slots, Protos: []Interface{vm.BaseObject}}
 	vm.Operators.Operators = map[string]Operator{
-		"?":      Operator{"", 0, false},
-		"@":      Operator{"", 0, false},
-		"@@":     Operator{"", 0, false},
-		"**":     Operator{"", 1, true},
-		"%":      Operator{"", 2, false},
-		"*":      Operator{"", 2, false},
-		"/":      Operator{"", 2, false},
-		"+":      Operator{"", 3, false},
-		"-":      Operator{"", 3, false},
-		"<<":     Operator{"", 4, false},
-		">>":     Operator{"", 4, false},
-		"<":      Operator{"", 5, false},
-		"<=":     Operator{"", 5, false},
-		">":      Operator{"", 5, false},
-		">=":     Operator{"", 5, false},
-		"!=":     Operator{"", 6, false},
-		"==":     Operator{"", 6, false},
-		"&":      Operator{"", 7, false},
-		"^":      Operator{"", 8, false},
-		"|":      Operator{"", 9, false},
-		"&&":     Operator{"", 10, false},
-		"and":    Operator{"", 10, false},
-		"or":     Operator{"", 11, false},
-		"||":     Operator{"", 11, false},
-		"..":     Operator{"", 12, false},
-		"%=":     Operator{"", 13, true},
-		"&=":     Operator{"", 13, true},
-		"*=":     Operator{"", 13, true},
-		"+=":     Operator{"", 13, true},
-		"-=":     Operator{"", 13, true},
-		"/=":     Operator{"", 13, true},
-		"<<=":    Operator{"", 13, true},
-		">>=":    Operator{"", 13, true},
-		"^=":     Operator{"", 13, true},
-		"|=":     Operator{"", 13, true},
-		"return": Operator{"", 14, false},
+		"?":      Operator{"", 0},
+		"@":      Operator{"", 0},
+		"@@":     Operator{"", 0},
+		"**":     Operator{"", 1},
+		"%":      Operator{"", 2},
+		"*":      Operator{"", 2},
+		"/":      Operator{"", 2},
+		"+":      Operator{"", 3},
+		"-":      Operator{"", 3},
+		"<<":     Operator{"", 4},
+		">>":     Operator{"", 4},
+		"<":      Operator{"", 5},
+		"<=":     Operator{"", 5},
+		">":      Operator{"", 5},
+		">=":     Operator{"", 5},
+		"!=":     Operator{"", 6},
+		"==":     Operator{"", 6},
+		"&":      Operator{"", 7},
+		"^":      Operator{"", 8},
+		"|":      Operator{"", 9},
+		"&&":     Operator{"", 10},
+		"and":    Operator{"", 10},
+		"or":     Operator{"", 11},
+		"||":     Operator{"", 11},
+		"..":     Operator{"", 12},
+		"%=":     Operator{"", 13},
+		"&=":     Operator{"", 13},
+		"*=":     Operator{"", 13},
+		"+=":     Operator{"", 13},
+		"-=":     Operator{"", 13},
+		"/=":     Operator{"", 13},
+		"<<=":    Operator{"", 13},
+		">>=":    Operator{"", 13},
+		"^=":     Operator{"", 13},
+		"|=":     Operator{"", 13},
+		"return": Operator{"", 14},
 
 		// Assign operators.
-		"::=": Operator{"newSlot", assignPrecedence, true},
-		":=":  Operator{"setSlot", assignPrecedence, true},
-		"=":   Operator{"updateSlot", assignPrecedence, true},
+		"::=": Operator{"newSlot", -1},
+		":=":  Operator{"setSlot", -1},
+		"=":   Operator{"updateSlot", -1},
 	}
 }
 
@@ -218,6 +201,7 @@ func (ll *shufLevel) fullClear() *shufLevel {
 		ll, ll.up, ll.m = ll.up, nil, nil
 	}
 	// ll is now the top of the stack, which we need to reset.
+	ll.finish()
 	ll.m = nil
 	ll.typ = levNew
 	return ll
@@ -227,7 +211,12 @@ func (ll *shufLevel) fullClear() *shufLevel {
 func (ll *shufLevel) attach(m *Message) {
 	switch ll.typ {
 	case levAttach:
+		// Normally we would do ll.m.InsertAfter(m), but here, setting m.Next
+		// to the current ll.m.Next will cause an infinite loop.
 		ll.m.Next = m
+		if m != nil {
+			m.Prev = ll.m
+		}
 	case levArg:
 		ll.m.Args = append(ll.m.Args, m)
 	case levNew:
@@ -271,14 +260,12 @@ func (ll *shufLevel) finish() {
 // doLevel shuffles one level. The new stack top, extra messages to be
 // shuffled, and any syntax error are returned.
 func (ll *shufLevel) doLevel(vm *VM, ops *OpTable, m *Message) (nl *shufLevel, next []*Message, err *Exception) {
-	fmt.Println("doLevel on", vm.AsString(m), "shufLevel is", ll, "ll.m", MessageAsString(vm, ll.m, nil, nil))
 	switch m.Symbol.Kind {
 	case IdentSym:
 		if op, ok := ops.Operators[m.Symbol.Text]; ok {
 			if op.Calls != "" {
 				// Assignment operator.
 				lhs := ll.m
-				fmt.Println("assign lhs:", lhs.Name(), " next:", lhs.Next.Name(), "==m", lhs.Next == m)
 				if lhs == nil {
 					// Assigning to nothing is illegal.
 					err = vm.NewExceptionf("%s assigning to nothing", m.Symbol.Text)
@@ -464,8 +451,7 @@ func OperatorTableAddAssignOperator(vm *VM, target, locals Interface, msg *Messa
 	}
 	op := Operator{
 		Calls: calls.Value,
-		Prec:  assignPrecedence,
-		Right: true,
+		Prec:  -1,
 	}
 	target.(*OpTable).Operators[name.Value] = op
 	return target
@@ -480,11 +466,9 @@ func OperatorTableAddOperator(vm *VM, target, locals Interface, msg *Message) In
 	if err != nil {
 		return vm.IoError(err)
 	}
-	right := vm.AsBool(msg.EvalArgAt(vm, locals, 2))
 	op := Operator{
 		Calls: "",
 		Prec:  int(prec.Value),
-		Right: right,
 	}
 	target.(*OpTable).Operators[name.Value] = op
 	return target
