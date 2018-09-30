@@ -7,7 +7,8 @@ import (
 	"text/tabwriter"
 )
 
-// OpTable is an Object which manages message-shuffling operators in Io.
+// OpTable is an Object which manages message-shuffling operators in Io. Each
+// VM's OperatorTable is a singleton.
 type OpTable struct {
 	Object
 	Operators map[string]Operator
@@ -209,6 +210,10 @@ func (ll *shufLevel) fullClear() *shufLevel {
 
 // attach attaches a message to this level in the correct way for its type.
 func (ll *shufLevel) attach(m *Message) {
+	if ll.m == nil {
+		ll.m = m
+		return
+	}
 	switch ll.typ {
 	case levAttach:
 		// Normally we would do ll.m.InsertAfter(m), but here, setting m.Next
@@ -353,7 +358,7 @@ func (ll *shufLevel) doLevel(vm *VM, ops *OpTable, m *Message) (nl *shufLevel, n
 				lhs.Next = last.Next
 				last.Next = nil
 				// fmt.Println("lhs.Next:", lhs.Next)
-				fmt.Println(vm.AsString(lhs))
+				// fmt.Println(vm.AsString(lhs))
 
 				// 5. Remove the operator message.
 				m.Next = lhs.Next
@@ -440,6 +445,17 @@ func (vm *VM) OpShuffle(m *Message) (err *Exception) {
 	return nil
 }
 
+// OperatorTableAddAssignOperator is an OperatorTable method.
+//
+// addAssignOperator adds an assign operator:
+//
+//	 OperatorTable addAssignOperator(name, calls)
+//
+// For example, to create a <- operator that calls the send method:
+//
+//   io> OperatorTable addAssignOperator("<-", "send")
+//   io> message(thing a <- b)
+//   thing send("a", b)
 func OperatorTableAddAssignOperator(vm *VM, target, locals Interface, msg *Message) Interface {
 	name, err := msg.StringArgAt(vm, locals, 0)
 	if err != nil {
@@ -457,6 +473,16 @@ func OperatorTableAddAssignOperator(vm *VM, target, locals Interface, msg *Messa
 	return target
 }
 
+// OperatorTableAddOperator is an OperatorTable method.
+//
+// addOperator adds a binary operator:
+//
+//   OperatorTable addOperator(name, precedence)
+//
+// For example, to create a :* operator with the same precedence as the *
+// operator:
+//
+//   OperatorTable addOperator(":*", 2)
 func OperatorTableAddOperator(vm *VM, target, locals Interface, msg *Message) Interface {
 	name, err := msg.StringArgAt(vm, locals, 0)
 	if err != nil {
@@ -474,6 +500,9 @@ func OperatorTableAddOperator(vm *VM, target, locals Interface, msg *Message) In
 	return target
 }
 
+// OperatorTableAsString is an OperatorTable method.
+//
+// asString creates a string representation of an object.
 func OperatorTableAsString(vm *VM, target, locals Interface, msg *Message) Interface {
 	return vm.NewString(target.(*OpTable).String())
 }

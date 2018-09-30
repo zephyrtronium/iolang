@@ -5,6 +5,8 @@ import (
 	"strings"
 )
 
+// A Block is a reusable, portable set of executable messages. Essentially a
+// function.
 type Block struct {
 	Object
 	Message     *Message
@@ -13,6 +15,8 @@ type Block struct {
 	Activatable bool
 }
 
+// Activate performs the messages in this block if the block is activatable.
+// Otherwise, this block is returned.
 func (b *Block) Activate(vm *VM, target, locals Interface, msg *Message) Interface {
 	// If this block isn't actually activatable, then it should be the result
 	// of evaluation.
@@ -53,6 +57,16 @@ func (vm *VM) initBlock() {
 	vm.DefaultSlots["Block"] = slots
 }
 
+// ObjectBlock is an Object method.
+//
+// block creates a block of messages. Argument names are supplied first, and
+// the block's code is the last argument. For example, to create and call a
+// block which adds 1 to its argument:
+//
+//   io> succ := block(x, x + 1)
+//   block(x, x +(1))
+//   io> succ call(3)
+//   4
 func ObjectBlock(vm *VM, target, locals Interface, msg *Message) Interface {
 	blk := Block{
 		Object:   Object{Slots: vm.DefaultSlots["Block"], Protos: []Interface{vm.BaseObject}},
@@ -66,6 +80,17 @@ func ObjectBlock(vm *VM, target, locals Interface, msg *Message) Interface {
 	return &blk
 }
 
+// ObjectMethod is an Object method, which is less redundant than it sounds.
+//
+// method creates a block of messages referring to the method antecedent.
+// Argument names are supplied first, and the method's code is the last
+// argument. For example, to create and call a method on numbers which return
+// the number 1 higher:
+//
+//   io> Number succ := Number method(+ 1)
+//   method(+(1))
+//   io> 3 succ
+//   4
 func ObjectMethod(vm *VM, target, locals Interface, msg *Message) Interface {
 	blk := ObjectBlock(vm, target, locals, msg).(*Block)
 	blk.Activatable = true
@@ -73,6 +98,9 @@ func ObjectMethod(vm *VM, target, locals Interface, msg *Message) Interface {
 	return blk
 }
 
+// BlockAsString is a Block method.
+//
+// asString creates a string representation of an object.
 func BlockAsString(vm *VM, target, locals Interface, msg *Message) Interface {
 	blk := target.(*Block)
 	b := bytes.Buffer{}
@@ -91,6 +119,9 @@ func BlockAsString(vm *VM, target, locals Interface, msg *Message) Interface {
 	return vm.NewString(b.String())
 }
 
+// BlockCall is a Block method.
+//
+// call activates a block.
 func BlockCall(vm *VM, target, locals Interface, msg *Message) Interface {
 	return target.(*Block).reallyActivate(vm, target, locals, msg)
 }

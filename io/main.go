@@ -10,7 +10,7 @@ import (
 
 func main() {
 	vm := iolang.NewVM()
-	iolang.Debugvm = vm
+	// iolang.Debugvm = vm
 	iolang.SetSlot(vm.Lobby, "ps1", vm.NewString("io> "))
 	iolang.SetSlot(vm.Lobby, "ps2", vm.NewString("... "))
 	iolang.SetSlot(vm.Lobby, "isRunning", vm.True)

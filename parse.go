@@ -9,6 +9,7 @@ import (
 	"strings"
 )
 
+// Parse converts Io source code into a message chain.
 func (vm *VM) Parse(source io.Reader) (msg *Message, err error) {
 	src := bufio.NewReader(source)
 	tokens := make(chan token)
@@ -169,10 +170,12 @@ func (vm *VM) parseRecurse(open rune, src *bufio.Reader, tokens chan token) (tok
 	return
 }
 
+// DoString parses and executes a string.
 func (vm *VM) DoString(src string) Interface {
 	return vm.DoReader(strings.NewReader(src))
 }
 
+// DoReader parses and executes an io.Reader.
 func (vm *VM) DoReader(src io.Reader) Interface {
 	msg, err := vm.Parse(src)
 	if err != nil {
@@ -184,6 +187,7 @@ func (vm *VM) DoReader(src io.Reader) Interface {
 	return vm.DoMessage(msg, vm.BaseObject)
 }
 
+// DoMessage evaluates a message.
 func (vm *VM) DoMessage(msg *Message, locals Interface) Interface {
 	r := msg.Eval(vm, locals)
 	if stop, ok := r.(Stop); ok {
@@ -192,8 +196,8 @@ func (vm *VM) DoMessage(msg *Message, locals Interface) Interface {
 	return r
 }
 
-// Determine whether this message is the start of a "statement." This is true
-// if it has no previous link or if the previous link is a SemiSym.
+// IsStart determines whether this message is the start of a "statement." This
+// is true if it has no previous link or if the previous link is a SemiSym.
 func (m *Message) IsStart() bool {
 	return m.Prev.IsTerminator()
 }

@@ -7,6 +7,7 @@ import (
 	"strings"
 )
 
+// A token is a single lexical element.
 type token struct {
 	Kind  tokenKind
 	Value string
@@ -18,20 +19,23 @@ type token struct {
 type tokenKind int
 
 const (
-	badToken tokenKind = iota
-	semiToken
-	identToken
-	openToken
-	closeToken
-	commaToken
-	numberToken
-	hexToken
-	stringToken
-	triquoteToken
+	badToken      tokenKind = iota
+	semiToken               // semicolon and newline
+	identToken              // identifier
+	openToken               // open bracket: (, [, {
+	closeToken              // close bracket: ), ], }
+	commaToken              // comma
+	numberToken             // number
+	hexToken                // hexadecimal number
+	stringToken             // "string"
+	triquoteToken           // """string"""
 )
 
+// lexFn is a lexer state function. Each lexFn lexes a token, sends it on the
+// supplied channel, and returns the next lexFn to use.
 type lexFn func(src *bufio.Reader, tokens chan<- token) lexFn
 
+// lex converts a source into a stream of tokens.
 func lex(src *bufio.Reader, tokens chan<- token) {
 	state := eatSpace
 	for state != nil {
@@ -40,8 +44,8 @@ func lex(src *bufio.Reader, tokens chan<- token) {
 	close(tokens)
 }
 
-// Append the next run of characters in src which satisfy the predicate to b.
-// Returns b after appending, the first rune which did not satisfy the
+// accept appends the next run of characters in src which satisfy the predicate
+// to b. Returns b after appending, the first rune which did not satisfy the
 // predicate, and any error that occurred. Iff there was no such error, the
 // last rune is unread.
 func accept(src *bufio.Reader, predicate func(rune) bool, b []byte) ([]byte, rune, error) {
@@ -60,6 +64,8 @@ func accept(src *bufio.Reader, predicate func(rune) bool, b []byte) ([]byte, run
 	return b, r, nil
 }
 
+// lexsend is a shortcut for sending a token with error checking. It returns
+// eatSpace as the default lexing function.
 func lexsend(err error, tokens chan<- token, good token) lexFn {
 	if err != nil && err != io.EOF {
 		good.Kind = badToken
@@ -72,6 +78,7 @@ func lexsend(err error, tokens chan<- token, good token) lexFn {
 	return eatSpace
 }
 
+// eatSpace consumes space and decides the next lexFn to use.
 func eatSpace(src *bufio.Reader, tokens chan<- token) lexFn {
 	// Could use accept here, but I've already written this.
 	r, _, err := src.ReadRune()
@@ -140,6 +147,8 @@ func eatSpace(src *bufio.Reader, tokens chan<- token) lexFn {
 	panic(r)
 }
 
+// lexIdent lexes an identifier, which consists of a-z, A-Z, 0-9, _, ., and all
+// runes greater than 0x80.
 func lexIdent(src *bufio.Reader, tokens chan<- token) lexFn {
 	b, _, err := accept(src, func(r rune) bool {
 		return 'a' <= r && r <= 'z' ||
@@ -150,6 +159,7 @@ func lexIdent(src *bufio.Reader, tokens chan<- token) lexFn {
 	return lexsend(err, tokens, token{Kind: identToken, Value: string(b)})
 }
 
+// lexOp lexes an operator, which consists of !$%&'*+-/:<=>?@\^|~
 func lexOp(src *bufio.Reader, tokens chan<- token) lexFn {
 	b, _, err := accept(src, func(r rune) bool {
 		return strings.ContainsRune("!$%&'*+-/:<=>?@\\^|~", r)
@@ -157,6 +167,7 @@ func lexOp(src *bufio.Reader, tokens chan<- token) lexFn {
 	return lexsend(err, tokens, token{Kind: identToken, Value: string(b)})
 }
 
+// lexNumber lexes a number.
 func lexNumber(src *bufio.Reader, tokens chan<- token) lexFn {
 	b, r, err := accept(src, func(r rune) bool { return '0' <= r && r <= '9' }, nil)
 	if err != nil {
@@ -196,6 +207,7 @@ func lexNumber(src *bufio.Reader, tokens chan<- token) lexFn {
 	return lexsend(err, tokens, token{Kind: numberToken, Value: string(b)})
 }
 
+// lexString lexes a string, which may be monoquote or triquote.
 func lexString(src *bufio.Reader, tokens chan<- token) lexFn {
 	peek, _ := src.Peek(3)
 	if bytes.Equal(peek, []byte{'"', '"', '"'}) {
@@ -204,6 +216,7 @@ func lexString(src *bufio.Reader, tokens chan<- token) lexFn {
 	return lexMonoquote(src, tokens)
 }
 
+// lexTriquote lexes a triquote string.
 func lexTriquote(src *bufio.Reader, tokens chan<- token) lexFn {
 	b := make([]byte, 3, 6)
 	src.Read(b)
@@ -230,6 +243,7 @@ func lexTriquote(src *bufio.Reader, tokens chan<- token) lexFn {
 	}
 }
 
+// lexMonoquote lexes a monoquote string.
 func lexMonoquote(src *bufio.Reader, tokens chan<- token) lexFn {
 	b := make([]byte, 1, 2)
 	src.Read(b)

@@ -5,30 +5,39 @@ import (
 	"fmt"
 )
 
+// A Message is the fundamental syntactic element and functionality of Io.
 type Message struct {
 	Object
-	Symbol     Symbol
-	Args       []*Message
+	// Type and value of this message.
+	Symbol Symbol
+	// This message's arguments.
+	Args []*Message
+	// Next and previous messages.
 	Next, Prev *Message
 
+	// Cached value of this message. If this is non-nil, it is used instead of
+	// activating the message.
 	Memo Interface
 }
 
+// A Symbol is what I called the type and name of a message. This should change
+// eventually.
 type Symbol struct {
 	Kind   SymKind
-	Text   string
-	Num    float64
-	String string
+	Text   string  // Identifier text.
+	Num    float64 // Numeric value.
+	String string  // String value.
 }
 
+// SymKind is the type of a Message's Symbol.
 type SymKind int
 
 const (
-	NoSym SymKind = iota
-	SemiSym
-	IdentSym
-	NumSym
-	StringSym
+	NoSym     SymKind = iota // Invalid symbol.
+	SemiSym                  // Expression-terminating message.
+	IdentSym                 // Identifier.
+	NumSym                   // Numeric literal.
+	StringSym                // String literal.
 )
 
 // IdentMessage creates a message of a given identifier. Additional messages
@@ -41,7 +50,7 @@ func (vm *VM) IdentMessage(s string, args ...*Message) *Message {
 	}
 }
 
-// StringMessage creates message carrying a string value.
+// StringMessage creates a message carrying a string value.
 func (vm *VM) StringMessage(s string) *Message {
 	return &Message{
 		Object: Object{Slots: vm.DefaultSlots["Message"], Protos: []Interface{vm.BaseObject}},
@@ -59,6 +68,9 @@ func (vm *VM) NumberMessage(v float64) *Message {
 	}
 }
 
+// AssertArgCount returns an error if the message does not have the given
+// number of arguments. name is the name of the message used in the generated
+// error message.
 func (m *Message) AssertArgCount(name string, n int) error {
 	if len(m.Args) != n {
 		return fmt.Errorf("%s must have %d arguments", name, n)
@@ -66,6 +78,8 @@ func (m *Message) AssertArgCount(name string, n int) error {
 	return nil
 }
 
+// ArgAt returns the argument at position n, or nil if the position is out of
+// bounds.
 func (m *Message) ArgAt(n int) *Message {
 	if n >= len(m.Args) || n < 0 {
 		return nil
@@ -73,6 +87,8 @@ func (m *Message) ArgAt(n int) *Message {
 	return m.Args[n]
 }
 
+// NumberArgAt evaluates the nth argument and returns it as a Number. If it is
+// not a Number, then the result is nil, and an error is returned.
 func (m *Message) NumberArgAt(vm *VM, locals Interface, n int) (*Number, error) {
 	v := m.EvalArgAt(vm, locals, n)
 	if num, ok := v.(*Number); ok {
@@ -85,6 +101,8 @@ func (m *Message) NumberArgAt(vm *VM, locals Interface, n int) (*Number, error) 
 	return nil, vm.NewExceptionf("argument %d to %s must be of type Number, not %s", n, m.Symbol.Text, vm.TypeName(v))
 }
 
+// StringArgAt evaluates the nth argument and returns it as a String. If it is
+// not a String, then the result is nil, and an error is returned.
 func (m *Message) StringArgAt(vm *VM, locals Interface, n int) (*String, error) {
 	v := m.EvalArgAt(vm, locals, n)
 	if str, ok := v.(*String); ok {
@@ -97,6 +115,9 @@ func (m *Message) StringArgAt(vm *VM, locals Interface, n int) (*String, error) 
 	return nil, vm.NewExceptionf("argument %d to %s must be of type Sequence, not %s", n, m.Symbol.Text, vm.TypeName(v))
 }
 
+// AsStringArgAt evaluates the nth argument, then activates its asString slot
+// for a string representation. If the result is not a string, then the result
+// is nil, and an error is returned.
 func (m *Message) AsStringArgAt(vm *VM, locals Interface, n int) (*String, error) {
 	v := m.EvalArgAt(vm, locals, n)
 	if asString, proto := GetSlot(v, "asString"); proto != nil {
@@ -112,19 +133,20 @@ func (m *Message) AsStringArgAt(vm *VM, locals Interface, n int) (*String, error
 	return nil, vm.NewExceptionf("argument %d to %s cannot be converted to string", n, m.Symbol.Text)
 }
 
+// EvalArgAt evaluates the nth argument.
 func (m *Message) EvalArgAt(vm *VM, locals Interface, n int) Interface {
 	return m.ArgAt(n).Eval(vm, locals)
 }
 
-// Evaluate a message in the context of the given VM. This is a proxy to Send
-// using locals as the target.
+// Eval evaluates a message in the context of the given VM. This is a proxy to
+// Send using locals as the target.
 func (m *Message) Eval(vm *VM, locals Interface) (result Interface) {
 	return m.Send(vm, locals, locals)
 }
 
 // Send evaluates a message in the context of the given VM, targeting an
-// object. If target is nil, it becomes the locals. A nil Message evaluates to
-// vm.Nil.
+// object. If target is nil, locals is used in its place. A nil Message
+// evaluates to vm.Nil.
 func (m *Message) Send(vm *VM, locals, target Interface) (result Interface) {
 	result = vm.Nil
 	if target == nil {
@@ -134,13 +156,10 @@ func (m *Message) Send(vm *VM, locals, target Interface) (result Interface) {
 		if m.Memo != nil {
 			result = m.Memo
 		} else {
-			// fmt.Println("target:", vm.AsString(target))
 			switch m.Symbol.Kind {
 			case IdentSym:
-				// fmt.Println("ident:", m.Symbol.Text)
 				if newtarget, proto := GetSlot(target, m.Symbol.Text); proto != nil {
 					// We have the slot.
-					// fmt.Println("we have the slot")
 					switch a := newtarget.(type) {
 					case Stop:
 						a.Result = result
@@ -150,17 +169,14 @@ func (m *Message) Send(vm *VM, locals, target Interface) (result Interface) {
 					default:
 						result = newtarget
 					}
-					// fmt.Println("target goes from", vm.AsString(target), "to", vm.AsString(newtarget))
 					target = newtarget
 				} else if forward, fp := GetSlot(target, "forward"); fp != nil {
-					// fmt.Println("forwarding", m.Symbol.Text)
 					if a, ok := forward.(Actor); ok {
 						result = vm.SimpleActivate(a, target, locals, "forward")
 					} else {
 						return vm.NewExceptionf("%s does not respond to %s", vm.TypeName(target), m.Symbol.Text)
 					}
 				} else {
-					// fmt.Println("couldn't find", m.Symbol.Text)
 					return vm.NewExceptionf("%s does not respond to %s", vm.TypeName(target), m.Symbol.Text)
 				}
 			case SemiSym:
@@ -174,7 +190,6 @@ func (m *Message) Send(vm *VM, locals, target Interface) (result Interface) {
 				panic(fmt.Sprintf("iolang: invalid Symbol: %#v", m.Symbol))
 			}
 		}
-		// fmt.Println("evaluated")
 		if result == nil {
 			// No message should evaluate to something that is not an Io
 			// object, so we want to convert nil to vm.Nil.
@@ -183,7 +198,6 @@ func (m *Message) Send(vm *VM, locals, target Interface) (result Interface) {
 		if m.Symbol.Kind != SemiSym {
 			target = result
 		}
-		// fmt.Println("m goes from", m.Name(), "to", m.Next.Name())
 		m = m.Next
 	}
 	return result
@@ -201,6 +215,7 @@ func (m *Message) InsertAfter(other *Message) {
 	m.Next = other
 }
 
+// Name generates a string representation of this message based upon its type.
 func (m *Message) Name() string {
 	if m == nil {
 		return "<nil message>"
@@ -217,6 +232,7 @@ func (m *Message) Name() string {
 	}
 }
 
+// String generates a diagnostic string representation of this message.
 func (m *Message) String() string {
 	return "message-" + m.Name()
 }
@@ -272,6 +288,9 @@ func (vm *VM) initMessage() {
 	vm.DefaultSlots["Message"] = slots
 }
 
+// MessageAsString is a Message method.
+//
+// asString creates a string representation of an object.
 func MessageAsString(vm *VM, target, locals Interface, msg *Message) Interface {
 	b := bytes.Buffer{}
 	target.(*Message).stringRecurse(vm, &b)

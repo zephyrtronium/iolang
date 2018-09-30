@@ -5,21 +5,23 @@ import (
 	"math"
 )
 
+// A Stop is a pseudo-object used to implement control flow in Io.
 type Stop struct {
 	Status StopStatus
-	// This is really ugly, but I couldn't think of a better way to return
-	// the result of a broken loop.
 	Result Interface
 }
 
 // Stops are not objects, but let's pretend anyway so they can be returned
 // from things like Message.Eval().
+
 func (Stop) SP() *Object      { panic("iolang: a Stop is not an Object!") }
 func (Stop) Clone() Interface { panic("iolang: a Stop is not an Object!") }
 func (Stop) isIoObject()      {}
 
+// StopStatus represents the reason for flow control.
 type StopStatus int
 
+// Control flow reasons.
 const (
 	// I have resisted the urge to name this DontStopBelieving.
 	NoStop StopStatus = iota
@@ -28,6 +30,16 @@ const (
 	ContinueStop
 )
 
+// ObjectFor is an Object method.
+//
+// for performs a loop with a counter. For example, to print each number from 1
+// to 3 inclusive:
+//
+//   io> for(x, 1, 3, x println)
+//
+// Or, to print each third number from 10 to 25:
+//
+//   for(x, 10, 25, 3, x println)
 func ObjectFor(vm *VM, target, locals Interface, msg *Message) (result Interface) {
 	var (
 		low, high float64
@@ -93,6 +105,10 @@ func ObjectFor(vm *VM, target, locals Interface, msg *Message) (result Interface
 	return result
 }
 
+// ObjectWhile is an Object method.
+//
+// while performs a loop as long as a condition, its first argument, evaluates
+// to true.
 func ObjectWhile(vm *VM, target, locals Interface, msg *Message) (result Interface) {
 	if err := msg.AssertArgCount("Object while", 2); err != nil {
 		return vm.IoError(err)
@@ -126,6 +142,9 @@ func ObjectWhile(vm *VM, target, locals Interface, msg *Message) (result Interfa
 	}
 }
 
+// ObjectLoop is an Object method.
+//
+// loop performs a loop.
 func ObjectLoop(vm *VM, target, locals Interface, msg *Message) (result Interface) {
 	if err := msg.AssertArgCount("Object loop", 1); err != nil {
 		return vm.IoError(err)
@@ -151,18 +170,31 @@ func ObjectLoop(vm *VM, target, locals Interface, msg *Message) (result Interfac
 	}
 }
 
+// ObjectReturn is an Object method.
+//
+// return ceases execution of a block and returns a value from it.
 func ObjectReturn(vm *VM, target, locals Interface, msg *Message) Interface {
 	return Stop{Status: ReturnStop, Result: msg.ArgAt(0).Eval(vm, locals)}
 }
 
+// ObjectBreak is an Object method.
+//
+// break ceases execution of a loop and returns a value from it.
 func ObjectBreak(vm *VM, target, locals Interface, msg *Message) Interface {
 	return Stop{Status: BreakStop, Result: msg.ArgAt(0).Eval(vm, locals)}
 }
 
+// ObjectContinue is an Object method.
+//
+// continue immediately returns to the beginning of the current loop.
 func ObjectContinue(vm *VM, target, locals Interface, msg *Message) Interface {
 	return Stop{Status: ContinueStop}
 }
 
+// ObjectIf is an Object method.
+//
+// if evaluates its first argument, then evaluates the second if the first was
+// true or the third if it was false.
 func ObjectIf(vm *VM, target, locals Interface, msg *Message) Interface {
 	// The behavior of this does not exactly mimic that of the original Io
 	// implementation in strange cases:
@@ -179,6 +211,9 @@ func ObjectIf(vm *VM, target, locals Interface, msg *Message) Interface {
 	return msg.ArgAt(2).Eval(vm, locals)
 }
 
+// NumberRepeat is a Number method.
+//
+// repeat performs a loop the given number of times.
 func NumberRepeat(vm *VM, target, locals Interface, msg *Message) (result Interface) {
 	if len(msg.Args) < 1 {
 		return vm.NewException("Number repeat requires 1 or 2 arguments")

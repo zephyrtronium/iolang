@@ -7,8 +7,9 @@ import (
 	"sync"
 )
 
-// Any Io object. To satisfy this interface, *Object's method set must be
-// embedded and Clone() implemented to return a value of the new type.
+// All Io objects satisfy Interface. To satisfy this interface, *Object's
+// method set must be embedded and Clone() implemented to return a value of the
+// new type.
 type Interface interface {
 	// Get slots and protos.
 	SP() *Object
@@ -18,34 +19,45 @@ type Interface interface {
 	isIoObject()
 }
 
-// An object which activates. Probably just CFunctions and Blocks.
+// An Actor is an object which activates.
 type Actor interface {
 	Interface
 	Activate(vm *VM, target, locals Interface, msg *Message) Interface
 }
 
+// Slots holds the set of messages to which an object responds.
 type Slots map[string]Interface
 
+// Object is the basic type of Io. Everything is an Object.
 type Object struct {
-	Slots  Slots
+	// Slots is the set of messages to which this object responds.
+	Slots Slots
+	// Protos are the set of objects to which messages are forwarded, in
+	// depth-first order without duplicates, when this object cannot respond.
 	Protos []Interface
 
 	// The lock should be held when accessing slots or protos directly.
 	L sync.Mutex
 }
 
+// SP returns this object's slots and protos. It primarily serves as a
+// polymorphic way to access slots and protos of types embedding *Object.
 func (o *Object) SP() *Object {
 	return o
 }
 
+// Clone returns a new object with empty slots and this object as its only
+// proto.
 func (o *Object) Clone() Interface {
 	return &Object{Slots: Slots{}, Protos: []Interface{o}}
 }
 
+// isIoObject is a method to force types to embed Object to satisfy Interface
+// for the sake of consistency.
 func (*Object) isIoObject() {}
 
-// This sets up the "base" object that is the first proto of all other
-// built-in types, not the slots of "default" objects (which have empty slots).
+// initObject sets up the "base" object that is the first proto of all other
+// built-in types.
 func (vm *VM) initObject() {
 	vm.BaseObject.Protos = []Interface{vm.Lobby}
 	slots := Slots{
@@ -78,13 +90,15 @@ func (vm *VM) initObject() {
 	slots["returnIfNonNil"] = slots["return"]
 }
 
+// ObjectWith creates a new object with the given slots and with the VM's
+// BaseObject as its proto.
 func (vm *VM) ObjectWith(slots Slots) *Object {
 	return &Object{Slots: slots, Protos: []Interface{vm.BaseObject}}
 }
 
-// Get a slot, checking protos in depth-first order without duplicates. The
-// proto is the object which actually had the slot. If the slot is not found,
-// both returned values will be nil.
+// GetSlot finds the value in a slot, checking protos in depth-first order
+// without duplicates. The proto is the object which actually had the slot. If
+// the slot is not found, both returned values will be nil.
 //
 // Note: This function differentiates between Go's nil and Io's nil. The
 // result when called with the former is always nil, nil.
@@ -95,8 +109,8 @@ func GetSlot(o Interface, slot string) (value, proto Interface) {
 	return getSlotRecurse(o, slot, make(map[*Object]struct{}, len(o.SP().Protos)+1))
 }
 
-var Debugvm *VM
-var _ = Debugvm
+// var Debugvm *VM
+// var _ = Debugvm
 
 func getSlotRecurse(o Interface, slot string, checked map[*Object]struct{}) (Interface, Interface) {
 	obj := o.SP()
@@ -125,7 +139,8 @@ func getSlotRecurse(o Interface, slot string, checked map[*Object]struct{}) (Int
 	return nil, nil
 }
 
-// Set a slot's value.
+// SetSlot sets a slot's value on the given Interface, as if using the :=
+// operator.
 func SetSlot(o Interface, slot string, value Interface) {
 	obj := o.SP()
 	obj.L.Lock()
@@ -136,7 +151,8 @@ func SetSlot(o Interface, slot string, value Interface) {
 	obj.Slots[slot] = value
 }
 
-// Get the name of the type of an object.
+// TypeName gets the name of the type of an object by activating its type slot.
+// If there is no such slot, the Go type name will be returned.
 func (vm *VM) TypeName(o Interface) string {
 	if typ, proto := GetSlot(o, "type"); proto != nil {
 		switch tt := typ.(type) {
@@ -153,8 +169,8 @@ func (vm *VM) TypeName(o Interface) string {
 	return fmt.Sprintf("%T", o)
 }
 
-// Activate with a simple identifier message with the given text and with the
-// given arguments.
+// SimpleActivate activates an Actor using the identifier message named with
+// text and with the given arguments.
 func (vm *VM) SimpleActivate(o Actor, self, locals Interface, text string, args ...Interface) Interface {
 	a := make([]*Message, len(args))
 	for i, arg := range args {
@@ -170,6 +186,10 @@ func (vm *VM) SimpleActivate(o Actor, self, locals Interface, text string, args 
 	return result
 }
 
+// ObjectClone is an Object method.
+//
+// clone creates a new object with empty slots and the cloned object as its
+// proto.
 func ObjectClone(vm *VM, target, locals Interface, msg *Message) Interface {
 	clone := target.Clone()
 	if init, proto := GetSlot(target, "init"); proto != nil {
@@ -182,6 +202,10 @@ func ObjectClone(vm *VM, target, locals Interface, msg *Message) Interface {
 	return clone
 }
 
+// ObjectSetSlot is an Object method.
+//
+// setSlot sets the value of a slot on this object. It is typically invoked via
+// the := operator.
 func ObjectSetSlot(vm *VM, target, locals Interface, msg *Message) Interface {
 	slot, err := msg.StringArgAt(vm, locals, 0)
 	if err != nil {
@@ -195,6 +219,11 @@ func ObjectSetSlot(vm *VM, target, locals Interface, msg *Message) Interface {
 	return v
 }
 
+// ObjectUpdateSlot is an Object method.
+//
+// updateSlot sets the value of a slot on the proto which has it. If no object
+// has the target slot, an exception is raised. This is typically invoked via
+// the = operator.
 func ObjectUpdateSlot(vm *VM, target, locals Interface, msg *Message) Interface {
 	slot, err := msg.StringArgAt(vm, locals, 0)
 	if err != nil {
@@ -212,6 +241,9 @@ func ObjectUpdateSlot(vm *VM, target, locals Interface, msg *Message) Interface 
 	return v
 }
 
+// ObjectGetSlot is an Object method.
+//
+// getSlot gets the value of a slot. The slot is never activated.
 func ObjectGetSlot(vm *VM, target, locals Interface, msg *Message) Interface {
 	slot, err := msg.StringArgAt(vm, locals, 0)
 	if err != nil {
@@ -221,6 +253,10 @@ func ObjectGetSlot(vm *VM, target, locals Interface, msg *Message) Interface {
 	return v
 }
 
+// ObjectSlotNames is an Object method.
+//
+// slotNames returns a list of the names of the slots on this object.
+// This list is currently a string because lists don't exist yet. :)
 func ObjectSlotNames(vm *VM, target, locals Interface, msg *Message) Interface {
 	slots := target.SP().Slots
 	names := make([]string, len(slots))
@@ -232,6 +268,10 @@ func ObjectSlotNames(vm *VM, target, locals Interface, msg *Message) Interface {
 	return vm.NewString(strings.Join(names, ", "))
 }
 
+// ObjectEvalArg is an Object method.
+//
+// evalArg evaluates and returns its argument. It is typically invoked via the
+// empty string slot, i.e. parentheses with no preceding message.
 func ObjectEvalArg(vm *VM, target, locals Interface, msg *Message) Interface {
 	// The original Io implementation has an assertion that there is at least
 	// one argument; this will instead return vm.Nil. It wouldn't be difficult
@@ -239,6 +279,9 @@ func ObjectEvalArg(vm *VM, target, locals Interface, msg *Message) Interface {
 	return msg.ArgAt(0).Eval(vm, locals)
 }
 
+// ObjectEvalArgAndReturnSelf is an Object method.
+//
+// evalArgAndReturnSelf evaluates its argument and returns this object.
 func ObjectEvalArgAndReturnSelf(vm *VM, target, locals Interface, msg *Message) Interface {
 	if result := msg.ArgAt(0).Eval(vm, locals); IsIoError(result) {
 		return result
@@ -246,6 +289,9 @@ func ObjectEvalArgAndReturnSelf(vm *VM, target, locals Interface, msg *Message) 
 	return target
 }
 
+// ObjectEvalArgAndReturnNil is an Object method.
+//
+// evalArgAndReturnNil evaluates its argument and returns nil.
 func ObjectEvalArgAndReturnNil(vm *VM, target, locals Interface, msg *Message) Interface {
 	if result := msg.ArgAt(0).Eval(vm, locals); IsIoError(result) {
 		return result
@@ -253,6 +299,9 @@ func ObjectEvalArgAndReturnNil(vm *VM, target, locals Interface, msg *Message) I
 	return vm.Nil
 }
 
+// ObjectAsString is an Object method.
+//
+// asString creates a string representation of an object.
 func ObjectAsString(vm *VM, target, locals Interface, msg *Message) Interface {
 	if stringer, ok := target.(fmt.Stringer); ok {
 		return vm.NewString(stringer.String())
