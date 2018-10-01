@@ -23,13 +23,13 @@ func (vm *VM) NewCall(sender Interface, actor Actor, msg *Message, target Interf
 
 func (vm *VM) initCall() {
 	slots := Slots{
-		"activated": vm.NewCFunction(CallActivated, "CallActivated()"),
-		"argAt":     vm.NewCFunction(CallArgAt, "CallArgAt(n)"),
-		"argCount":  vm.NewCFunction(CallArgCount, "CallArgCount()"),
-		"evalArgAt": vm.NewCFunction(CallEvalArgAt, "CallEvalArgAt(n)"),
-		"message":   vm.NewCFunction(CallMessage, "CallMessage()"),
-		"sender":    vm.NewCFunction(CallSender, "CallSender()"),
-		"target":    vm.NewCFunction(CallTarget, "CallTarget()"),
+		"activated": vm.NewTypedCFunction(CallActivated, "CallActivated()"),
+		"argAt":     vm.NewTypedCFunction(CallArgAt, "CallArgAt(n)"),
+		"argCount":  vm.NewTypedCFunction(CallArgCount, "CallArgCount()"),
+		"evalArgAt": vm.NewTypedCFunction(CallEvalArgAt, "CallEvalArgAt(n)"),
+		"message":   vm.NewTypedCFunction(CallMessage, "CallMessage()"),
+		"sender":    vm.NewTypedCFunction(CallSender, "CallSender()"),
+		"target":    vm.NewTypedCFunction(CallTarget, "CallTarget()"),
 	}
 	vm.DefaultSlots["Call"] = slots
 }

@@ -47,9 +47,6 @@ func (b *Block) reallyActivate(vm *VM, target, locals Interface, msg *Message) I
 	return result
 }
 
-// Locals is a special type of Object used to facilitate block evaluation.
-// type Locals Object
-
 func (vm *VM) NewLocals(self, call Interface) *Object {
 	lc := vm.ObjectWith(vm.DefaultSlots["Locals"])
 	SetSlot(lc, "self", self)
@@ -59,8 +56,8 @@ func (vm *VM) NewLocals(self, call Interface) *Object {
 
 func (vm *VM) initBlock() {
 	slots := Slots{
-		"asString": vm.NewCFunction(BlockAsString, "BlockAsString()"),
-		"call":     vm.NewCFunction(BlockCall, "BlockCall(...)"),
+		"asString": vm.NewTypedCFunction(BlockAsString, "BlockAsString()"),
+		"call":     vm.NewTypedCFunction(BlockCall, "BlockCall(...)"),
 	}
 	vm.DefaultSlots["Block"] = slots
 }
