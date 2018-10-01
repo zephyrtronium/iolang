@@ -145,13 +145,10 @@ func (m *Message) Eval(vm *VM, locals Interface) (result Interface) {
 }
 
 // Send evaluates a message in the context of the given VM, targeting an
-// object. If target is nil, locals is used in its place. A nil Message
-// evaluates to vm.Nil.
-func (m *Message) Send(vm *VM, locals, target Interface) (result Interface) {
-	result = vm.Nil
-	if target == nil {
-		target = locals
-	}
+// object.
+func (m *Message) Send(vm *VM, target, locals Interface) (result Interface) {
+	firstTarget := target
+	result = target
 	for m != nil {
 		if m.Memo != nil {
 			result = m.Memo
@@ -169,10 +166,10 @@ func (m *Message) Send(vm *VM, locals, target Interface) (result Interface) {
 					default:
 						result = newtarget
 					}
-					target = newtarget
 				} else if forward, fp := GetSlot(target, "forward"); fp != nil {
 					if a, ok := forward.(Actor); ok {
-						result = vm.SimpleActivate(a, target, locals, "forward")
+						// result = vm.SimpleActivate(a, target, locals, "forward")
+						result = a.Activate(vm, target, locals, m)
 					} else {
 						return vm.NewExceptionf("%s does not respond to %s", vm.TypeName(target), m.Symbol.Text)
 					}
@@ -180,7 +177,7 @@ func (m *Message) Send(vm *VM, locals, target Interface) (result Interface) {
 					return vm.NewExceptionf("%s does not respond to %s", vm.TypeName(target), m.Symbol.Text)
 				}
 			case SemiSym:
-				target = locals
+				target = firstTarget
 			case NumSym:
 				// Numbers and strings should be in memo, but just in case.
 				result = vm.NewNumber(m.Symbol.Num)
@@ -189,16 +186,19 @@ func (m *Message) Send(vm *VM, locals, target Interface) (result Interface) {
 			default:
 				panic(fmt.Sprintf("iolang: invalid Symbol: %#v", m.Symbol))
 			}
-		}
-		if result == nil {
-			// No message should evaluate to something that is not an Io
-			// object, so we want to convert nil to vm.Nil.
-			result = vm.Nil
+			if result == nil {
+				// No message should evaluate to something that is not an Io
+				// object, so we want to convert nil to vm.Nil.
+				result = vm.Nil
+			}
 		}
 		if m.Symbol.Kind != SemiSym {
 			target = result
 		}
 		m = m.Next
+	}
+	if result == nil {
+		result = vm.Nil
 	}
 	return result
 }

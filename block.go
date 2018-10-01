@@ -27,26 +27,34 @@ func (b *Block) Activate(vm *VM, target, locals Interface, msg *Message) Interfa
 }
 
 func (b *Block) reallyActivate(vm *VM, target, locals Interface, msg *Message) Interface {
-	blkLocals := &Object{Slots: Slots{}, Protos: []Interface{vm.BaseObject}}
-	for i, arg := range b.ArgNames {
-		if x := msg.ArgAt(i); x != nil {
-			SetSlot(blkLocals, arg, x)
-		} else {
-			SetSlot(blkLocals, arg, vm.Nil)
-		}
-	}
 	scope := b.Self
 	if scope == nil {
 		scope = target
 	}
 	call := vm.NewCall(locals, b, msg, target)
-	SetSlot(blkLocals, "self", scope)
-	SetSlot(blkLocals, "call", call)
+	blkLocals := vm.NewLocals(scope, call)
+	for i, arg := range b.ArgNames {
+		if x := msg.EvalArgAt(vm, locals, i); x != nil {
+			SetSlot(blkLocals, arg, x)
+		} else {
+			SetSlot(blkLocals, arg, vm.Nil)
+		}
+	}
 	result := b.Message.Eval(vm, blkLocals)
 	if stop, ok := result.(Stop); ok {
 		return stop.Result
 	}
 	return result
+}
+
+// Locals is a special type of Object used to facilitate block evaluation.
+// type Locals Object
+
+func (vm *VM) NewLocals(self, call Interface) *Object {
+	lc := vm.ObjectWith(vm.DefaultSlots["Locals"])
+	SetSlot(lc, "self", self)
+	SetSlot(lc, "call", call)
+	return lc
 }
 
 func (vm *VM) initBlock() {
@@ -55,6 +63,13 @@ func (vm *VM) initBlock() {
 		"call":     vm.NewCFunction(BlockCall, "BlockCall(...)"),
 	}
 	vm.DefaultSlots["Block"] = slots
+}
+
+func (vm *VM) initLocals() {
+	slots := Slots{
+		"forward": vm.NewCFunction(LocalsForward, "LocalsForward"),
+	}
+	vm.DefaultSlots["Locals"] = slots
 }
 
 // ObjectBlock is an Object method.
@@ -124,4 +139,19 @@ func BlockAsString(vm *VM, target, locals Interface, msg *Message) Interface {
 // call activates a block.
 func BlockCall(vm *VM, target, locals Interface, msg *Message) Interface {
 	return target.(*Block).reallyActivate(vm, target, locals, msg)
+}
+
+// LocalsForward is a Locals method.
+//
+// forward handles messages to which the object does not respond.
+func LocalsForward(vm *VM, target, locals Interface, msg *Message) Interface {
+	// We do not want a proto's self, so do the lookup manually.
+	lc := target.SP()
+	lc.L.Lock()
+	self, ok := lc.Slots["self"]
+	lc.L.Unlock()
+	if ok && self != target {
+		return msg.Send(vm, self, locals)
+	}
+	return vm.Nil
 }
