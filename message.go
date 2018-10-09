@@ -115,6 +115,20 @@ func (m *Message) StringArgAt(vm *VM, locals Interface, n int) (*String, error) 
 	return nil, vm.NewExceptionf("argument %d to %s must be of type Sequence, not %s", n, m.Symbol.Text, vm.TypeName(v))
 }
 
+// ListArgAt evaluates the nth argument and returns it as a List. If it is not
+// a List, then the result is nil, and an error is returned.
+func (m *Message) ListArgAt(vm *VM, locals Interface, n int) (*List, error) {
+	v := m.EvalArgAt(vm, locals, n)
+	if lst, ok := v.(*List); ok {
+		return lst, nil
+	}
+	// Not the expected type, so return an error.
+	if err, ok := v.(error); ok && !IsIoError(err) {
+		return nil, err
+	}
+	return nil, vm.NewExceptionf("argument %d to %s must be of type List, not %s", n, m.Symbol.Text, vm.TypeName(v))
+}
+
 // AsStringArgAt evaluates the nth argument, then activates its asString slot
 // for a string representation. If the result is not a string, then the result
 // is nil, and an error is returned.

@@ -61,6 +61,7 @@ func NewVM() *VM {
 	vm.initNil()
 	vm.initOpTable()
 	vm.initLocals()
+	vm.initList()
 
 	vm.MemoizeString("")
 	for i := rune(0); i <= 127; i++ {
@@ -155,9 +156,14 @@ func (vm *VM) finalInit() {
 			combinations := method(r, self factorial / ((self - r) factorial) / (r factorial))
 			permutations := method(r, self factorial / ((self - r) factorial))
 		)`
+		list = `List do(
+			first := method(self at(0))
+			last  := method(self at(self size - 1))
+		)`
 	)
 	vm.DoString(object)
 	vm.DoString(false_)
 	vm.DoString(nil_)
 	vm.DoString(number)
+	vm.DoString(list)
 }

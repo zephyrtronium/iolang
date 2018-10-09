@@ -1,5 +1,10 @@
 package iolang
 
+/*
+This file is for converting lexer tokens into messages. If you're looking
+for operator precedence parsing, check optable.go.
+*/
+
 import (
 	"bufio"
 	"fmt"

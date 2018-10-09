@@ -248,3 +248,54 @@ func NumberRepeat(vm *VM, target, locals Interface, msg *Message) (result Interf
 	}
 	return result
 }
+
+// ListForeach is a List method.
+//
+// foreach performs a loop on each item of a list in order, optionally setting
+// index and value variables.
+func ListForeach(vm *VM, target, locals Interface, msg *Message) Interface {
+	var kn, vn string
+	var hkn, hvn bool
+	var ev *Message
+	if len(msg.Args) == 3 {
+		kn = msg.ArgAt(0).Name()
+		vn = msg.ArgAt(1).Name()
+		ev = msg.ArgAt(2)
+		hkn, hvn = true, true
+	} else if len(msg.Args) == 2 {
+		vn = msg.ArgAt(0).Name()
+		ev = msg.ArgAt(1)
+		hvn = true
+	} else if len(msg.Args) == 1 {
+		ev = msg.ArgAt(0)
+	} else {
+		return vm.NewException("foreach requires 1, 2, or 3 arguments")
+	}
+	l := target.(*List)
+	var result Interface
+	for k, v := range l.Value {
+		if hvn {
+			SetSlot(locals, vn, v)
+			if hkn {
+				SetSlot(locals, kn, vm.NewNumber(float64(k)))
+			}
+		}
+		result = ev.Eval(vm, locals)
+		if IsIoError(result) {
+			return result
+		}
+		if stop, ok := result.(Stop); ok {
+			switch stop.Status {
+			case ReturnStop:
+				return stop
+			case BreakStop:
+				return stop.Result
+			case ContinueStop:
+				// do nothing
+			default:
+				panic(fmt.Sprintf("iolang: invalid Stop: %#v", stop))
+			}
+		}
+	}
+	return result
+}

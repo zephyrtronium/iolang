@@ -3,7 +3,6 @@ package iolang
 import (
 	"fmt"
 	// "github.com/davecgh/go-spew/spew"
-	"strings"
 	"sync"
 )
 
@@ -80,6 +79,7 @@ func (vm *VM) initObject() {
 		"nil":           vm.Nil,
 		"return":        vm.NewCFunction(ObjectReturn, "ObjectReturn(result)"),
 		"setSlot":       vm.NewCFunction(ObjectSetSlot, "ObjectSetSlot(name, value)"),
+		"slotNames":     vm.NewCFunction(ObjectSlotNames, "ObjectSlotNames()"),
 		"true":          vm.True,
 		"type":          vm.NewString("Object"),
 		"updateSlot":    vm.NewCFunction(ObjectUpdateSlot, "ObjectUpdateSlot(name, value)"),
@@ -256,16 +256,13 @@ func ObjectGetSlot(vm *VM, target, locals Interface, msg *Message) Interface {
 // ObjectSlotNames is an Object method.
 //
 // slotNames returns a list of the names of the slots on this object.
-// This list is currently a string because lists don't exist yet. :)
 func ObjectSlotNames(vm *VM, target, locals Interface, msg *Message) Interface {
 	slots := target.SP().Slots
-	names := make([]string, len(slots))
-	i := 0
+	names := make([]Interface, 0, len(slots))
 	for name := range slots {
-		names[i] = name
-		i++
+		names = append(names, vm.NewString(name))
 	}
-	return vm.NewString(strings.Join(names, ", "))
+	return vm.NewList(names...)
 }
 
 // ObjectEvalArg is an Object method.
