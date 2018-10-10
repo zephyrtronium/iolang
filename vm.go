@@ -170,6 +170,7 @@ func (vm *VM) initCore() {
 	vm.Core.Protos = []Interface{vm.BaseObject}
 	vm.Lobby.Protos = []Interface{vm.Core, vm.Addons}
 	SetSlot(vm.Lobby, "Protos", vm.ObjectWith(Slots{"Core": vm.Core, "Addons": vm.Addons}))
+	SetSlot(vm.Lobby, "Lobby", vm.Lobby)
 }
 
 func (vm *VM) finalInit() {
