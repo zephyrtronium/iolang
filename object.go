@@ -179,6 +179,7 @@ func (vm *VM) SimpleActivate(o Actor, self, locals Interface, text string, args 
 		// changes, this must be changed with it.
 		a[i] = &Message{Memo: arg}
 	}
+	// TODO: should this use CheckStop to propagate exceptions?
 	result := o.Activate(vm, self, locals, &Message{Symbol: Symbol{Kind: IdentSym, Text: text}, Args: a})
 	if stop, ok := result.(Stop); ok {
 		return stop.Result
@@ -211,11 +212,10 @@ func ObjectSetSlot(vm *VM, target, locals Interface, msg *Message) Interface {
 	if err != nil {
 		return vm.IoError(err)
 	}
-	v := msg.EvalArgAt(vm, locals, 1)
-	if IsIoError(v) {
-		return v
+	v, ok := CheckStop(msg.EvalArgAt(vm, locals, 1), LoopStops)
+	if ok {
+		SetSlot(target, slot.Value, v)
 	}
-	SetSlot(target, slot.Value, v)
 	return v
 }
 
@@ -229,15 +229,14 @@ func ObjectUpdateSlot(vm *VM, target, locals Interface, msg *Message) Interface 
 	if err != nil {
 		return vm.IoError(err)
 	}
-	v := msg.EvalArgAt(vm, locals, 1)
-	if IsIoError(v) {
-		return v
+	v, ok := CheckStop(msg.EvalArgAt(vm, locals, 1), LoopStops)
+	if ok {
+		_, proto := GetSlot(target, slot.Value)
+		if proto == nil {
+			return vm.NewExceptionf("slot %s not found", slot.Value)
+		}
+		SetSlot(proto, slot.Value, v)
 	}
-	_, proto := GetSlot(target, slot.Value)
-	if proto == nil {
-		return vm.NewExceptionf("slot %s not found", slot.Value)
-	}
-	SetSlot(proto, slot.Value, v)
 	return v
 }
 
@@ -273,27 +272,29 @@ func ObjectEvalArg(vm *VM, target, locals Interface, msg *Message) Interface {
 	// The original Io implementation has an assertion that there is at least
 	// one argument; this will instead return vm.Nil. It wouldn't be difficult
 	// to mimic Io's behavior, but ehhh.
-	return msg.ArgAt(0).Eval(vm, locals)
+	return msg.EvalArgAt(vm, locals, 0)
 }
 
 // ObjectEvalArgAndReturnSelf is an Object method.
 //
 // evalArgAndReturnSelf evaluates its argument and returns this object.
 func ObjectEvalArgAndReturnSelf(vm *VM, target, locals Interface, msg *Message) Interface {
-	if result := msg.ArgAt(0).Eval(vm, locals); IsIoError(result) {
-		return result
+	result, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
+	if ok {
+		return target
 	}
-	return target
+	return result
 }
 
 // ObjectEvalArgAndReturnNil is an Object method.
 //
 // evalArgAndReturnNil evaluates its argument and returns nil.
 func ObjectEvalArgAndReturnNil(vm *VM, target, locals Interface, msg *Message) Interface {
-	if result := msg.ArgAt(0).Eval(vm, locals); IsIoError(result) {
-		return result
+	result, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
+	if ok {
+		return vm.Nil
 	}
-	return vm.Nil
+	return result
 }
 
 // ObjectAsString is an Object method.

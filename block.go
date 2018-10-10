@@ -35,15 +35,17 @@ func (b *Block) reallyActivate(vm *VM, target, locals Interface, msg *Message) I
 	blkLocals := vm.NewLocals(scope, call)
 	for i, arg := range b.ArgNames {
 		if x := msg.EvalArgAt(vm, locals, i); x != nil {
+			if r, ok := CheckStop(x, LoopStops); ok {
+				x = r
+			} else {
+				return r
+			}
 			SetSlot(blkLocals, arg, x)
 		} else {
 			SetSlot(blkLocals, arg, vm.Nil)
 		}
 	}
-	result := b.Message.Eval(vm, blkLocals)
-	if stop, ok := result.(Stop); ok {
-		return stop.Result
-	}
+	result, _ := CheckStop(b.Message.Eval(vm, blkLocals), ReturnStop)
 	return result
 }
 

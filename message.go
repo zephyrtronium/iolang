@@ -3,6 +3,7 @@ package iolang
 import (
 	"bytes"
 	"fmt"
+	"strconv"
 )
 
 // A Message is the fundamental syntactic element and functionality of Io.
@@ -176,13 +177,16 @@ func (m *Message) Send(vm *VM, target, locals Interface) (result Interface) {
 						a.Result = result
 						return a
 					case Actor:
-						result = a.Activate(vm, target, locals, m)
+						var ok bool
+						result, ok = CheckStop(a.Activate(vm, target, locals, m), NoStop)
+						if !ok {
+							return result
+						}
 					default:
 						result = newtarget
 					}
 				} else if forward, fp := GetSlot(target, "forward"); fp != nil {
 					if a, ok := forward.(Actor); ok {
-						// result = vm.SimpleActivate(a, target, locals, "forward")
 						result = a.Activate(vm, target, locals, m)
 					} else {
 						return vm.NewExceptionf("%s does not respond to %s", vm.TypeName(target), m.Symbol.Text)
@@ -238,7 +242,7 @@ func (m *Message) Name() string {
 	case SemiSym, IdentSym:
 		return m.Symbol.Text
 	case NumSym:
-		return fmt.Sprintf("%g", m.Symbol.Num)
+		return strconv.FormatFloat(m.Symbol.Num, 'g', -1, 64)
 	case StringSym:
 		return m.Symbol.String
 	default:

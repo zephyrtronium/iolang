@@ -76,12 +76,11 @@ func ListAppend(vm *VM, target, locals Interface, msg *Message) Interface {
 		l.Value = append(l.Value, nv...)
 	}()
 	for _, m := range msg.Args {
-		r := m.Eval(vm, locals)
-		if err, ok := r.(error); !ok {
-			nv = append(nv, r)
-		} else {
-			return vm.IoError(err)
+		r, ok := CheckStop(m.Eval(vm, locals), LoopStops)
+		if !ok {
+			return r
 		}
+		nv = append(nv, r)
 	}
 	return target
 }
@@ -101,18 +100,17 @@ func ListAppendIfAbsent(vm *VM, target, locals Interface, msg *Message) Interfac
 	}()
 outer:
 	for _, m := range msg.Args {
-		r := m.Eval(vm, locals)
-		if err, ok := r.(error); !ok {
-			for _, v := range l.Value {
-				// TODO: use Io comparison
-				if r == v {
-					continue outer
-				}
-			}
-			nv = append(nv, r)
-		} else {
-			return vm.IoError(err)
+		r, ok := CheckStop(m.Eval(vm, locals), LoopStops)
+		if !ok {
+			return r
 		}
+		for _, v := range l.Value {
+			// TODO: use Io comparison
+			if r == v {
+				continue outer
+			}
+		}
+		nv = append(nv, r)
 	}
 	return target
 }
@@ -130,17 +128,16 @@ func ListAppendSeq(vm *VM, target, locals Interface, msg *Message) Interface {
 		l.Value = append(l.Value, nv...)
 	}()
 	for _, m := range msg.Args {
-		v := m.Eval(vm, locals)
-		switch r := v.(type) {
-		case *List:
-			if r == l {
-				return vm.NewException("can't add a list to itself")
-			}
-			nv = append(nv, r.Value...)
-		case error:
+		v, ok := CheckStop(m.Eval(vm, locals), LoopStops)
+		if !ok {
 			return v
-		default:
-			return vm.NewExceptionf("all arguments to %s must be lists, not %s", msg.Symbol.Text, vm.TypeName(v))
+		}
+		if r, ok := v.(*List); ok {
+			if r == l {
+				return vm.RaiseException("can't add a list to itself")
+			}
+		} else {
+			return vm.RaiseExceptionf("all arguments to %s must be lists, not %s", msg.Symbol.Text, vm.TypeName(v))
 		}
 	}
 	return target
@@ -194,15 +191,15 @@ func ListAtInsert(vm *VM, target, locals Interface, msg *Message) Interface {
 	if err != nil {
 		return vm.IoError(err)
 	}
-	r := msg.EvalArgAt(vm, locals, 1)
-	if err, ok := r.(error); ok {
-		return vm.IoError(err)
+	r, ok := CheckStop(msg.EvalArgAt(vm, locals, 1), LoopStops)
+	if !ok {
+		return r
 	}
 	l := target.(*List)
 	k := int(n.Value)
 	switch {
 	case k < 0 || k > len(l.Value):
-		return vm.NewException("index out of bounds")
+		return vm.RaiseException("index out of bounds")
 	case k == len(l.Value):
 		l.Value = append(l.Value, r)
 	default:
@@ -226,14 +223,14 @@ func ListAtPut(vm *VM, target, locals Interface, msg *Message) Interface {
 	if err != nil {
 		return vm.IoError(err)
 	}
-	r := msg.EvalArgAt(vm, locals, 1)
-	if err, ok := r.(error); ok {
-		return vm.IoError(err)
+	r, ok := CheckStop(msg.EvalArgAt(vm, locals, 1), LoopStops)
+	if !ok {
+		return r
 	}
 	l := target.(*List)
 	k := int(n.Value)
 	if k < 0 || k >= len(l.Value) {
-		return vm.NewException("index out of bounds")
+		return vm.RaiseException("index out of bounds")
 	}
 	l.Value[k] = r
 	return target
@@ -257,7 +254,10 @@ func ListContains(vm *VM, target, locals Interface, msg *Message) Interface {
 	o := target.SP()
 	o.L.Lock()
 	defer o.L.Unlock()
-	r := msg.EvalArgAt(vm, locals, 0)
+	r, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
+	if !ok {
+		return r
+	}
 	for _, v := range target.(*List).Value {
 		// TODO: use Io comparison
 		if r == v {
@@ -276,10 +276,11 @@ func ListContainsAll(vm *VM, target, locals Interface, msg *Message) Interface {
 	o.L.Lock()
 	defer o.L.Unlock()
 	r := make([]Interface, len(msg.Args))
+	var ok bool
 	for i := range msg.Args {
-		r[i] = msg.EvalArgAt(vm, locals, i)
-		if err, ok := r[i].(error); ok {
-			return vm.IoError(err)
+		r[i], ok = CheckStop(msg.EvalArgAt(vm, locals, i), LoopStops)
+		if !ok {
+			return r[i]
 		}
 	}
 	c := make([]bool, len(r))
@@ -310,10 +311,11 @@ func ListContainsAny(vm *VM, target, locals Interface, msg *Message) Interface {
 	defer o.L.Unlock()
 	// TODO: use ID checks like ListRemove does
 	r := make([]Interface, len(msg.Args))
+	var ok bool
 	for i := range msg.Args {
-		r[i] = msg.EvalArgAt(vm, locals, i)
-		if err, ok := r[i].(error); ok {
-			return vm.IoError(err)
+		r[i], ok = CheckStop(msg.EvalArgAt(vm, locals, i), LoopStops)
+		if !ok {
+			return r[i]
 		}
 	}
 	for _, v := range target.(*List).Value {
@@ -335,7 +337,10 @@ func ListContainsIdenticalTo(vm *VM, target, locals Interface, msg *Message) Int
 	o := target.SP()
 	o.L.Lock()
 	defer o.L.Unlock()
-	r := msg.EvalArgAt(vm, locals, 0)
+	r, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
+	if !ok {
+		return r
+	}
 	for _, v := range target.(*List).Value {
 		if r == v {
 			return vm.True
@@ -352,7 +357,10 @@ func ListIndexOf(vm *VM, target, locals Interface, msg *Message) Interface {
 	o := target.SP()
 	o.L.Lock()
 	defer o.L.Unlock()
-	r := msg.EvalArgAt(vm, locals, 0)
+	r, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
+	if !ok {
+		return r
+	}
 	for i, v := range target.(*List).Value {
 		// TODO: use Io comparison
 		if r == v {
@@ -374,7 +382,7 @@ func ListPreallocateToSize(vm *VM, target, locals Interface, msg *Message) Inter
 		return vm.IoError(err)
 	}
 	if r.Value < 0 {
-		return vm.NewException("can't preallocate to negative size")
+		return vm.RaiseException("can't preallocate to negative size")
 	}
 	n := int(r.Value)
 	l := target.(*List)
@@ -396,11 +404,11 @@ func ListPrepend(vm *VM, target, locals Interface, msg *Message) Interface {
 	l := target.(*List)
 	nv := make([]Interface, 0, len(msg.Args))
 	for _, m := range msg.Args {
-		r := m.Eval(vm, locals)
-		if err, ok := r.(error); !ok {
+		r, ok := CheckStop(m.Eval(vm, locals), LoopStops)
+		if ok {
 			nv = append(nv, r)
 		} else {
-			return vm.IoError(err)
+			return r
 		}
 	}
 	// We want to make sure that we use our existing space if we can.
@@ -425,11 +433,11 @@ func ListRemove(vm *VM, target, locals Interface, msg *Message) Interface {
 	l := target.(*List)
 	rv := make(map[Interface]struct{}, len(msg.Args))
 	for _, m := range msg.Args {
-		r := m.Eval(vm, locals)
-		if err, ok := r.(error); !ok {
+		r, ok := CheckStop(m.Eval(vm, locals), LoopStops)
+		if ok {
 			rv[r] = struct{}{}
 		} else {
-			return vm.IoError(err)
+			return r
 		}
 	}
 	j := 0
@@ -488,11 +496,11 @@ func ListRemoveAt(vm *VM, target, locals Interface, msg *Message) Interface {
 func ListWith(vm *VM, target, locals Interface, msg *Message) Interface {
 	v := make([]Interface, 0, len(msg.Args))
 	for _, m := range msg.Args {
-		r := m.Eval(vm, locals)
-		if err, ok := r.(error); !ok {
+		r, ok := CheckStop(m.Eval(vm, locals), LoopStops)
+		if ok {
 			v = append(v, r)
 		} else {
-			return vm.IoError(err)
+			return r
 		}
 	}
 	return vm.NewList(v...)
