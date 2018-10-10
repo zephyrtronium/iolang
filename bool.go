@@ -14,6 +14,7 @@ func (vm *VM) initTrue() {
 		"or":             vm.True,
 		"type":           s,
 	}
+	SetSlot(vm.Core, "true", vm.True)
 }
 
 func (vm *VM) initFalse() {
@@ -32,6 +33,7 @@ func (vm *VM) initFalse() {
 		"then":           vm.False,
 		"type":           s,
 	}
+	SetSlot(vm.Core, "false", vm.False)
 }
 
 func (vm *VM) initNil() {
@@ -53,4 +55,5 @@ func (vm *VM) initNil() {
 		"then":           vm.Nil,
 		"type":           s,
 	}
+	SetSlot(vm.Core, "nil", vm.Nil)
 }
