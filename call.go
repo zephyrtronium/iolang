@@ -13,7 +13,7 @@ type Call struct {
 // the message msg.
 func (vm *VM) NewCall(sender Interface, actor Actor, msg *Message, target Interface) *Call {
 	return &Call{
-		Object:    Object{Slots: vm.DefaultSlots["Call"], Protos: []Interface{vm.BaseObject}},
+		Object:    *vm.CoreInstance("Call"),
 		Sender:    sender,
 		Activated: actor,
 		Msg:       msg,
@@ -30,8 +30,9 @@ func (vm *VM) initCall() {
 		"message":   vm.NewTypedCFunction(CallMessage, "CallMessage()"),
 		"sender":    vm.NewTypedCFunction(CallSender, "CallSender()"),
 		"target":    vm.NewTypedCFunction(CallTarget, "CallTarget()"),
+		"type":      vm.NewString("Call"),
 	}
-	vm.DefaultSlots["Call"] = slots
+	SetSlot(vm.Core, "Call", vm.ObjectWith(slots))
 }
 
 // CallActivated is a Call method.

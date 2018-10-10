@@ -17,7 +17,7 @@ func (vm *VM) NewString(value string) *String {
 		return s
 	}
 	return &String{
-		Object{Slots: vm.DefaultSlots["String"], Protos: []Interface{vm.BaseObject}},
+		*vm.CoreInstance("String"),
 		value,
 	}
 }
@@ -31,4 +31,17 @@ func (s *String) Clone() Interface {
 
 func (s *String) String() string {
 	return fmt.Sprintf("%q", s.Value)
+}
+
+func (vm *VM) initSequence() {
+	// We can't use vm.NewString yet!!
+	// Just create slots for String for now since sequence types don't actually
+	// exist yet.
+	// Io does have a Core String proto, which is an object having no protos
+	// and only a single slot, "type", set to "ImmutableSequence". Not sure
+	// what's going on with it.
+	slots := Slots{}
+	SetSlot(vm.Core, "String", vm.ObjectWith(slots))
+	// Now we can use vm.NewString.
+	slots["type"] = vm.NewString("ImmutableSequence")
 }

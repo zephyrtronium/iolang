@@ -9,7 +9,7 @@ type Exception struct {
 
 // NewException creates a new Io Exception with the given error message.
 func (vm *VM) NewException(msg string) *Exception {
-	e := Exception{Object{Slots: vm.DefaultSlots["Exception"], Protos: []Interface{vm.BaseObject}}}
+	e := Exception{*vm.CoreInstance("Exception")}
 	e.Slots["error"] = vm.NewString(msg)
 	return &e
 }
@@ -87,4 +87,12 @@ func Must(v Interface) Interface {
 		panic(s.Result)
 	}
 	return v
+}
+
+func (vm *VM) initException() {
+	// TODO: Exception slots
+	slots := Slots{
+		"type": vm.NewString("Exception"),
+	}
+	SetSlot(vm.Core, "Exception", vm.ObjectWith(slots))
 }

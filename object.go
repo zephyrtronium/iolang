@@ -86,6 +86,7 @@ func (vm *VM) initObject() {
 		"while":         vm.NewCFunction(ObjectWhile, "ObjectWhile(cond, msg)"),
 	}
 	vm.BaseObject.Slots = slots
+	SetSlot(vm.Core, "Object", vm.BaseObject)
 
 	slots["returnIfNonNil"] = slots["return"]
 }

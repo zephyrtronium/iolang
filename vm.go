@@ -6,6 +6,10 @@ import "fmt"
 type VM struct {
 	// Lobby is the default target of messages.
 	Lobby *Object
+	// Core is the object containing the basic types of Io.
+	Core *Object
+	// Addons is the object which will contain imported addons.
+	Addons *Object
 
 	// Singletons.
 	BaseObject *Object
@@ -17,16 +21,15 @@ type VM struct {
 	// Common numbers and strings to avoid needing new objects for each use.
 	NumberMemo map[float64]*Number
 	StringMemo map[string]*String
-
-	// Sets of default slots for new objects of any type.
-	// Addons might want to use this to hold their slots.
-	DefaultSlots map[string]Slots
 }
 
 // NewVM prepares a new VM to interpret Io code.
 func NewVM() *VM {
 	vm := VM{
-		Lobby: &Object{Slots: Slots{}}, // TODO: what are a vm's slots and protos?
+		Lobby: &Object{Slots: Slots{}},
+
+		Core:   &Object{},
+		Addons: &Object{},
 
 		BaseObject: &Object{},
 		True:       &Object{},
@@ -42,17 +45,13 @@ func NewVM() *VM {
 		StringMemo: make(map[string]*String, 129),
 	}
 
-	vm.Lobby.Protos = []Interface{vm.BaseObject}
-	// NOTE: the number here should be >= the number of types
-	vm.DefaultSlots = make(map[string]Slots, 20)
+	vm.initCore()
 	// We have to make CFunction's slots exist first to use NewCFunction.
-	vm.DefaultSlots["CFunction"] = Slots{}
+	vm.initCFunction()
+	vm.initSequence()
 	vm.initMessage()
 	vm.initNumber()
-	vm.DefaultSlots["Sequence"] = Slots{}
-	vm.DefaultSlots["ImmutableSequence"] = Slots{}
-	vm.DefaultSlots["Exception"] = Slots{}
-	vm.DefaultSlots["Error"] = Slots{}
+	vm.initException()
 	vm.initBlock()
 	vm.initCall()
 	vm.initObject()
@@ -69,6 +68,22 @@ func NewVM() *VM {
 	}
 
 	return &vm
+}
+
+// CoreInstance instantiates a type whose default slots are in vm.Core,
+// returning an Object with that type as its proto. Panics if there is no such
+// type!
+func (vm *VM) CoreInstance(name string) *Object {
+	// We only want to check vm.Core, not any of its protos (which includes
+	// Object, so it would be a long search), so we have to do the lookup
+	// manually.
+	vm.Core.L.Lock()
+	p, ok := vm.Core.Slots[name]
+	vm.Core.L.Unlock()
+	if ok {
+		return &Object{Slots: Slots{}, Protos: []Interface{p}}
+	}
+	panic("iolang: no Core proto named " + name)
 }
 
 // MemoizeNumber creates a quick-access Number with the given value.
@@ -144,6 +159,17 @@ func (vm *VM) AsString(obj Interface) string {
 		return s.String()
 	}
 	return fmt.Sprintf("%T_%p", obj, obj)
+}
+
+// initCore initializes Lobby, Core, and Addons for this VM. This only creates
+// room for other init functions to work with.
+func (vm *VM) initCore() {
+	// Other init* functions will set up Core slots, but it is courteous to
+	// make room for them.
+	vm.Core.Slots = make(Slots, 32)
+	vm.Core.Protos = []Interface{vm.BaseObject}
+	vm.Lobby.Protos = []Interface{vm.Core, vm.Addons}
+	SetSlot(vm.Lobby, "Protos", vm.ObjectWith(Slots{"Core": vm.Core, "Addons": vm.Addons}))
 }
 
 func (vm *VM) finalInit() {

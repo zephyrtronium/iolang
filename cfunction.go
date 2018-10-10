@@ -8,7 +8,7 @@ import (
 // of an Io VM.
 type Fn func(vm *VM, self, locals Interface, msg *Message) Interface
 
-// A CFunction is an object representing a compiled function.
+// A CFunction is an Io object representing a compiled function.
 type CFunction struct {
 	Object
 	Function Fn
@@ -19,7 +19,7 @@ type CFunction struct {
 // as the string representation of the function.
 func (vm *VM) NewCFunction(f Fn, name string) *CFunction {
 	return &CFunction{
-		Object:   Object{Slots: vm.DefaultSlots["CFunction"], Protos: []Interface{vm.BaseObject}},
+		Object:   *vm.CoreInstance("CFunction"),
 		Function: f,
 		Name:     name,
 	}
@@ -29,7 +29,7 @@ func (vm *VM) NewCFunction(f Fn, name string) *CFunction {
 // failed type assertions and returns an appropriate error instead.
 func (vm *VM) NewTypedCFunction(f Fn, name string) *CFunction {
 	return &CFunction{
-		Object: Object{Slots: vm.DefaultSlots["CFunction"], Protos: []Interface{vm.BaseObject}},
+		Object: *vm.CoreInstance("CFunction"),
 		Function: func(vm *VM, target, locals Interface, msg *Message) (result Interface) {
 			defer func() {
 				e := recover()
@@ -63,4 +63,17 @@ func (f *CFunction) Activate(vm *VM, target, locals Interface, msg *Message) Int
 // asString method in Io.
 func (f *CFunction) String() string {
 	return f.Name
+}
+
+func (vm *VM) initCFunction() {
+	// TODO: CFunction slots
+	// NOTE: We can't use vm.NewString yet because initSequencehas to wait
+	// until after this. Use initCFunction2 instead.
+	slots := Slots{}
+	SetSlot(vm.Core, "CFunction", vm.ObjectWith(slots))
+}
+
+func (vm *VM) initCFunction2() {
+	slots := vm.Core.Slots["CFunction"].SP().Slots
+	slots["type"] = vm.NewString("CFunction")
 }

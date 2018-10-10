@@ -135,6 +135,9 @@ func (vm *VM) initOpTable() {
 		":=":  Operator{"setSlot", -1},
 		"=":   Operator{"updateSlot", -1},
 	}
+	// Even though there isn't actually any way to create a new OperatorTable,
+	// still create a proto in Core.
+	SetSlot(vm.Core, "OperatorTable", vm.Operators)
 }
 
 // shufLevel is a linked stack item to manage the messages to which to attach.

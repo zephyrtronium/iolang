@@ -15,6 +15,8 @@ type Block struct {
 	Activatable bool
 }
 
+// TODO: Block clone
+
 // Activate performs the messages in this block if the block is activatable.
 // Otherwise, this block is returned.
 func (b *Block) Activate(vm *VM, target, locals Interface, msg *Message) Interface {
@@ -49,8 +51,9 @@ func (b *Block) reallyActivate(vm *VM, target, locals Interface, msg *Message) I
 	return result
 }
 
+// NewLocals instantiates a Locals object for a block activation.
 func (vm *VM) NewLocals(self, call Interface) *Object {
-	lc := vm.ObjectWith(vm.DefaultSlots["Locals"])
+	lc := vm.CoreInstance("Locals")
 	SetSlot(lc, "self", self)
 	SetSlot(lc, "call", call)
 	return lc
@@ -60,15 +63,16 @@ func (vm *VM) initBlock() {
 	slots := Slots{
 		"asString": vm.NewTypedCFunction(BlockAsString, "BlockAsString()"),
 		"call":     vm.NewTypedCFunction(BlockCall, "BlockCall(...)"),
+		"type":     vm.NewString("Block"),
 	}
-	vm.DefaultSlots["Block"] = slots
+	SetSlot(vm.Core, "Block", vm.ObjectWith(slots))
 }
 
 func (vm *VM) initLocals() {
 	slots := Slots{
 		"forward": vm.NewCFunction(LocalsForward, "LocalsForward"),
 	}
-	vm.DefaultSlots["Locals"] = slots
+	SetSlot(vm.Core, "Locals", vm.ObjectWith(slots))
 }
 
 // ObjectBlock is an Object method.
@@ -83,7 +87,7 @@ func (vm *VM) initLocals() {
 //   4
 func ObjectBlock(vm *VM, target, locals Interface, msg *Message) Interface {
 	blk := Block{
-		Object:   Object{Slots: vm.DefaultSlots["Block"], Protos: []Interface{vm.BaseObject}},
+		Object:   *vm.CoreInstance("Block"),
 		Message:  msg.ArgAt(len(msg.Args) - 1),
 		Self:     locals,
 		ArgNames: make([]string, len(msg.Args)-1),

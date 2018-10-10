@@ -45,7 +45,7 @@ const (
 // may be passed as arguments.
 func (vm *VM) IdentMessage(s string, args ...*Message) *Message {
 	return &Message{
-		Object: Object{Slots: vm.DefaultSlots["Message"], Protos: []Interface{vm.BaseObject}},
+		Object: *vm.CoreInstance("Message"),
 		Symbol: Symbol{Kind: IdentSym, Text: s},
 		Args:   args,
 	}
@@ -54,7 +54,7 @@ func (vm *VM) IdentMessage(s string, args ...*Message) *Message {
 // StringMessage creates a message carrying a string value.
 func (vm *VM) StringMessage(s string) *Message {
 	return &Message{
-		Object: Object{Slots: vm.DefaultSlots["Message"], Protos: []Interface{vm.BaseObject}},
+		Object: *vm.CoreInstance("Message"),
 		Symbol: Symbol{Kind: StringSym, String: s},
 		Memo:   vm.NewString(s),
 	}
@@ -63,7 +63,7 @@ func (vm *VM) StringMessage(s string) *Message {
 // NumberMessage creates a message carrying a numeric value.
 func (vm *VM) NumberMessage(v float64) *Message {
 	return &Message{
-		Object: Object{Slots: vm.DefaultSlots["Message"], Protos: []Interface{vm.BaseObject}},
+		Object: *vm.CoreInstance("Message"),
 		Symbol: Symbol{Kind: NumSym, Num: v},
 		Memo:   vm.NewNumber(v),
 	}
@@ -302,8 +302,9 @@ func (m *Message) stringRecurse(vm *VM, b *bytes.Buffer) {
 func (vm *VM) initMessage() {
 	slots := Slots{
 		"asString": vm.NewTypedCFunction(MessageAsString, "MessageAsString()"),
+		"type":     vm.NewString("Message"),
 	}
-	vm.DefaultSlots["Message"] = slots
+	SetSlot(vm.Core, "Message", vm.ObjectWith(slots))
 }
 
 // MessageAsString is a Message method.

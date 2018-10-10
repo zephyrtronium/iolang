@@ -20,7 +20,7 @@ func (vm *VM) NewNumber(value float64) *Number {
 		return x
 	}
 	return &Number{
-		Object{Slots: vm.DefaultSlots["Number"], Protos: []Interface{vm.BaseObject}},
+		*vm.CoreInstance("Number"),
 		value,
 	}
 }
@@ -41,46 +41,30 @@ func (n *Number) String() string {
 // initNumber initializes Number on this VM.
 func (vm *VM) initNumber() {
 	slots := Slots{
-		"*":                 vm.NewTypedCFunction(NumberMul, "NumberMul(v)"),
-		"+":                 vm.NewTypedCFunction(NumberAdd, "NumberAdd(v)"),
-		"/":                 vm.NewTypedCFunction(NumberDiv, "NumberDiv(v)"),
-		"abs":               vm.NewTypedCFunction(NumberAbs, "NumberAbs()"),
-		"acos":              vm.NewTypedCFunction(NumberAcos, "NumberAcos()"),
-		"asBinary":          vm.NewTypedCFunction(NumberAsBinary, "NumberAsBinary()"),
-		"asCharacter":       vm.NewTypedCFunction(NumberAsCharacter, "NumberAsCharacter()"),
-		"asHex":             vm.NewTypedCFunction(NumberAsHex, "NumberAsHex()"),
-		"asLowercase":       vm.NewTypedCFunction(NumberAsLowercase, "NumberAsLowercase()"),
-		"asNumber":          vm.NewTypedCFunction(NumberAsNumber, "NumberAsNumber()"),
-		"asOctal":           vm.NewTypedCFunction(NumberAsOctal, "NumberAsOctal()"),
-		"asString":          vm.NewTypedCFunction(NumberAsString, "NumberAsString()"),
-		"asUppercase":       vm.NewTypedCFunction(NumberAsUppercase, "NumberAsUppercase()"),
-		"asin":              vm.NewTypedCFunction(NumberAsin, "NumberAsin()"),
-		"at":                vm.NewTypedCFunction(NumberAt, "NumberAt(idx)"),
-		"atan":              vm.NewTypedCFunction(NumberAtan, "NumberAtan()"),
-		"atan2":             vm.NewTypedCFunction(NumberAtan2, "NumberAtan2(x)"),
-		"between":           vm.NewTypedCFunction(NumberBetween, "NumberBetween(low, high)"),
-		"bitwiseAnd":        vm.NewTypedCFunction(NumberBitwiseAnd, "NumberBitwiseAnd(v)"),
-		"bitwiseComplement": vm.NewTypedCFunction(NumberBitwiseComplement, "NumberBitwiseComplement()"),
-		"bitwiseOr":         vm.NewTypedCFunction(NumberBitwiseOr, "NumberBitwiseOr(v)"),
-		"bitwiseXor":        vm.NewTypedCFunction(NumberBitwiseXor, "NumberBitwiseXor(v)"),
-		"ceil":              vm.NewTypedCFunction(NumberCeil, "NumberCeil()"),
-		"clip":              vm.NewTypedCFunction(NumberClip, "NumberClip(low, high)"),
-		"constants": vm.ObjectWith(Slots{
-			// Io originally had only e, inf, nan, and pi.
-			"e":       vm.NewNumber(math.E),
-			"pi":      vm.NewNumber(math.Pi),
-			"phi":     vm.NewNumber(math.Phi),
-			"sqrt2":   vm.NewNumber(math.Sqrt2),
-			"sqrtE":   vm.NewNumber(math.SqrtE),
-			"sqrtPi":  vm.NewNumber(math.SqrtPi),
-			"sqrtPhi": vm.NewNumber(math.SqrtPhi),
-			"ln2":     vm.NewNumber(math.Ln2),
-			"log2E":   vm.NewNumber(math.Log2E),
-			"ln10":    vm.NewNumber(math.Ln10),
-			"log10E":  vm.NewNumber(math.Log10E),
-			"inf":     vm.NewNumber(math.Inf(1)),
-			"nan":     vm.NewNumber(math.NaN()),
-		}),
+		"*":                  vm.NewTypedCFunction(NumberMul, "NumberMul(v)"),
+		"+":                  vm.NewTypedCFunction(NumberAdd, "NumberAdd(v)"),
+		"/":                  vm.NewTypedCFunction(NumberDiv, "NumberDiv(v)"),
+		"abs":                vm.NewTypedCFunction(NumberAbs, "NumberAbs()"),
+		"acos":               vm.NewTypedCFunction(NumberAcos, "NumberAcos()"),
+		"asBinary":           vm.NewTypedCFunction(NumberAsBinary, "NumberAsBinary()"),
+		"asCharacter":        vm.NewTypedCFunction(NumberAsCharacter, "NumberAsCharacter()"),
+		"asHex":              vm.NewTypedCFunction(NumberAsHex, "NumberAsHex()"),
+		"asLowercase":        vm.NewTypedCFunction(NumberAsLowercase, "NumberAsLowercase()"),
+		"asNumber":           vm.NewTypedCFunction(NumberAsNumber, "NumberAsNumber()"),
+		"asOctal":            vm.NewTypedCFunction(NumberAsOctal, "NumberAsOctal()"),
+		"asString":           vm.NewTypedCFunction(NumberAsString, "NumberAsString()"),
+		"asUppercase":        vm.NewTypedCFunction(NumberAsUppercase, "NumberAsUppercase()"),
+		"asin":               vm.NewTypedCFunction(NumberAsin, "NumberAsin()"),
+		"at":                 vm.NewTypedCFunction(NumberAt, "NumberAt(idx)"),
+		"atan":               vm.NewTypedCFunction(NumberAtan, "NumberAtan()"),
+		"atan2":              vm.NewTypedCFunction(NumberAtan2, "NumberAtan2(x)"),
+		"between":            vm.NewTypedCFunction(NumberBetween, "NumberBetween(low, high)"),
+		"bitwiseAnd":         vm.NewTypedCFunction(NumberBitwiseAnd, "NumberBitwiseAnd(v)"),
+		"bitwiseComplement":  vm.NewTypedCFunction(NumberBitwiseComplement, "NumberBitwiseComplement()"),
+		"bitwiseOr":          vm.NewTypedCFunction(NumberBitwiseOr, "NumberBitwiseOr(v)"),
+		"bitwiseXor":         vm.NewTypedCFunction(NumberBitwiseXor, "NumberBitwiseXor(v)"),
+		"ceil":               vm.NewTypedCFunction(NumberCeil, "NumberCeil()"),
+		"clip":               vm.NewTypedCFunction(NumberClip, "NumberClip(low, high)"),
 		"cos":                vm.NewTypedCFunction(NumberCos, "NumberCos()"),
 		"cubed":              vm.NewTypedCFunction(NumberCubed, "NumberCubed()"),
 		"exp":                vm.NewTypedCFunction(NumberExp, "NumberExp()"),
@@ -119,7 +103,7 @@ func (vm *VM) initNumber() {
 		"toggle":             vm.NewTypedCFunction(NumberToggle, "NumberToggle()"),
 		"type":               vm.NewString("Number"),
 	}
-	vm.DefaultSlots["Number"] = slots
+	SetSlot(vm.Core, "Number", vm.ObjectWith(slots))
 
 	for i := -1; i <= 255; i++ {
 		vm.MemoizeNumber(float64(i))
@@ -159,6 +143,22 @@ func (vm *VM) initNumber() {
 	slots["integerMin"] = vm.NumberMemo[math.MinInt64]
 	slots["integerMax"] = vm.NumberMemo[math.MaxInt64]
 	// TODO: long/unsigned limits, toBaseWholeBytes
+	slots["constants"] = vm.ObjectWith(Slots{
+		// Io originally had only e, inf, nan, and pi.
+		"e":       vm.NewNumber(math.E),
+		"pi":      vm.NewNumber(math.Pi),
+		"phi":     vm.NewNumber(math.Phi),
+		"sqrt2":   vm.NewNumber(math.Sqrt2),
+		"sqrtE":   vm.NewNumber(math.SqrtE),
+		"sqrtPi":  vm.NewNumber(math.SqrtPi),
+		"sqrtPhi": vm.NewNumber(math.SqrtPhi),
+		"ln2":     vm.NewNumber(math.Ln2),
+		"log2E":   vm.NewNumber(math.Log2E),
+		"ln10":    vm.NewNumber(math.Ln10),
+		"log10E":  vm.NewNumber(math.Log10E),
+		"inf":     vm.NewNumber(math.Inf(1)),
+		"nan":     vm.NewNumber(math.NaN()),
+	})
 }
 
 // NumberAbs is a Number method.

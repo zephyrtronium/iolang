@@ -13,12 +13,8 @@ type List struct {
 
 // NewList creates a List with the given items.
 func (vm *VM) NewList(items ...Interface) *List {
-	// TODO: Io> list slotNames
-	//       ==> list()
-	//       Io> list protos map(type)
-	//       ==> list(List)
 	return &List{
-		Object{Slots: vm.DefaultSlots["List"], Protos: []Interface{vm.BaseObject}},
+		*vm.CoreInstance("List"),
 		items,
 	}
 }
@@ -57,10 +53,10 @@ func (vm *VM) initList() {
 		"remove":              vm.NewTypedCFunction(ListRemove, "ListRemove(a, b, ...)"),
 		"removeAll":           vm.NewTypedCFunction(ListRemoveAll, "ListRemoveAll()"),
 		"removeAt":            vm.NewTypedCFunction(ListRemoveAt, "ListRemoveAt(k)"),
+		"type":                vm.NewString("List"),
 		"with":                vm.NewCFunction(ListWith, "ListWith(a, b, ...)"),
 	}
-	vm.DefaultSlots["List"] = slots
-	vm.BaseObject.Slots["List"] = vm.NewList()
+	SetSlot(vm.Core, "List", vm.ObjectWith(slots))
 }
 
 // ListAppend is a List method.

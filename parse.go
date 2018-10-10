@@ -24,7 +24,7 @@ func (vm *VM) Parse(source io.Reader) (msg *Message, err error) {
 }
 
 func (vm *VM) parseRecurse(open rune, src *bufio.Reader, tokens chan token) (tok token, msg *Message, err error) {
-	msg = &Message{Object: Object{Slots: vm.DefaultSlots["Message"], Protos: []Interface{vm.BaseObject}}}
+	msg = &Message{Object: *vm.CoreInstance("Message")}
 	m := msg
 	defer func() {
 		if msg.Symbol.Kind == NoSym {
@@ -167,7 +167,7 @@ func (vm *VM) parseRecurse(open rune, src *bufio.Reader, tokens chan token) (tok
 			m.Memo = vm.NewString(tok.Value[3 : len(tok.Value)-3])
 		}
 		m.Next = &Message{
-			Object: Object{Slots: vm.DefaultSlots["Message"], Protos: []Interface{vm.BaseObject}},
+			Object: *vm.CoreInstance("Message"),
 			Prev:   m,
 		}
 		m = m.Next
