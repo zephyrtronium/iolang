@@ -168,8 +168,9 @@ func (vm *VM) initCore() {
 	// make room for them.
 	vm.Core.Slots = make(Slots, 32)
 	vm.Core.Protos = []Interface{vm.BaseObject}
-	vm.Lobby.Protos = []Interface{vm.Core, vm.Addons}
-	SetSlot(vm.Lobby, "Protos", vm.ObjectWith(Slots{"Core": vm.Core, "Addons": vm.Addons}))
+	lp := &Object{Slots: Slots{"Core": vm.Core, "Addons": vm.Addons}, Protos: []Interface{vm.Core}}
+	vm.Lobby.Protos = []Interface{lp}
+	SetSlot(vm.Lobby, "Protos", lp)
 	SetSlot(vm.Lobby, "Lobby", vm.Lobby)
 }
 
