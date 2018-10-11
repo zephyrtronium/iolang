@@ -72,6 +72,7 @@ func (vm *VM) initObject() {
 		"isTrue":     vm.True,
 		"loop":       vm.NewCFunction(ObjectLoop, "ObjectLoop(msg)"),
 		"method":     vm.NewCFunction(ObjectMethod, "ObjectMethod(args..., msg)"),
+		"protos":     vm.NewCFunction(ObjectProtos, "ObjectProtos"),
 		"return":     vm.NewCFunction(ObjectReturn, "ObjectReturn(result)"),
 		"setSlot":    vm.NewCFunction(ObjectSetSlot, "ObjectSetSlot(name, value)"),
 		"slotNames":  vm.NewCFunction(ObjectSlotNames, "ObjectSlotNames()"),
@@ -257,6 +258,16 @@ func ObjectSlotNames(vm *VM, target, locals Interface, msg *Message) Interface {
 		names = append(names, vm.NewString(name))
 	}
 	return vm.NewList(names...)
+}
+
+// ObjectProtos is an Object method.
+//
+// protos returns a list of the receiver's protos.
+func ObjectProtos(vm *VM, target, locals Interface, msg *Message) Interface {
+	protos := target.SP().Protos
+	v := make([]Interface, len(protos))
+	copy(v, protos)
+	return vm.NewList(v...)
 }
 
 // ObjectEvalArg is an Object method.

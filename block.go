@@ -65,7 +65,7 @@ func (vm *VM) initBlock() {
 		"call":     vm.NewTypedCFunction(BlockCall, "BlockCall(...)"),
 		"type":     vm.NewString("Block"),
 	}
-	SetSlot(vm.Core, "Block", vm.ObjectWith(slots))
+	SetSlot(vm.Core, "Block", &Block{Object: *vm.ObjectWith(slots)})
 }
 
 func (vm *VM) initLocals() {

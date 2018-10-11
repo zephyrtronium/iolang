@@ -94,5 +94,5 @@ func (vm *VM) initException() {
 	slots := Slots{
 		"type": vm.NewString("Exception"),
 	}
-	SetSlot(vm.Core, "Exception", vm.ObjectWith(slots))
+	SetSlot(vm.Core, "Exception", &Exception{*vm.ObjectWith(slots)})
 }

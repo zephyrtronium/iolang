@@ -304,7 +304,7 @@ func (vm *VM) initMessage() {
 		"asString": vm.NewTypedCFunction(MessageAsString, "MessageAsString()"),
 		"type":     vm.NewString("Message"),
 	}
-	SetSlot(vm.Core, "Message", vm.ObjectWith(slots))
+	SetSlot(vm.Core, "Message", &Message{Object: *vm.ObjectWith(slots), Symbol: Symbol{Kind: IdentSym}})
 }
 
 // MessageAsString is a Message method.

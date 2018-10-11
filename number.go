@@ -103,7 +103,7 @@ func (vm *VM) initNumber() {
 		"toggle":             vm.NewTypedCFunction(NumberToggle, "NumberToggle()"),
 		"type":               vm.NewString("Number"),
 	}
-	SetSlot(vm.Core, "Number", vm.ObjectWith(slots))
+	SetSlot(vm.Core, "Number", &Number{Object: *vm.ObjectWith(slots)})
 
 	for i := -1; i <= 255; i++ {
 		vm.MemoizeNumber(float64(i))

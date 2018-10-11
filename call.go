@@ -32,7 +32,7 @@ func (vm *VM) initCall() {
 		"target":    vm.NewTypedCFunction(CallTarget, "CallTarget()"),
 		"type":      vm.NewString("Call"),
 	}
-	SetSlot(vm.Core, "Call", vm.ObjectWith(slots))
+	SetSlot(vm.Core, "Call", &Call{Object: *vm.ObjectWith(slots)})
 }
 
 // CallActivated is a Call method.
