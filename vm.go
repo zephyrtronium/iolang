@@ -61,6 +61,7 @@ func NewVM() *VM {
 	vm.initOpTable()
 	vm.initLocals()
 	vm.initList()
+	vm.initCFunction2()
 
 	vm.MemoizeString("")
 	for i := rune(0); i <= 127; i++ {
