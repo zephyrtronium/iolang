@@ -42,6 +42,7 @@ func (vm *VM) initList() {
 		"atInsert":            vm.NewTypedCFunction(ListAtInsert, "ListAtInsert(k, v)"),
 		"atPut":               vm.NewTypedCFunction(ListAtPut, "ListAtPut(k, v)"),
 		"capacity":            vm.NewTypedCFunction(ListCapacity, "ListCapacity()"),
+		"compare":             vm.NewTypedCFunction(ListCompare, "ListCompare(v)"),
 		"contains":            vm.NewTypedCFunction(ListContains, "ListContains(a)"),
 		"containsAll":         vm.NewTypedCFunction(ListContainsAll, "ListContainsAll(a, b, ...)"),
 		"containsAny":         vm.NewTypedCFunction(ListContainsAny, "ListContainsAny(a, b, ...)"),
@@ -119,7 +120,7 @@ func ListAppendSeq(vm *VM, target, locals Interface, msg *Message) Interface {
 	o.L.Lock()
 	defer o.L.Unlock()
 	l := target.(*List)
-	nv := make([]Interface, 0, len(msg.Args))
+	nv := []Interface{}
 	defer func() {
 		l.Value = append(l.Value, nv...)
 	}()
@@ -132,6 +133,7 @@ func ListAppendSeq(vm *VM, target, locals Interface, msg *Message) Interface {
 			if r == l {
 				return vm.RaiseException("can't add a list to itself")
 			}
+			nv = append(nv, r.Value...)
 		} else {
 			return vm.RaiseExceptionf("all arguments to %s must be lists, not %s", msg.Symbol.Text, vm.TypeName(v))
 		}
@@ -240,6 +242,43 @@ func ListCapacity(vm *VM, target, locals Interface, msg *Message) Interface {
 	o.L.Lock()
 	defer o.L.Unlock()
 	return vm.NewNumber(float64(cap(target.(*List).Value)))
+}
+
+// ListCompare is a List method.
+//
+// compare returns -1 if the receiver is less than the argument, 1 if it is
+// greater, or 0 if they are equal.
+func ListCompare(vm *VM, target, locals Interface, msg *Message) Interface {
+	l := target.(*List)
+	v, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
+	if !ok {
+		return v
+	}
+	if r, ok := v.(*List); ok {
+		s1, s2 := len(l.Value), len(r.Value)
+		if s1 != s2 {
+			// This is not proper lexicographical order, but it is Io's order.
+			if s1 < s2 {
+				return vm.NewNumber(-1)
+			}
+			return vm.NewNumber(1)
+		}
+		for i, v := range l.Value {
+			x, ok := CheckStop(vm.Compare(v, r.Value[i]), ReturnStop)
+			if !ok {
+				return x
+			}
+			if n, ok := x.(*Number); ok {
+				if n.Value != 0 {
+					return n
+				}
+			} else {
+				return vm.RaiseExceptionf("compare returned non-number %s: %s", vm.TypeName(x), vm.AsString(x))
+			}
+		}
+		return vm.NewNumber(0)
+	}
+	return vm.NewNumber(float64(ptrCompare(l, v)))
 }
 
 // ListContains is a List method.

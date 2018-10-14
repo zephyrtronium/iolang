@@ -65,6 +65,7 @@ func (vm *VM) initNumber() {
 		"bitwiseXor":         vm.NewTypedCFunction(NumberBitwiseXor, "NumberBitwiseXor(v)"),
 		"ceil":               vm.NewTypedCFunction(NumberCeil, "NumberCeil()"),
 		"clip":               vm.NewTypedCFunction(NumberClip, "NumberClip(low, high)"),
+		"compare":            vm.NewTypedCFunction(NumberCompare, "NumberCompare(v)"),
 		"cos":                vm.NewTypedCFunction(NumberCos, "NumberCos()"),
 		"cubed":              vm.NewTypedCFunction(NumberCubed, "NumberCubed()"),
 		"exp":                vm.NewTypedCFunction(NumberExp, "NumberExp()"),
@@ -387,6 +388,26 @@ func NumberClip(vm *VM, target, locals Interface, msg *Message) Interface {
 		return arg1
 	}
 	return target
+}
+
+// NumberCompare is a Number method.
+//
+// compare returns -1 if the receiver is less than the argument, 1 if it is
+// greater, or 0 if they are equal.
+func NumberCompare(vm *VM, target, locals Interface, msg *Message) Interface {
+	// Io doesn't actually define a Number compare, but I'm doing it anyway.
+	arg, err := msg.NumberArgAt(vm, locals, 0)
+	if err != nil {
+		return vm.IoError(err)
+	}
+	a, b := target.(*Number).Value, arg.Value
+	if a < b {
+		return vm.NewNumber(-1)
+	}
+	if a > b {
+		return vm.NewNumber(1)
+	}
+	return vm.NewNumber(0)
 }
 
 // NumberCos is a Number method.

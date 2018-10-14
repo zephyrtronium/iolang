@@ -2,7 +2,7 @@ package iolang
 
 import (
 	"fmt"
-	// "github.com/davecgh/go-spew/spew"
+	"reflect"
 	"sync"
 )
 
@@ -65,6 +65,7 @@ func (vm *VM) initObject() {
 		"break":      vm.NewCFunction(ObjectBreak, "ObjectBreak(result)"),
 		"block":      vm.NewCFunction(ObjectBlock, "ObjectBlock(args..., msg)"),
 		"clone":      vm.NewCFunction(ObjectClone, "ObjectClone()"),
+		"compare":    vm.NewCFunction(ObjectCompare, "ObjectCompare()"),
 		"continue":   vm.NewCFunction(ObjectContinue, "ObjectContinue()"),
 		"for":        vm.NewCFunction(ObjectFor, "ObjectFor(ctr, start, stop, [step,] msg)"),
 		"getSlot":    vm.NewCFunction(ObjectGetSlot, "ObjectGetSlot(name)"),
@@ -311,4 +312,53 @@ func ObjectAsString(vm *VM, target, locals Interface, msg *Message) Interface {
 		return vm.NewString(stringer.String())
 	}
 	return vm.NewString(fmt.Sprintf("%T_%p", target, target))
+}
+
+// Compare uses the compare method of x to compare to y. The result should be a
+// *Number holding -1, 0, or 1, if the compare method is proper and no
+// exception occurs. If an exception is raised, its Stop will be returned. In
+// the event that the compare slot exists but is not an Actor, it will be
+// returned.
+func (vm *VM) Compare(x, y Interface) Interface {
+	cmp, proto := GetSlot(x, "compare")
+	if proto == nil {
+		// No compare method.
+		return vm.NewNumber(float64(ptrCompare(x, y)))
+	}
+	if a, ok := cmp.(Actor); ok {
+		arg := &Message{Memo: y}
+		r, _ := CheckStop(a.Activate(vm, x, x, vm.IdentMessage("compare", arg)), ReturnStop)
+		return r
+	}
+	// If the compare slot isn't an actor, there isn't really much to do except
+	// return it, in case someone does `theirObject compare := 1` to benchmark
+	// their sorting algorithm or something.
+	return cmp
+}
+
+// ObjectCompare is an Object method.
+//
+// compare returns -1 if the receiver is less than the argument, 1 if it is
+// greater, or 0 if they are equal. The default order is the order of the
+// numeric values of the objects' addresses.
+func ObjectCompare(vm *VM, target, locals Interface, msg *Message) Interface {
+	if v, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops); !ok {
+		return v
+	} else {
+		return vm.NewNumber(float64(ptrCompare(target, v)))
+	}
+}
+
+// ptrCompare returns a compare value for the pointers of two objects. It
+// panics if the value is not a real object.
+func ptrCompare(x, y Interface) int {
+	a := reflect.ValueOf(x.SP()).Pointer()
+	b := reflect.ValueOf(y.SP()).Pointer()
+	if a < b {
+		return -1
+	}
+	if a > b {
+		return 1
+	}
+	return 0
 }
