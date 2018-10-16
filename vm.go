@@ -68,6 +68,8 @@ func NewVM() *VM {
 		vm.MemoizeString(string(i))
 	}
 
+	vm.finalInit()
+
 	return &vm
 }
 
@@ -178,21 +180,22 @@ func (vm *VM) initCore() {
 func (vm *VM) finalInit() {
 	// Define extras in Io once the VM is capable of executing code.
 	const (
-		object = `Object setSlot("and", method(v, v isTrue))`
+		object = `Object setSlot("and", method(v, v isTrue))
+		Object setSlot("-", method(v, v negate))`
 		false_ = `false setSlot("or", method(v, v isTrue))`
 		nil_   = `nil setSlot("or", method(v, v isTrue))`
-		number = `Number do(
-			combinations := method(r, self factorial / ((self - r) factorial) / (r factorial))
-			permutations := method(r, self factorial / ((self - r) factorial))
-		)`
-		list = `List do(
-			first := method(self at(0))
-			last  := method(self at(self size - 1))
-		)`
+		// number = `Number do(
+		// 	combinations := method(r, self factorial / ((self - r) factorial) / (r factorial))
+		// 	permutations := method(r, self factorial / ((self - r) factorial))
+		// )`
+		// list = `List do(
+		// 	first := method(self at(0))
+		// 	last  := method(self at(self size - 1))
+		// )`
 	)
 	vm.DoString(object)
 	vm.DoString(false_)
 	vm.DoString(nil_)
-	vm.DoString(number)
-	vm.DoString(list)
+	// vm.DoString(number)
+	// vm.DoString(list)
 }

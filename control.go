@@ -341,3 +341,53 @@ func ListForeach(vm *VM, target, locals Interface, msg *Message) Interface {
 	}
 	return result
 }
+
+// ListReverseForeach is a List method.
+//
+// reverseForeach performs a loop on each item of a list in order, optionally
+// setting index and value variables, proceeding from the end of the list to
+// the start.
+func ListReverseForeach(vm *VM, target, locals Interface, msg *Message) Interface {
+	var kn, vn string
+	var hkn, hvn bool
+	var ev *Message
+	if len(msg.Args) == 3 {
+		kn = msg.ArgAt(0).Name()
+		vn = msg.ArgAt(1).Name()
+		ev = msg.ArgAt(2)
+		hkn, hvn = true, true
+	} else if len(msg.Args) == 2 {
+		vn = msg.ArgAt(0).Name()
+		ev = msg.ArgAt(1)
+		hvn = true
+	} else if len(msg.Args) == 1 {
+		ev = msg.ArgAt(0)
+	} else {
+		return vm.RaiseException("reverseForeach requires 1, 2, or 3 arguments")
+	}
+	l := target.(*List)
+	var result Interface
+	for k := len(l.Value) - 1; k >= 0; k-- {
+		v := l.Value[k]
+		if hvn {
+			SetSlot(locals, vn, v)
+			if hkn {
+				SetSlot(locals, kn, vm.NewNumber(float64(k)))
+			}
+		}
+		result = ev.Eval(vm, locals)
+		if rr, ok := CheckStop(result, NoStop); !ok {
+			switch s := rr.(Stop); s.Status {
+			case ContinueStop:
+				result = s.Result
+			case BreakStop:
+				return s.Result
+			case ReturnStop, ExceptionStop:
+				return rr
+			default:
+				panic(fmt.Sprintf("iolang: invalid Stop: %#v", rr))
+			}
+		}
+	}
+	return result
+}

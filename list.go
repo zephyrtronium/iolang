@@ -54,6 +54,13 @@ func (vm *VM) initList() {
 		"remove":              vm.NewTypedCFunction(ListRemove, "ListRemove(a, b, ...)"),
 		"removeAll":           vm.NewTypedCFunction(ListRemoveAll, "ListRemoveAll()"),
 		"removeAt":            vm.NewTypedCFunction(ListRemoveAt, "ListRemoveAt(k)"),
+		"reverseForeach":      vm.NewTypedCFunction(ListReverseForeach, "ListReverseForeach([[k, ]v, ]m"),
+		"reverseInPlace":      vm.NewTypedCFunction(ListReverseInPlace, "ListReverseInPlace()"),
+		"setSize":             vm.NewTypedCFunction(ListSetSize, "ListSetSize(n)"),
+		"size":                vm.NewTypedCFunction(ListSize, "ListSize()"),
+		"slice":               vm.NewTypedCFunction(ListSlice, "ListSlice(start[, step][, stop])"),
+		"sliceInPlace":        vm.NewTypedCFunction(ListSliceInPlace, "ListSliceInPlace(start[, step][, stop])"),
+		"swapIndices":         vm.NewTypedCFunction(ListSwapIndices, "ListSwapIndices(i, j)"),
 		"type":                vm.NewString("List"),
 		"with":                vm.NewCFunction(ListWith, "ListWith(a, b, ...)"),
 	}
@@ -522,8 +529,216 @@ func ListRemoveAt(vm *VM, target, locals Interface, msg *Message) Interface {
 	return target
 }
 
-// TODO: reverseForeach, reverseInPlace, setSize, size, slice, sliceInPlace
-// TODO: sortInPlace, sortInPlaceBy, swapIndices
+// ListReverseInPlace is a List method.
+//
+// reverseInPlace reverses the order of items in the list.
+func ListReverseInPlace(vm *VM, target, locals Interface, msg *Message) Interface {
+	o := target.SP()
+	o.L.Lock()
+	defer o.L.Unlock()
+	l := target.(*List)
+	ll := len(l.Value)
+	for i := 0; i < ll/2; i++ {
+		l.Value[i], l.Value[ll-1-i] = l.Value[ll-1-i], l.Value[i]
+	}
+	return target
+}
+
+// ListSetSize is a List method.
+//
+// setSize changes the size of the list, removing items from or adding nils to
+// the end as necessary.
+func ListSetSize(vm *VM, target, locals Interface, msg *Message) Interface {
+	o := target.SP()
+	o.L.Lock()
+	defer o.L.Unlock()
+	l := target.(*List)
+	v, err := msg.NumberArgAt(vm, locals, 0)
+	if err != nil {
+		return vm.IoError(err)
+	}
+	n := int(v.Value)
+	if n <= len(l.Value) {
+		l.Value = l.Value[:n]
+	} else {
+		ll := len(l.Value)
+		nn := n - ll
+		l.Value = append(l.Value, make([]Interface, nn)...)
+		// It probably would be fine to leave the added items as Go nils, but
+		// I'm more comfortable changing them to Io nils.
+		for i := ll; i < len(l.Value); i++ {
+			l.Value[i] = vm.Nil
+		}
+	}
+	return target
+}
+
+// ListSize is a List method.
+//
+// size is the number of items in the list.
+func ListSize(vm *VM, target, locals Interface, msg *Message) Interface {
+	o := target.SP()
+	o.L.Lock()
+	defer o.L.Unlock()
+	return vm.NewNumber(float64(len(target.(*List).Value)))
+}
+
+func sliceArgs(vm *VM, locals Interface, msg *Message, size int) (start, step, stop int, err error) {
+	start = 0
+	step = 1
+	stop = size
+	n := len(msg.Args)
+	x, err := msg.NumberArgAt(vm, locals, 0)
+	if err != nil {
+		return
+	}
+	start = int(x.Value)
+	if n >= 2 {
+		x, err = msg.NumberArgAt(vm, locals, 1)
+		if err != nil {
+			return
+		}
+		stop = int(x.Value)
+		if n >= 3 {
+			x, err = msg.NumberArgAt(vm, locals, 2)
+			if err != nil {
+				return
+			}
+			step = int(x.Value)
+			if step == 0 {
+				err = vm.NewException("slice step cannot be zero")
+				return
+			}
+		}
+	}
+	start = fixSliceIndex(start, step, size)
+	stop = fixSliceIndex(stop, step, size)
+	return
+}
+
+func fixSliceIndex(k, step, size int) int {
+	if k < 0 {
+		k += size
+		if k < 0 {
+			if step < 0 {
+				return -1
+			}
+			return 0
+		}
+	} else if k >= size {
+		if step < 0 {
+			return size - 1
+		}
+		return size
+	}
+	return k
+}
+
+// ListSlice is a List method.
+//
+// slice returns a selected linear portion of the list.
+func ListSlice(vm *VM, target, locals Interface, msg *Message) Interface {
+	o := target.SP()
+	o.L.Lock()
+	defer o.L.Unlock()
+	l := target.(*List)
+	start, step, stop, err := sliceArgs(vm, locals, msg, len(l.Value))
+	if err != nil {
+		return vm.IoError(err)
+	}
+	nn := 0
+	if step > 0 {
+		nn = (stop - start + step - 1) / step
+	} else {
+		nn = (stop - start + step + 1) / step
+	}
+	if nn <= 0 {
+		return vm.NewList()
+	}
+	v := make([]Interface, 0, nn)
+	if step > 0 {
+		for start < stop {
+			v = append(v, l.Value[start])
+			start += step
+		}
+	} else {
+		for start > stop {
+			v = append(v, l.Value[start])
+			start += step
+		}
+	}
+	return vm.NewList(v...)
+}
+
+// ListSliceInPlace is a List method.
+//
+// sliceInPlace reduces the list to a selected linear portion.
+func ListSliceInPlace(vm *VM, target, locals Interface, msg *Message) Interface {
+	o := target.SP()
+	o.L.Lock()
+	defer o.L.Unlock()
+	l := target.(*List)
+	start, step, stop, err := sliceArgs(vm, locals, msg, len(l.Value))
+	if err != nil {
+		return vm.IoError(err)
+	}
+	nn := 0
+	if step > 0 {
+		nn = (stop - start + step - 1) / step
+	} else {
+		nn = (stop - start + step + 1) / step
+	}
+	if nn <= 0 {
+		l.Value = l.Value[:0]
+		return target
+	}
+	if step > 0 {
+		for j := 0; start < stop; j++ {
+			l.Value[j] = l.Value[start]
+			start += step
+		}
+	} else {
+		// Swap items between the input and output cursors until they pass each
+		// other, and then use the location to which a value would have been
+		// swapped as the input.
+		i, j := start, 0
+		for i > j && i > stop {
+			l.Value[j], l.Value[i] = l.Value[i], l.Value[j]
+			i += step
+			j++
+		}
+		for i > stop {
+			l.Value[j] = l.Value[start+i*step]
+			i += step
+			j++
+		}
+	}
+	l.Value = l.Value[:nn]
+	return target
+}
+
+// TODO: sortInPlace, sortInPlaceBy
+
+// ListSwapIndices is a List method.
+//
+// swapIndices swaps the values in two positions in the list.
+func ListSwapIndices(vm *VM, target, locals Interface, msg *Message) Interface {
+	o := target.SP()
+	o.L.Lock()
+	defer o.L.Unlock()
+	l := target.(*List)
+	a, err := msg.NumberArgAt(vm, locals, 0)
+	if err != nil {
+		return vm.IoError(err)
+	}
+	b, err := msg.NumberArgAt(vm, locals, 1)
+	if err != nil {
+		return vm.IoError(err)
+	}
+	i, j := int(a.Value), int(b.Value)
+	l.Value[i], l.Value[j] = l.Value[j], l.Value[i]
+	return target
+}
 
 // ListWith is a List method.
 //

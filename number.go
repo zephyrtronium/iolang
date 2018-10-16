@@ -43,6 +43,7 @@ func (vm *VM) initNumber() {
 	slots := Slots{
 		"*":                  vm.NewTypedCFunction(NumberMul, "NumberMul(v)"),
 		"+":                  vm.NewTypedCFunction(NumberAdd, "NumberAdd(v)"),
+		"-":                  vm.NewTypedCFunction(NumberSub, "NumberSub(v)"),
 		"/":                  vm.NewTypedCFunction(NumberDiv, "NumberDiv(v)"),
 		"abs":                vm.NewTypedCFunction(NumberAbs, "NumberAbs()"),
 		"acos":               vm.NewTypedCFunction(NumberAcos, "NumberAcos()"),
