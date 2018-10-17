@@ -148,6 +148,17 @@ func SetSlot(o Interface, slot string, value Interface) {
 	obj.Slots[slot] = value
 }
 
+// MutableMethod locks an object, so that methods on mutable objects can
+// synchronize. The returned value is the unlock function, so that methods can
+// call this like:
+//
+//    defer MutableMethod(target)()
+func MutableMethod(o Interface) func() {
+	sp := o.SP()
+	sp.L.Lock()
+	return sp.L.Unlock
+}
+
 // TypeName gets the name of the type of an object by activating its type slot.
 // If there is no such slot, the Go type name will be returned.
 func (vm *VM) TypeName(o Interface) string {
