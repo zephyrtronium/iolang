@@ -181,25 +181,15 @@ const (
 // pop unlinks the stack until a level at least as binding as op is found,
 // returning the new top of the stack.
 func (ll *shufLevel) pop(op Operator) *shufLevel {
-	for ll != nil && ll.op.MoreBinding(op) && ll.typ != levArg {
+	for ll != nil && ll.up != nil && ll.op.MoreBinding(op) && ll.typ != levArg {
 		ll.finish()
 		ll, ll.up, ll.m = ll.up, nil, nil
 	}
 	return ll
 }
 
-// clear unlinks the stack down to the bottom level, as if calling
-// ll.pop(opOnlyMoreBindingThanLeastBindingOp).
+// clear fully clears the stack to prepare for the next top-level message.
 func (ll *shufLevel) clear() *shufLevel {
-	for ll != nil && ll.up != nil && ll.typ != levArg {
-		ll.finish()
-		ll, ll.up, ll.m = ll.up, nil, nil
-	}
-	return ll
-}
-
-// fullClear fully clears the stack to prepare for the next top-level message.
-func (ll *shufLevel) fullClear() *shufLevel {
 	for ll != nil && ll.up != nil {
 		ll.finish()
 		ll, ll.up, ll.m = ll.up, nil, nil
@@ -388,7 +378,7 @@ func (ll *shufLevel) doLevel(vm *VM, ops *OpTable, m *Message) (nl *shufLevel, n
 		}
 	case SemiSym:
 		// Terminator.
-		ll = ll.clear()
+		ll = ll.pop(leastBindingOp)
 		ll.attachReplace(m)
 	case NumSym, StringSym:
 		// Literal. The handling is the same as for a non-operator identifier.
@@ -443,7 +433,7 @@ func (vm *VM) OpShuffle(m *Message) (err *Exception) {
 			}
 			expr = expr.Next
 		}
-		ll.fullClear()
+		ll.clear()
 	}
 	return nil
 }
