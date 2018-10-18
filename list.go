@@ -65,6 +65,7 @@ func (vm *VM) initList() {
 		"with":                vm.NewCFunction(ListWith, "ListWith(a, b, ...)"),
 	}
 	SetSlot(vm.Core, "List", &List{Object: *vm.ObjectWith(slots)})
+	SetSlot(vm.BaseObject, "list", slots["with"])
 }
 
 // ListAppend is a List method.
