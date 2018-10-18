@@ -61,8 +61,8 @@ func (vm *VM) NewLocals(self, call Interface) *Object {
 
 func (vm *VM) initBlock() {
 	slots := Slots{
-		"asString": vm.NewTypedCFunction(BlockAsString, "BlockAsString()"),
-		"call":     vm.NewTypedCFunction(BlockCall, "BlockCall(...)"),
+		"asString": vm.NewTypedCFunction(BlockAsString),
+		"call":     vm.NewTypedCFunction(BlockCall),
 		"type":     vm.NewString("Block"),
 	}
 	SetSlot(vm.Core, "Block", &Block{Object: *vm.ObjectWith(slots)})
@@ -70,7 +70,7 @@ func (vm *VM) initBlock() {
 
 func (vm *VM) initLocals() {
 	slots := Slots{
-		"forward": vm.NewCFunction(LocalsForward, "LocalsForward"),
+		"forward": vm.NewCFunction(LocalsForward),
 	}
 	SetSlot(vm.Core, "Locals", vm.ObjectWith(slots))
 }

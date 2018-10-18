@@ -1,6 +1,7 @@
 package iolang
 
 import (
+	"reflect"
 	"runtime"
 )
 
@@ -15,19 +16,21 @@ type CFunction struct {
 	Name     string
 }
 
-// NewCFunction creates a new CFunction wrapping f, with the given name used
-// as the string representation of the function.
-func (vm *VM) NewCFunction(f Fn, name string) *CFunction {
+// NewCFunction creates a new CFunction wrapping f.
+func (vm *VM) NewCFunction(f Fn) *CFunction {
+	u := reflect.ValueOf(f).Pointer()
 	return &CFunction{
 		Object:   *vm.CoreInstance("CFunction"),
 		Function: f,
-		Name:     name,
+		Name:     runtime.FuncForPC(u).Name(),
 	}
 }
 
 // NewTypedCFunction creates a new CFunction with a wrapper that recovers from
 // failed type assertions and returns an appropriate error instead.
-func (vm *VM) NewTypedCFunction(f Fn, name string) *CFunction {
+func (vm *VM) NewTypedCFunction(f Fn) *CFunction {
+	u := reflect.ValueOf(f).Pointer()
+	name := runtime.FuncForPC(u).Name()
 	return &CFunction{
 		Object: *vm.CoreInstance("CFunction"),
 		Function: func(vm *VM, target, locals Interface, msg *Message) (result Interface) {
@@ -67,7 +70,7 @@ func (f *CFunction) String() string {
 
 func (vm *VM) initCFunction() {
 	// TODO: CFunction slots
-	// NOTE: We can't use vm.NewString yet because initSequencehas to wait
+	// NOTE: We can't use vm.NewString yet because initSequence has to wait
 	// until after this. Use initCFunction2 instead.
 	slots := Slots{}
 	SetSlot(vm.Core, "CFunction", vm.ObjectWith(slots))

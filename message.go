@@ -301,7 +301,7 @@ func (m *Message) stringRecurse(vm *VM, b *bytes.Buffer) {
 
 func (vm *VM) initMessage() {
 	slots := Slots{
-		"asString": vm.NewTypedCFunction(MessageAsString, "MessageAsString()"),
+		"asString": vm.NewTypedCFunction(MessageAsString),
 		"type":     vm.NewString("Message"),
 	}
 	SetSlot(vm.Core, "Message", &Message{Object: *vm.ObjectWith(slots), Symbol: Symbol{Kind: IdentSym}})
