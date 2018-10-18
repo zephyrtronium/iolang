@@ -106,8 +106,11 @@ outer:
 			return r
 		}
 		for _, v := range l.Value {
-			// TODO: use Io comparison
-			if r == v {
+			c, ok := CheckStop(vm.Compare(v, r), ReturnStop)
+			if !ok {
+				return c
+			}
+			if n, ok := c.(*Number); ok && n.Value == 0 {
 				continue outer
 			}
 		}
@@ -266,12 +269,8 @@ func ListCompare(vm *VM, target, locals Interface, msg *Message) Interface {
 			if !ok {
 				return x
 			}
-			if n, ok := x.(*Number); ok {
-				if n.Value != 0 {
-					return n
-				}
-			} else {
-				return vm.RaiseExceptionf("compare returned non-number %s: %s", vm.TypeName(x), vm.AsString(x))
+			if n, ok := x.(*Number); ok && n.Value != 0 {
+				return n
 			}
 		}
 		return vm.NewNumber(0)
@@ -290,8 +289,11 @@ func ListContains(vm *VM, target, locals Interface, msg *Message) Interface {
 		return r
 	}
 	for _, v := range target.(*List).Value {
-		// TODO: use Io comparison
-		if r == v {
+		c, ok := CheckStop(vm.Compare(v, r), ReturnStop)
+		if !ok {
+			return c
+		}
+		if n, ok := c.(*Number); ok && n.Value == 0 {
 			return vm.True
 		}
 	}
@@ -312,20 +314,18 @@ func ListContainsAll(vm *VM, target, locals Interface, msg *Message) Interface {
 			return r[i]
 		}
 	}
-	c := make([]bool, len(r))
-	for _, v := range target.(*List).Value {
-		for i, ri := range r {
-			// TODO: use Io comparison
-			if ri == v {
-				c[i] = true
-				break
+outer:
+	for _, v := range r {
+		for _, ri := range target.(*List).Value {
+			c, ok := CheckStop(vm.Compare(ri, v), ReturnStop)
+			if !ok {
+				return c
+			}
+			if n, ok := c.(*Number); ok && n.Value == 0 {
+				continue outer
 			}
 		}
-	}
-	for _, v := range c {
-		if !v {
-			return vm.False
-		}
+		return vm.False
 	}
 	return vm.True
 }
@@ -347,8 +347,11 @@ func ListContainsAny(vm *VM, target, locals Interface, msg *Message) Interface {
 	}
 	for _, v := range target.(*List).Value {
 		for _, ri := range r {
-			// TODO: use Io comparison
-			if ri == v {
+			c, ok := CheckStop(vm.Compare(ri, v), ReturnStop)
+			if !ok {
+				return c
+			}
+			if n, ok := c.(*Number); ok && n.Value == 0 {
 				return vm.True
 			}
 		}
@@ -385,8 +388,11 @@ func ListIndexOf(vm *VM, target, locals Interface, msg *Message) Interface {
 		return r
 	}
 	for i, v := range target.(*List).Value {
-		// TODO: use Io comparison
-		if r == v {
+		c, ok := CheckStop(vm.Compare(v, r), ReturnStop)
+		if !ok {
+			return c
+		}
+		if n, ok := c.(*Number); ok && n.Value == 0 {
 			return vm.NewNumber(float64(i))
 		}
 	}
@@ -458,6 +464,8 @@ func ListRemove(vm *VM, target, locals Interface, msg *Message) Interface {
 		}
 	}
 	j := 0
+	defer func() { l.Value = l.Value[:len(l.Value)-j] }()
+outer:
 	for k, v := range l.Value {
 		// Check whether the value exists by ID first, then check via compare.
 		if _, ok := rv[v]; ok {
@@ -465,12 +473,21 @@ func ListRemove(vm *VM, target, locals Interface, msg *Message) Interface {
 		} else {
 			// TODO: use Io comparison
 			// reminder: vvv is an else branch if Io comparison didn't match.
+			for r := range rv {
+				c, ok := CheckStop(vm.Compare(v, r), ReturnStop)
+				if !ok {
+					return c
+				}
+				if n, ok := c.(*Number); ok && n.Value == 0 {
+					j++
+					continue outer
+				}
+			}
 			if k-j >= 0 {
 				l.Value[k-j] = v
 			}
 		}
 	}
-	l.Value = l.Value[:len(l.Value)-j]
 	return target
 }
 
