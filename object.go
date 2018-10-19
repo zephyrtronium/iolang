@@ -61,6 +61,12 @@ func (vm *VM) initObject() {
 	vm.BaseObject.Protos = []Interface{vm.Lobby}
 	slots := Slots{
 		"":           vm.NewCFunction(ObjectEvalArg),
+		"!=":         vm.NewCFunction(ObjectNotEqual),
+		"<":          vm.NewCFunction(ObjectLess),
+		"<=":         vm.NewCFunction(ObjectLessOrEqual),
+		"==":         vm.NewCFunction(ObjectEqual),
+		">":          vm.NewCFunction(ObjectGreater),
+		">=":         vm.NewCFunction(ObjectGreaterOrEqual),
 		"asString":   vm.NewCFunction(ObjectAsString),
 		"break":      vm.NewCFunction(ObjectBreak),
 		"block":      vm.NewCFunction(ObjectBlock),
@@ -372,4 +378,112 @@ func ptrCompare(x, y Interface) int {
 		return 1
 	}
 	return 0
+}
+
+// ObjectLess is an Object method.
+//
+// x <(y) returns true if the result of x compare(y) is -1.
+func ObjectLess(vm *VM, target, locals Interface, msg *Message) Interface {
+	x, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), ReturnStop)
+	if !ok {
+		return x
+	}
+	c, ok := CheckStop(vm.Compare(target, x), ReturnStop)
+	if !ok {
+		return x
+	}
+	if n, ok := c.(*Number); ok {
+		return vm.IoBool(n.Value < 0)
+	}
+	return vm.IoBool(ptrCompare(target, c) < 0)
+}
+
+// ObjectLessOrEqual is an Object method.
+//
+// x <=(y) returns true if the result of x compare(y) is not 1.
+func ObjectLessOrEqual(vm *VM, target, locals Interface, msg *Message) Interface {
+	x, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), ReturnStop)
+	if !ok {
+		return x
+	}
+	c, ok := CheckStop(vm.Compare(target, x), ReturnStop)
+	if !ok {
+		return x
+	}
+	if n, ok := c.(*Number); ok {
+		return vm.IoBool(n.Value <= 0)
+	}
+	return vm.IoBool(ptrCompare(target, c) <= 0)
+}
+
+// ObjectEqual is an Object method.
+//
+// x ==(y) returns true if the result of x compare(y) is 0.
+func ObjectEqual(vm *VM, target, locals Interface, msg *Message) Interface {
+	x, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), ReturnStop)
+	if !ok {
+		return x
+	}
+	c, ok := CheckStop(vm.Compare(target, x), ReturnStop)
+	if !ok {
+		return x
+	}
+	if n, ok := c.(*Number); ok {
+		return vm.IoBool(n.Value == 0)
+	}
+	return vm.IoBool(ptrCompare(target, c) == 0)
+}
+
+// ObjectNotEqual is an Object method.
+//
+// x !=(y) returns true if the result of x compare(y) is not 0.
+func ObjectNotEqual(vm *VM, target, locals Interface, msg *Message) Interface {
+	x, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), ReturnStop)
+	if !ok {
+		return x
+	}
+	c, ok := CheckStop(vm.Compare(target, x), ReturnStop)
+	if !ok {
+		return x
+	}
+	if n, ok := c.(*Number); ok {
+		return vm.IoBool(n.Value != 0)
+	}
+	return vm.IoBool(ptrCompare(target, c) != 0)
+}
+
+// ObjectGreaterOrEqual is an Object method.
+//
+// x >=(y) returns true if the result of x compare(y) is not -1.
+func ObjectGreaterOrEqual(vm *VM, target, locals Interface, msg *Message) Interface {
+	x, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), ReturnStop)
+	if !ok {
+		return x
+	}
+	c, ok := CheckStop(vm.Compare(target, x), ReturnStop)
+	if !ok {
+		return x
+	}
+	if n, ok := c.(*Number); ok {
+		return vm.IoBool(n.Value >= 0)
+	}
+	return vm.IoBool(ptrCompare(target, c) >= 0)
+}
+
+// ObjectGreater is an Object method.
+//
+// x >(y) returns true if the result of x compare(y) is 1.
+func ObjectGreater(vm *VM, target, locals Interface, msg *Message) Interface {
+	x, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), ReturnStop)
+	if !ok {
+		return x
+	}
+	c, ok := CheckStop(vm.Compare(target, x), ReturnStop)
+	if !ok {
+		return x
+	}
+	if n, ok := c.(*Number); ok {
+		return vm.IoBool(n.Value > 0)
+	}
+	return vm.IoBool(ptrCompare(target, c) > 0)
 }

@@ -2,6 +2,7 @@ package iolang
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -60,6 +61,8 @@ func (vm *VM) initList() {
 		"size":                vm.NewTypedCFunction(ListSize),
 		"slice":               vm.NewTypedCFunction(ListSlice),
 		"sliceInPlace":        vm.NewTypedCFunction(ListSliceInPlace),
+		"sortInPlace":         vm.NewTypedCFunction(ListSortInPlace),
+		"sortInPlaceBy":       vm.NewTypedCFunction(ListSortInPlaceBy),
 		"swapIndices":         vm.NewTypedCFunction(ListSwapIndices),
 		"type":                vm.NewString("List"),
 		"with":                vm.NewCFunction(ListWith),
@@ -695,7 +698,112 @@ func ListSliceInPlace(vm *VM, target, locals Interface, msg *Message) Interface 
 	return target
 }
 
-// TODO: sortInPlace, sortInPlaceBy
+type listSorter struct {
+	v   []Interface // values to sort
+	vm  *VM         // VM to use for compare, &c.
+	e   *Message    // message to send to items, arg of sortInPlace
+	l   Interface   // locals for message send or sortInPlaceBy block
+	b   *Block      // block to use in place of compare, arg of sortInPlaceBy
+	m   *Message    // message to hold arguments to sortInPlaceBy block
+	err Interface   // error during compare
+}
+
+func (l *listSorter) Len() int {
+	return len(l.v)
+}
+
+func (l *listSorter) Swap(i, j int) {
+	l.v[i], l.v[j] = l.v[j], l.v[i]
+}
+
+func (l *listSorter) Less(i, j int) bool {
+	if l.err != nil {
+		// If an error has occurred, treat the list as already sorted.
+		return i < j
+	}
+	if l.b == nil {
+		a, b := l.v[i], l.v[j]
+		var ok bool
+		if l.e != nil {
+			a, ok = CheckStop(l.e.Send(l.vm, a, l.l), ReturnStop)
+			if !ok {
+				l.err = a
+				return i < j
+			}
+			b, ok = CheckStop(l.e.Send(l.vm, b, l.l), ReturnStop)
+			if !ok {
+				l.err = b
+				return i < j
+			}
+		}
+		r, ok := CheckStop(l.vm.Compare(a, b), ReturnStop)
+		if !ok {
+			l.err = r
+			return i < j
+		}
+		if n, ok := r.(*Number); ok {
+			return n.Value < 0
+		}
+		return l.vm.AsBool(r)
+	} else {
+		l.m.Args[0].Memo, l.m.Args[1].Memo = l.v[i], l.v[j]
+		r, ok := CheckStop(l.b.reallyActivate(l.vm, l.l, l.l, l.m), ReturnStop)
+		if !ok {
+			l.err = r
+			return i < j
+		}
+		return l.vm.AsBool(r)
+	}
+}
+
+// ListSortInPlace is a List method.
+//
+// sortInPlace sorts the list according to the items' compare method.
+func ListSortInPlace(vm *VM, target, locals Interface, msg *Message) Interface {
+	defer MutableMethod(target)()
+	l := target.(*List)
+	ls := listSorter{
+		v:  l.Value,
+		vm: vm,
+	}
+	if len(msg.Args) > 0 {
+		ls.e = msg.Args[0]
+		ls.l = locals
+	}
+	sort.Sort(&ls)
+	if ls.err != nil {
+		return ls.err
+	}
+	return target
+}
+
+// ListSortInPlaceBy is a List method.
+//
+// sortInPlaceBy sorts the list using a given compare block.
+func ListSortInPlaceBy(vm *VM, target, locals Interface, msg *Message) Interface {
+	defer MutableMethod(target)()
+	l := target.(*List)
+	r, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), ReturnStop)
+	if !ok {
+		return r
+	}
+	b, ok := r.(*Block)
+	if !ok {
+		return vm.RaiseException("argument 0 to List sortInPlaceBy must be Block, not " + vm.TypeName(b))
+	}
+	ls := listSorter{
+		v:  l.Value,
+		vm: vm,
+		l:  locals,
+		b:  b,
+		m:  vm.IdentMessage("", vm.IdentMessage(""), vm.IdentMessage("")),
+	}
+	sort.Sort(&ls)
+	if ls.err != nil {
+		return ls.err
+	}
+	return target
+}
 
 // ListSwapIndices is a List method.
 //
