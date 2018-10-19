@@ -80,24 +80,18 @@ func lexsend(err error, tokens chan<- token, good token) lexFn {
 
 // eatSpace consumes space and decides the next lexFn to use.
 func eatSpace(src *bufio.Reader, tokens chan<- token) lexFn {
-	// Could use accept here, but I've already written this.
-	r, _, err := src.ReadRune()
-	for {
-		if err != nil {
-			if err != io.EOF {
-				tokens <- token{
-					Kind:  badToken,
-					Value: string(r),
-					Err:   err,
-				}
+	_, r, err := accept(src, func(r rune) bool { return strings.ContainsRune(" \r\f\t\v", r) }, nil)
+	if err != nil {
+		if err != io.EOF {
+			tokens <- token{
+				Kind:  badToken,
+				Value: string(r),
+				Err:   err,
 			}
-			return nil
 		}
-		if !strings.ContainsRune(" \r\f\t\v", r) {
-			break
-		}
-		r, _, err = src.ReadRune()
+		return nil
 	}
+	src.ReadRune()
 	switch {
 	case r == ';', r == '\n':
 		tokens <- token{
