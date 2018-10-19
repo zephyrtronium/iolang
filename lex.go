@@ -91,51 +91,49 @@ func eatSpace(src *bufio.Reader, tokens chan<- token) lexFn {
 		}
 		return nil
 	}
-	src.ReadRune()
 	switch {
 	case r == ';', r == '\n':
+		src.ReadRune()
 		tokens <- token{
 			Kind:  semiToken,
 			Value: string(r),
 		}
 		return eatSpace
 	case 'a' <= r && r <= 'z', 'A' <= r && r <= 'Z', r == '_', r >= 0x80:
-		src.UnreadRune()
 		return lexIdent
 	case strings.ContainsRune("!$%&'*+-/:<=>?@\\^|~", r):
-		src.UnreadRune()
 		return lexOp
 	case strings.ContainsRune("([{", r):
+		src.ReadRune()
 		tokens <- token{
 			Kind:  openToken,
 			Value: string(r),
 		}
 		return eatSpace
 	case strings.ContainsRune(")]}", r):
+		src.ReadRune()
 		tokens <- token{
 			Kind:  closeToken,
 			Value: string(r),
 		}
 		return eatSpace
 	case r == ',':
+		src.ReadRune()
 		tokens <- token{
 			Kind:  commaToken,
 			Value: ",",
 		}
 		return eatSpace
 	case '0' <= r && r <= '9':
-		src.UnreadRune()
 		return lexNumber
 	case r == '.':
 		// . can be either a number or an identifier, because Dumbledore.
-		src.UnreadRune()
 		peek, _ := src.Peek(2)
 		if len(peek) > 1 && '0' <= peek[1] && peek[1] <= '9' {
 			return lexNumber
 		}
 		return lexIdent
 	case r == '"':
-		src.UnreadRune()
 		return lexString
 	}
 	panic(r)

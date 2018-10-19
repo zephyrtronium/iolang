@@ -50,10 +50,8 @@ func (vm *VM) parseRecurse(open rune, src *bufio.Reader, tokens chan token) (tok
 				// empty statement
 				continue
 			}
-			// TODO: if previous token is in the OperatorTable, ignore newline
 			m.Text = tok.Value
 		case identToken:
-			// TODO: handle operator precedence
 			m.Text = tok.Value
 		case openToken:
 			switch tok.Value {

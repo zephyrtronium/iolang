@@ -148,6 +148,7 @@ func (m *Message) Send(vm *VM, target, locals Interface) (result Interface) {
 		if m.Memo != nil {
 			// It is the parser's responsibility to set memos for literals.
 			result = m.Memo
+			target = result
 		} else {
 			if !m.IsTerminator() {
 				if newtarget, proto := GetSlot(target, m.Text); proto != nil {
