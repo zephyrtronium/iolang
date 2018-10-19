@@ -144,7 +144,7 @@ func ListAppendSeq(vm *VM, target, locals Interface, msg *Message) Interface {
 			}
 			nv = append(nv, r.Value...)
 		} else {
-			return vm.RaiseExceptionf("all arguments to %s must be lists, not %s", msg.Symbol.Text, vm.TypeName(v))
+			return vm.RaiseExceptionf("all arguments to %s must be lists, not %s", msg.Name(), vm.TypeName(v))
 		}
 	}
 	return target

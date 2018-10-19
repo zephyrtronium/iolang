@@ -267,7 +267,7 @@ func NumberRepeat(vm *VM, target, locals Interface, msg *Message) (result Interf
 		return vm.RaiseException("Number repeat requires 1 or 2 arguments")
 	}
 	counter, eval := msg.ArgAt(0), msg.ArgAt(1)
-	c := counter.Symbol.Text
+	c := counter.Name()
 	if eval == nil {
 		// One argument was supplied.
 		counter, eval = nil, counter

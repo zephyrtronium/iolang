@@ -246,7 +246,7 @@ func (ll *shufLevel) finish() {
 		m.InsertAfter(nil)
 		if len(m.Args) == 1 {
 			a := m.Args[0]
-			if a.Symbol.Kind == IdentSym && a.Symbol.Text == "" && len(a.Args) == 1 && a.Next == nil {
+			if a.Name() == "" && len(a.Args) == 1 && a.Next == nil {
 				// We added a () for grouping, but we don't need it anymore.
 				m.Args[0] = a.Args[0]
 				a.Args = nil
@@ -258,130 +258,119 @@ func (ll *shufLevel) finish() {
 // doLevel shuffles one level. The new stack top, extra messages to be
 // shuffled, and any syntax error are returned.
 func (ll *shufLevel) doLevel(vm *VM, ops *OpTable, m *Message) (nl *shufLevel, next []*Message, err *Exception) {
-	switch m.Symbol.Kind {
-	case IdentSym:
-		if op, ok := ops.Operators[m.Symbol.Text]; ok {
-			if op.Calls != "" {
-				// Assignment operator.
-				lhs := ll.m
-				if lhs == nil {
-					// Assigning to nothing is illegal.
-					err = vm.NewExceptionf("%s assigning to nothing", m.Symbol.Text)
-					return ll, nil, err
-				}
-				if len(m.Args) > 1 {
-					// Assignment operators are allowed to have only zero or
-					// one argument.
-					err = vm.NewExceptionf("too many arguments to %s", m.Symbol.Text)
-					return ll, nil, err
-				}
-				if m.Next.IsTerminator() && len(m.Args) == 0 {
-					// Assigning nothing to something is illegal.
-					err = vm.NewExceptionf("%s requires a value to assign", m.Symbol.Text)
-					return ll, nil, err
-				}
-				if len(lhs.Args) > 0 {
-					// Assigning to a call used to be illegal, but a recent
-					// change allows expressions like `a(b, c) := d`,
-					// transforming into `setSlot(a(b, c), d)`. This was to
-					// enable a Python-style multiple assignment syntax like
-					// `target [a, b, c] <- list(x, y, z)` to accomplish
-					// `target do(a = x; b = y; c = z)`.
-					//
-					// I'm not implementing this for a few reasons. First, the
-					// meaning of lhs in this form is different in a
-					// non-obvious way, as it is normally converted by name to
-					// a string; using an existing assignment operator and
-					// accidentally or unknowingly triggering this syntax will
-					// produce unexpected results. Second, the implmentation of
-					// this technique involves creating a deep copy of the
-					// entire message chain forward, meaning if a file begins
-					// with this type of assignment, the runtime will allocate
-					// (actually three) copies of *every message in the file*,
-					// recursively, causing essentially unbounded memory and
-					// stack usage. Third, the current syntax assumes only a
-					// single message follows the assignment operator, so
-					// `data(i,j) = Number constants pi` will transform to
-					// `assignOp(data(i,j), Number) constants pi`.
-					err = vm.NewExceptionf("message preceding %s must have no args", m.Symbol.Text)
-					return ll, nil, err
-				}
-
-				// Handle `a := (b c) d ; e` as follows:
-				//  1. Move op arg to a separate message: a :=() (b c) d ; e
-				//  2. Give lhs arguments: a("a", (...)) :=() (b c) d ; e
-				//  3. Change lhs name: setSlot("a", (...)) :=() (b c) d ; e
-				//  4. Move msgs up to terminator: setSlot("a", (b c) d) := ; e
-				//  5. Remove operator message: setSlot("a", (b c) d) ; e
-
-				// fmt.Println(vm.AsString(lhs))
-				// 1. Move the operator argument, if it exists, to a separate
-				// message.
-				if len(m.Args) > 0 {
-					// fmt.Println("move", m.Name(), "arg")
-					m.InsertAfter(vm.IdentMessage("", m.Args...))
-					m.Args = nil
-				}
-				// fmt.Println(vm.AsString(lhs))
-				// 2. Give lhs its arguments. The first is the name of the
-				// slot to which we're assigning (assuming a built-in
-				// assignment operator), and the second is the value to give
-				// it. We'll also need to shuffle that value later.
-				// fmt.Println("lhs args before:", lhs.Args)
-				lhs.Args = []*Message{vm.StringMessage(lhs.Name()), m.Next}
-				next = append(next, m.Next)
-				// fmt.Println("lhs args after:", lhs.Args)
-				// fmt.Println(vm.AsString(lhs))
-				// 3. Change lhs's name to the assign operator's call.
-				lhs.Symbol = Symbol{Kind: IdentSym, Text: op.Calls}
-				// fmt.Println("new lhs:", lhs.Name())
-				// fmt.Println(vm.AsString(lhs))
-				// 4. Move messages up to but not including the next terminator
-				// into the assignment's second argument. Really, we already
-				// moved it there; we're finding the message to be the next
-				// after lhs.
-				last := m.Next
-				for !last.Next.IsTerminator() {
-					last = last.Next
-				}
-				// fmt.Println("last:", last.Name())
-				if last.Next != nil {
-					last.Next.Prev = lhs
-				}
-				lhs.Next = last.Next
-				last.Next = nil
-				// fmt.Println("lhs.Next:", lhs.Next)
-				// fmt.Println(vm.AsString(lhs))
-
-				// 5. Remove the operator message.
-				m.Next = lhs.Next
-
-				// It's legal to do something like `1 := x`, so we need to make
-				// sure that x will be evaluated when that happens.
-				lhs.Memo = nil
-			} else {
-				// Non-assignment operator.
-				if len(m.Args) > 0 {
-					// `a + (b - c) * d` is initially parsed as `b - c` being
-					// the argument to +. In order to have order of operations
-					// make sense, we need to move that argument to a separate
-					// message, so we have `a +() (b - c) * d`, which we can
-					// then shuffle into `a +((b - c) *(d))`.
-					m.InsertAfter(vm.IdentMessage("", m.Args...))
-					m.Args = nil
-				}
-				ll = ll.pop(op).push(m, op)
+	if op, ok := ops.Operators[m.Name()]; ok {
+		if op.Calls != "" {
+			// Assignment operator.
+			lhs := ll.m
+			if lhs == nil {
+				// Assigning to nothing is illegal.
+				err = vm.NewExceptionf("%s assigning to nothing", m.Name())
+				return ll, nil, err
 			}
+			if len(m.Args) > 1 {
+				// Assignment operators are allowed to have only zero or
+				// one argument.
+				err = vm.NewExceptionf("too many arguments to %s", m.Name())
+				return ll, nil, err
+			}
+			if m.Next.IsTerminator() && len(m.Args) == 0 {
+				// Assigning nothing to something is illegal.
+				err = vm.NewExceptionf("%s requires a value to assign", m.Name())
+				return ll, nil, err
+			}
+			if len(lhs.Args) > 0 {
+				// Assigning to a call used to be illegal, but a recent change
+				// allows expressions like `a(b, c) := d`, tranforming into
+				// `setSlot(a(b, c), d)`. This was to enable a Python-style
+				// multiple assignment syntax like
+				// `target [a, b, c] <- list(x, y, z)` to accomplish
+				// `target do(a = x; b = y; c = z)`.
+				//
+				// I'm not implementing this for a few reasons. First, the
+				// meaning of lhs in this form is different in a non-obvious
+				// way, as it is normally converted by name to a string; using
+				// an existing assignment operator and accidentally or
+				// unknowingly triggering this syntax will produce unexpected
+				// results. Second, the implmentation of this technique
+				// involves creating a deep copy of the entire message chain
+				// forward, meaning if a file begins with this type of
+				// assignment, the runtime will allocate (actually three)
+				// copies of *every message in the file*, recursively, causing
+				// essentially unbounded memory and stack usage. Third, the
+				// current syntax assumes only a single message follows the
+				// assignment operator, so `data(i,j) = Number constants pi`
+				// will transform to
+				// `assignOp(data(i,j), Number) constants pi`.
+				//
+				// I will note, however, that I would prefer that setSlot and
+				// friends' first argument be the message rather than the
+				// name thereof, so that a syntax like this wanted to be could
+				// be implemented sanely and safely. This would be the time and
+				// place to make that change, but I don't think it's a good
+				// idea to diverge so far from Io early in development.
+				err = vm.NewExceptionf("message preceding %s must have no args", m.Name())
+				return ll, nil, err
+			}
+
+			// Handle `a := (b c) d ; e` as follows:
+			//  1. Move op arg to a separate message: a :=() (b c) d ; e
+			//  2. Give lhs arguments: a("a", (...)) :=() (b c) d ; e
+			//  3. Change lhs name: setSlot("a", (...)) :=() (b c) d ; e
+			//  4. Move msgs up to terminator: setSlot("a", (b c) d) := ; e
+			//  5. Remove operator message: setSlot("a", (b c) d) ; e
+
+			// 1. Move the operator argument, if it exists, to a separate
+			// message.
+			if len(m.Args) > 0 {
+				m.InsertAfter(vm.IdentMessage("", m.Args...))
+				m.Args = nil
+			}
+			// 2. Give lhs its arguments. The first is the name of the
+			// slot to which we're assigning (assuming a built-in
+			// assignment operator), and the second is the value to give
+			// it. We'll also need to shuffle that value later.
+			lhs.Args = []*Message{vm.StringMessage(lhs.Name()), m.Next}
+			next = append(next, m.Next)
+			// 3. Change lhs's name to the assign operator's call.
+			lhs.Text = op.Calls
+			// 4. Move messages up to but not including the next terminator
+			// into the assignment's second argument. Really, we already
+			// moved it there; we're finding the message to be the next
+			// after lhs.
+			last := m.Next
+			for !last.Next.IsTerminator() {
+				last = last.Next
+			}
+			if last.Next != nil {
+				last.Next.Prev = lhs
+			}
+			lhs.Next = last.Next
+			last.Next = nil
+
+			// 5. Remove the operator message.
+			m.Next = lhs.Next
+
+			// It's legal to do something like `1 := x`, so we need to make
+			// sure that x will be evaluated when that happens.
+			lhs.Memo = nil
 		} else {
-			// Non-operator identifier.
-			ll.attachReplace(m)
+			// Non-assignment operator.
+			if len(m.Args) > 0 {
+				// `a + (b - c) * d` is initially parsed as `b - c` being
+				// the argument to +. In order to have order of operations
+				// make sense, we need to move that argument to a separate
+				// message, so we have `a +() (b - c) * d`, which we can
+				// then shuffle into `a +((b - c) *(d))`.
+				m.InsertAfter(vm.IdentMessage("", m.Args...))
+				m.Args = nil
+			}
+			ll = ll.pop(op).push(m, op)
 		}
-	case SemiSym:
-		// Terminator.
+	} else if m.IsTerminator() {
 		ll = ll.pop(leastBindingOp)
 		ll.attachReplace(m)
-	case NumSym, StringSym:
-		// Literal. The handling is the same as for a non-operator identifier.
+	} else {
+		// Non-operator identifier or literal.
 		ll.attachReplace(m)
 	}
 	return ll, next, nil
@@ -395,16 +384,17 @@ func (vm *VM) OpShuffle(m *Message) (err *Exception) {
 	if m == nil {
 		return nil
 	}
-	if m.Symbol.Kind == IdentSym && m.Symbol.Text == "__noShuffling__" {
+	if m.Name() == "__noShuffling__" {
 		// We could make __noShuffling__ just an Object with an OperatorTable
 		// that is empty, but doing it this way allows us to skip shuffling
-		// entirely, speeding up parsing. Also, Io's treatment of
-		// __noShuffling__ is interesting: a message named __noShuffling__
-		// prevents operator shuffling as expected, but there is no object so
-		// named, so you have to create it yourself using setSlot, because you
-		// can't assign to __noShuffling__ using an operator, because assign
-		// operator transformation is handled during operator shuffling, which
-		// doesn't happen because the message begins with __noShuffling__. :)
+		// entirely, speeding up parsing.
+		// Io's treatment of __noShuffling__ is interesting: a message named
+		// __noShuffling__ prevents operator shuffling as expected, but there
+		// is no object so named, so you have to create it yourself, but you
+		// have to use setSlot directly, because you  can't assign to
+		// __noShuffling__ using an operator, because assign operator
+		// transformation is handled during operator shuffling, which doesn't
+		// happen because the message begins with __noShuffling__. :)
 		return nil
 	}
 	opsx, _ := GetSlot(m, "OperatorTable")

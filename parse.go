@@ -27,14 +27,14 @@ func (vm *VM) parseRecurse(open rune, src *bufio.Reader, tokens chan token) (tok
 	msg = &Message{Object: *vm.CoreInstance("Message")}
 	m := msg
 	defer func() {
-		if msg.Symbol.Kind == NoSym {
+		if msg.Text == "" && msg.Args == nil {
 			// We didn't parse any messages.
 			msg = nil
 		} else {
 			// If the final message wasn't already one, add a SemiSym to
 			// conclude the expression.
-			if open == -1 && m.Prev.Symbol.Kind != SemiSym {
-				m.Symbol.Kind = SemiSym
+			if open == -1 && !m.Prev.IsTerminator() {
+				m.Text = ";"
 			} else {
 				m.Prev.Next = nil
 			}
@@ -51,25 +51,29 @@ func (vm *VM) parseRecurse(open rune, src *bufio.Reader, tokens chan token) (tok
 				continue
 			}
 			// TODO: if previous token is in the OperatorTable, ignore newline
-			m.Symbol = Symbol{Kind: SemiSym, Text: string(tok.Value)}
+			m.Text = tok.Value
 		case identToken:
 			// TODO: handle operator precedence
-			m.Symbol = Symbol{Kind: IdentSym, Text: string(tok.Value)}
+			m.Text = tok.Value
 		case openToken:
 			switch tok.Value {
 			case "(":
 				if m.IsStart() {
-					// This is a call to the empty string slot.
-					m.Symbol = Symbol{Kind: IdentSym}
+					// This is a call to the empty string slot. Create the
+					// arguments now so that we don't think we didn't parse any
+					// messages. While we're at it, there should always be one
+					// argument to the empty string, so make space for it.
+					m.Text = ""
+					m.Args = make([]*Message, 0, 1)
 				} else {
 					// These are the arguments for the previous message.
 					m = m.Prev
 					m.Next = nil
 				}
 			case "[":
-				m.Symbol = Symbol{Kind: IdentSym, Text: "squareBrackets"}
+				m.Text = "squareBrackets"
 			case "{":
-				m.Symbol = Symbol{Kind: IdentSym, Text: "curlyBrackets"}
+				m.Text = "curlyBrackets"
 			}
 			var atok token
 			var amsg *Message
@@ -133,13 +137,12 @@ func (vm *VM) parseRecurse(open rune, src *bufio.Reader, tokens chan token) (tok
 					return
 				}
 			}
-			m.Symbol = Symbol{Kind: NumSym, Num: f}
+			m.Text = tok.Value
 			m.Memo = vm.NewNumber(f)
 		case hexToken:
 			var x int64
-			var f float64
 			x, err = strconv.ParseInt(tok.Value, 0, 64)
-			f = float64(x)
+			f := float64(x)
 			if err != nil {
 				if err.(*strconv.NumError).Err == strconv.ErrRange {
 					err = nil
@@ -152,7 +155,7 @@ func (vm *VM) parseRecurse(open rune, src *bufio.Reader, tokens chan token) (tok
 					return
 				}
 			}
-			m.Symbol = Symbol{Kind: NumSym, Num: f}
+			m.Text = tok.Value
 			m.Memo = vm.NewNumber(f)
 		case stringToken:
 			var s string
@@ -160,10 +163,10 @@ func (vm *VM) parseRecurse(open rune, src *bufio.Reader, tokens chan token) (tok
 			if err != nil {
 				return
 			}
-			m.Symbol = Symbol{Kind: StringSym, String: s}
+			m.Text = tok.Value
 			m.Memo = vm.NewString(s)
 		case triquoteToken:
-			m.Symbol = Symbol{Kind: StringSym, String: tok.Value[3 : len(tok.Value)-3]}
+			m.Text = tok.Value
 			m.Memo = vm.NewString(tok.Value[3 : len(tok.Value)-3])
 		}
 		m.Next = &Message{
@@ -208,7 +211,7 @@ func (m *Message) IsStart() bool {
 }
 
 // IsTerminator determines whether this message is the end of an expression.
-// This is true if it is nil or its symbol is a SemiSym.
+// This is true if it is nil or it is a semicolon or newline.
 func (m *Message) IsTerminator() bool {
-	return m == nil || m.Symbol.Kind == SemiSym
+	return m == nil || m.Text == ";" || m.Text == "\n"
 }

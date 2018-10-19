@@ -184,7 +184,7 @@ func (vm *VM) TypeName(o Interface) string {
 }
 
 // SimpleActivate activates an Actor using the identifier message named with
-// text and with the given arguments.
+// text and with the given arguments. This does not propagate exceptions.
 func (vm *VM) SimpleActivate(o Actor, self, locals Interface, text string, args ...Interface) Interface {
 	a := make([]*Message, len(args))
 	for i, arg := range args {
@@ -194,10 +194,7 @@ func (vm *VM) SimpleActivate(o Actor, self, locals Interface, text string, args 
 		a[i] = &Message{Memo: arg}
 	}
 	// TODO: should this use CheckStop to propagate exceptions?
-	result := o.Activate(vm, self, locals, &Message{Symbol: Symbol{Kind: IdentSym, Text: text}, Args: a})
-	if stop, ok := result.(Stop); ok {
-		return stop.Result
-	}
+	result, _ := CheckStop(o.Activate(vm, self, locals, &Message{Text: text, Args: a}), ExceptionStop)
 	return result
 }
 

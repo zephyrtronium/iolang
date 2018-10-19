@@ -9,8 +9,8 @@ import (
 // A Message is the fundamental syntactic element and functionality of Io.
 type Message struct {
 	Object
-	// Type and value of this message.
-	Symbol Symbol
+	// Text of this message.
+	Text string
 	// This message's arguments.
 	Args []*Message
 	// Next and previous messages.
@@ -21,32 +21,12 @@ type Message struct {
 	Memo Interface
 }
 
-// A Symbol is what I called the type and name of a message. This should change
-// eventually.
-type Symbol struct {
-	Kind   SymKind
-	Text   string  // Identifier text.
-	Num    float64 // Numeric value.
-	String string  // String value.
-}
-
-// SymKind is the type of a Message's Symbol.
-type SymKind int
-
-const (
-	NoSym     SymKind = iota // Invalid symbol.
-	SemiSym                  // Expression-terminating message.
-	IdentSym                 // Identifier.
-	NumSym                   // Numeric literal.
-	StringSym                // String literal.
-)
-
 // IdentMessage creates a message of a given identifier. Additional messages
 // may be passed as arguments.
 func (vm *VM) IdentMessage(s string, args ...*Message) *Message {
 	return &Message{
 		Object: *vm.CoreInstance("Message"),
-		Symbol: Symbol{Kind: IdentSym, Text: s},
+		Text:   s,
 		Args:   args,
 	}
 }
@@ -55,7 +35,7 @@ func (vm *VM) IdentMessage(s string, args ...*Message) *Message {
 func (vm *VM) StringMessage(s string) *Message {
 	return &Message{
 		Object: *vm.CoreInstance("Message"),
-		Symbol: Symbol{Kind: StringSym, String: s},
+		Text:   strconv.Quote(s),
 		Memo:   vm.NewString(s),
 	}
 }
@@ -64,7 +44,7 @@ func (vm *VM) StringMessage(s string) *Message {
 func (vm *VM) NumberMessage(v float64) *Message {
 	return &Message{
 		Object: *vm.CoreInstance("Message"),
-		Symbol: Symbol{Kind: NumSym, Num: v},
+		Text:   strconv.FormatFloat(v, 'g', -1, 64),
 		Memo:   vm.NewNumber(v),
 	}
 }
@@ -99,7 +79,7 @@ func (m *Message) NumberArgAt(vm *VM, locals Interface, n int) (*Number, error) 
 	if err, ok := v.(error); ok && !IsIoError(err) {
 		return nil, err
 	}
-	return nil, vm.NewExceptionf("argument %d to %s must be of type Number, not %s", n, m.Symbol.Text, vm.TypeName(v))
+	return nil, vm.NewExceptionf("argument %d to %s must be of type Number, not %s", n, m.Text, vm.TypeName(v))
 }
 
 // StringArgAt evaluates the nth argument and returns it as a String. If it is
@@ -113,7 +93,7 @@ func (m *Message) StringArgAt(vm *VM, locals Interface, n int) (*String, error) 
 	if err, ok := v.(error); ok && !IsIoError(err) {
 		return nil, err
 	}
-	return nil, vm.NewExceptionf("argument %d to %s must be of type Sequence, not %s", n, m.Symbol.Text, vm.TypeName(v))
+	return nil, vm.NewExceptionf("argument %d to %s must be of type Sequence, not %s", n, m.Text, vm.TypeName(v))
 }
 
 // ListArgAt evaluates the nth argument and returns it as a List. If it is not
@@ -127,7 +107,7 @@ func (m *Message) ListArgAt(vm *VM, locals Interface, n int) (*List, error) {
 	if err, ok := v.(error); ok && !IsIoError(err) {
 		return nil, err
 	}
-	return nil, vm.NewExceptionf("argument %d to %s must be of type List, not %s", n, m.Symbol.Text, vm.TypeName(v))
+	return nil, vm.NewExceptionf("argument %d to %s must be of type List, not %s", n, m.Text, vm.TypeName(v))
 }
 
 // AsStringArgAt evaluates the nth argument, then activates its asString slot
@@ -145,7 +125,7 @@ func (m *Message) AsStringArgAt(vm *VM, locals Interface, n int) (*String, error
 			return rr, nil
 		}
 	}
-	return nil, vm.NewExceptionf("argument %d to %s cannot be converted to string", n, m.Symbol.Text)
+	return nil, vm.NewExceptionf("argument %d to %s cannot be converted to string", n, m.Text)
 }
 
 // EvalArgAt evaluates the nth argument.
@@ -166,11 +146,11 @@ func (m *Message) Send(vm *VM, target, locals Interface) (result Interface) {
 	result = target
 	for m != nil {
 		if m.Memo != nil {
+			// It is the parser's responsibility to set memos for literals.
 			result = m.Memo
 		} else {
-			switch m.Symbol.Kind {
-			case IdentSym:
-				if newtarget, proto := GetSlot(target, m.Symbol.Text); proto != nil {
+			if !m.IsTerminator() {
+				if newtarget, proto := GetSlot(target, m.Text); proto != nil {
 					// We have the slot.
 					switch a := newtarget.(type) {
 					case Stop:
@@ -189,29 +169,20 @@ func (m *Message) Send(vm *VM, target, locals Interface) (result Interface) {
 					if a, ok := forward.(Actor); ok {
 						result = a.Activate(vm, target, locals, m)
 					} else {
-						return vm.NewExceptionf("%s does not respond to %s", vm.TypeName(target), m.Symbol.Text)
+						return vm.NewExceptionf("%s does not respond to %s", vm.TypeName(target), m.Text)
 					}
 				} else {
-					return vm.NewExceptionf("%s does not respond to %s", vm.TypeName(target), m.Symbol.Text)
+					return vm.NewExceptionf("%s does not respond to %s", vm.TypeName(target), m.Text)
 				}
-			case SemiSym:
+				if result == nil {
+					// No message should evaluate to something that is not an
+					// Io object, so we want to convert nil to vm.Nil.
+					result = vm.Nil
+				}
+				target = result
+			} else {
 				target = firstTarget
-			case NumSym:
-				// Numbers and strings should be in memo, but just in case.
-				result = vm.NewNumber(m.Symbol.Num)
-			case StringSym:
-				result = vm.NewString(m.Symbol.String)
-			default:
-				panic(fmt.Sprintf("iolang: invalid Symbol: %#v", m.Symbol))
 			}
-			if result == nil {
-				// No message should evaluate to something that is not an Io
-				// object, so we want to convert nil to vm.Nil.
-				result = vm.Nil
-			}
-		}
-		if m.Symbol.Kind != SemiSym {
-			target = result
 		}
 		m = m.Next
 	}
@@ -238,16 +209,7 @@ func (m *Message) Name() string {
 	if m == nil {
 		return "<nil message>"
 	}
-	switch m.Symbol.Kind {
-	case SemiSym, IdentSym:
-		return m.Symbol.Text
-	case NumSym:
-		return strconv.FormatFloat(m.Symbol.Num, 'g', -1, 64)
-	case StringSym:
-		return m.Symbol.String
-	default:
-		panic(fmt.Sprintf("iolang: invalid Symbol: %#v", m.Symbol))
-	}
+	return m.Text
 }
 
 // String generates a diagnostic string representation of this message.
@@ -270,26 +232,15 @@ func (m *Message) stringRecurse(vm *VM, b *bytes.Buffer) {
 				b.WriteString(vm.AsString(m.Memo))
 			}
 		} else {
-			switch m.Symbol.Kind {
-			case SemiSym:
-				b.WriteString("; ")
-			case IdentSym:
-				b.WriteString(m.Symbol.Text)
-				if len(m.Args) > 0 {
-					b.WriteByte('(')
-					m.Args[0].stringRecurse(vm, b)
-					for _, arg := range m.Args[1:] {
-						b.WriteString(", ")
-						arg.stringRecurse(vm, b)
-					}
-					b.WriteByte(')')
+			b.WriteString(m.Text)
+			if len(m.Args) > 0 {
+				b.WriteByte('(')
+				m.Args[0].stringRecurse(vm, b)
+				for _, arg := range m.Args[1:] {
+					b.WriteString(", ")
+					arg.stringRecurse(vm, b)
 				}
-			case NumSym:
-				fmt.Fprint(b, m.Symbol.Num)
-			case StringSym:
-				fmt.Fprintf(b, "%q", m.Symbol.String)
-			default:
-				panic("iolang: unknown symbol kind")
+				b.WriteByte(')')
 			}
 		}
 		if m.Next != nil {
@@ -304,7 +255,7 @@ func (vm *VM) initMessage() {
 		"asString": vm.NewTypedCFunction(MessageAsString),
 		"type":     vm.NewString("Message"),
 	}
-	SetSlot(vm.Core, "Message", &Message{Object: *vm.ObjectWith(slots), Symbol: Symbol{Kind: IdentSym}})
+	SetSlot(vm.Core, "Message", &Message{Object: *vm.ObjectWith(slots)})
 }
 
 // MessageAsString is a Message method.
