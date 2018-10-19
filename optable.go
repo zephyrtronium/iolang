@@ -423,7 +423,7 @@ func (vm *VM) OpShuffle(m *Message) (err *Exception) {
 			}
 			expr = expr.Next
 		}
-		ll.clear()
+		ll = ll.clear()
 	}
 	return nil
 }

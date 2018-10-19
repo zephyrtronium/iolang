@@ -59,12 +59,8 @@ func (vm *VM) parseRecurse(open rune, src *bufio.Reader, tokens chan token) (tok
 			switch tok.Value {
 			case "(":
 				if m.IsStart() {
-					// This is a call to the empty string slot. Create the
-					// arguments now so that we don't think we didn't parse any
-					// messages. While we're at it, there should always be one
-					// argument to the empty string, so make space for it.
+					// This is a call to the empty string slot.
 					m.Text = ""
-					m.Args = make([]*Message, 0, 1)
 				} else {
 					// These are the arguments for the previous message.
 					m = m.Prev
@@ -101,7 +97,9 @@ func (vm *VM) parseRecurse(open rune, src *bufio.Reader, tokens chan token) (tok
 				tok = atok
 				return
 			}
-			m.Args = append(m.Args, amsg)
+			if amsg != nil {
+				m.Args = append(m.Args, amsg)
+			}
 		case closeToken:
 			// I care about matching brackets, even though the original Io
 			// implementation is quite happy to parse (2].
