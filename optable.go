@@ -449,10 +449,10 @@ func OperatorTableAddAssignOperator(vm *VM, target, locals Interface, msg *Messa
 		return vm.IoError(err)
 	}
 	op := Operator{
-		Calls: calls.Value,
+		Calls: calls.String(),
 		Prec:  -1,
 	}
-	target.(*OpTable).Operators[name.Value] = op
+	target.(*OpTable).Operators[name.String()] = op
 	return target
 }
 
@@ -479,7 +479,7 @@ func OperatorTableAddOperator(vm *VM, target, locals Interface, msg *Message) In
 		Calls: "",
 		Prec:  int(prec.Value),
 	}
-	target.(*OpTable).Operators[name.Value] = op
+	target.(*OpTable).Operators[name.String()] = op
 	return target
 }
 

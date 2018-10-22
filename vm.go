@@ -20,7 +20,7 @@ type VM struct {
 
 	// Common numbers and strings to avoid needing new objects for each use.
 	NumberMemo map[float64]*Number
-	StringMemo map[string]*String
+	StringMemo map[string]*Sequence
 }
 
 // NewVM prepares a new VM to interpret Io code.
@@ -42,11 +42,16 @@ func NewVM() *VM {
 		// constants defined in package math, +/- inf, and float/int extrema.
 		NumberMemo: make(map[float64]*Number, 277),
 		// Memoize the empty string and all strings one byte in (UTF8) length.
-		StringMemo: make(map[string]*String, 129),
+		StringMemo: make(map[string]*Sequence, 129),
 	}
 
+	// There is a specific order for initialization. First, we have to
+	// initialize Core, so that other init methods can set up their protos on
+	// it. Then, we must initialize CFunction, so that others can use
+	// NewCFunction. Following that, we must initialize Sequence, which in turn
+	// initializes String, so that we can use NewString. After that, the order
+	// matters less, because other types are less likely to be used in inits.
 	vm.initCore()
-	// We have to make CFunction's slots exist first to use NewCFunction.
 	vm.initCFunction()
 	vm.initSequence()
 	vm.initMessage()
@@ -149,8 +154,8 @@ func (vm *VM) AsString(obj Interface) string {
 			case Actor:
 				asString = vm.SimpleActivate(a, obj, obj, "asString")
 				continue
-			case *String:
-				return a.Value
+			case *Sequence:
+				return a.String()
 			}
 			if IsIoError(asString) {
 				return asString.(error).Error()

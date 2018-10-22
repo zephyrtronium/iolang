@@ -82,11 +82,11 @@ func (m *Message) NumberArgAt(vm *VM, locals Interface, n int) (*Number, error) 
 	return nil, vm.NewExceptionf("argument %d to %s must be of type Number, not %s", n, m.Text, vm.TypeName(v))
 }
 
-// StringArgAt evaluates the nth argument and returns it as a String. If it is
-// not a String, then the result is nil, and an error is returned.
-func (m *Message) StringArgAt(vm *VM, locals Interface, n int) (*String, error) {
+// StringArgAt evaluates the nth argument and returns it as a Sequence. If it
+// is not a Sequence, then the result is nil, and an error is returned.
+func (m *Message) StringArgAt(vm *VM, locals Interface, n int) (*Sequence, error) {
 	v := m.EvalArgAt(vm, locals, n)
-	if str, ok := v.(*String); ok {
+	if str, ok := v.(*Sequence); ok {
 		return str, nil
 	}
 	// Not the expected type, so return an error.
@@ -113,15 +113,15 @@ func (m *Message) ListArgAt(vm *VM, locals Interface, n int) (*List, error) {
 // AsStringArgAt evaluates the nth argument, then activates its asString slot
 // for a string representation. If the result is not a string, then the result
 // is nil, and an error is returned.
-func (m *Message) AsStringArgAt(vm *VM, locals Interface, n int) (*String, error) {
+func (m *Message) AsStringArgAt(vm *VM, locals Interface, n int) (*Sequence, error) {
 	v := m.EvalArgAt(vm, locals, n)
 	if asString, proto := GetSlot(v, "asString"); proto != nil {
 		switch rr := asString.(type) {
 		case Actor:
-			if str, ok := vm.SimpleActivate(rr, v, locals, "asString").(*String); ok {
+			if str, ok := vm.SimpleActivate(rr, v, locals, "asString").(*Sequence); ok {
 				return str, nil
 			}
-		case *String:
+		case *Sequence:
 			return rr, nil
 		}
 	}

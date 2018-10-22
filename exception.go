@@ -34,14 +34,14 @@ func (vm *VM) RaiseExceptionf(format string, args ...interface{}) Interface {
 func (e *Exception) String() string {
 	e.L.Lock()
 	defer e.L.Unlock()
-	return e.Slots["error"].(*String).Value
+	return e.Slots["error"].(*Sequence).String()
 }
 
 // Error returns the error message.
 func (e *Exception) Error() string {
 	e.L.Lock()
 	defer e.L.Unlock()
-	return e.Slots["error"].(*String).Value
+	return e.Slots["error"].(*Sequence).String()
 }
 
 // Raise returns the exception in a Stop, so that the interpreter will treat it

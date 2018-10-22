@@ -170,13 +170,13 @@ func MutableMethod(o Interface) func() {
 func (vm *VM) TypeName(o Interface) string {
 	if typ, proto := GetSlot(o, "type"); proto != nil {
 		switch tt := typ.(type) {
-		case *String:
-			return tt.Value
+		case *Sequence:
+			return tt.String()
 		case Actor:
 			// TODO: provide a Call
 			name := vm.SimpleActivate(tt, o, nil, "type")
-			if s, ok := name.(*String); ok {
-				return s.Value
+			if s, ok := name.(*Sequence); ok {
+				return s.String()
 			}
 		}
 	}
@@ -225,7 +225,7 @@ func ObjectSetSlot(vm *VM, target, locals Interface, msg *Message) Interface {
 	}
 	v, ok := CheckStop(msg.EvalArgAt(vm, locals, 1), LoopStops)
 	if ok {
-		SetSlot(target, slot.Value, v)
+		SetSlot(target, slot.String(), v)
 	}
 	return v
 }
@@ -242,11 +242,11 @@ func ObjectUpdateSlot(vm *VM, target, locals Interface, msg *Message) Interface 
 	}
 	v, ok := CheckStop(msg.EvalArgAt(vm, locals, 1), LoopStops)
 	if ok {
-		_, proto := GetSlot(target, slot.Value)
+		_, proto := GetSlot(target, slot.String())
 		if proto == nil {
-			return vm.NewExceptionf("slot %s not found", slot.Value)
+			return vm.NewExceptionf("slot %s not found", slot.String())
 		}
-		SetSlot(proto, slot.Value, v)
+		SetSlot(proto, slot.String(), v)
 	}
 	return v
 }
@@ -259,7 +259,7 @@ func ObjectGetSlot(vm *VM, target, locals Interface, msg *Message) Interface {
 	if err != nil {
 		return vm.IoError(err)
 	}
-	v, _ := GetSlot(target, slot.Value)
+	v, _ := GetSlot(target, slot.String())
 	return v
 }
 

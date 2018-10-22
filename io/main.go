@@ -20,7 +20,7 @@ func main() {
 	// spew.Config.MaxDepth = 2
 	for isRunning, _ := iolang.GetSlot(vm.Lobby, "isRunning"); vm.AsBool(isRunning); isRunning, _ = iolang.GetSlot(vm.Lobby, "isRunning") {
 		ps1, _ := iolang.GetSlot(vm.Lobby, "ps1")
-		fmt.Print(ps1.(*iolang.String).Value)
+		fmt.Print(ps1.(*iolang.Sequence).String())
 		ok := stdin.Scan()
 		x := vm.DoString(stdin.Text())
 		// spew.Dump(x)
