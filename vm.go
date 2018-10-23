@@ -18,6 +18,9 @@ type VM struct {
 	Nil        *Object
 	Operators  *OpTable
 
+	// ValidEncodings is the list of accepted sequence encodings.
+	ValidEncodings []string
+
 	// Common numbers and strings to avoid needing new objects for each use.
 	NumberMemo map[float64]*Number
 	StringMemo map[string]*Sequence
@@ -37,6 +40,8 @@ func NewVM() *VM {
 		Nil:        &Object{},
 
 		Operators: &OpTable{},
+
+		ValidEncodings: []string{"ascii", "utf8", "ucs2", "ucs4", "number", "latin1", "utf16", "utf32"},
 
 		// Memoize all integers in [-1, 255], 1/2, 1/3, 1/4, all mathematical
 		// constants defined in package math, +/- inf, and float/int extrema.
@@ -66,7 +71,7 @@ func NewVM() *VM {
 	vm.initOpTable()
 	vm.initLocals()
 	vm.initList()
-	vm.initCFunction2()
+	vm.initCFunction2() // CFunction needs sequences
 
 	vm.MemoizeString("")
 	for i := rune(0); i <= 127; i++ {

@@ -16,6 +16,14 @@ import (
 //    - sequence-math.go: Mathematical methods and operations. Eventually,
 //        this should have different versions for different arches.
 
+// NOTE:
+// There are a number of extra methods defined on *Sequence, but they do not
+// acquire their objects' locks. Thus, if the sequence is mutable, it is
+// possible for a race to occur when calling one of those methods if a VM
+// thread calls a mutating method. A few methods should always be safe,
+// particularly IsMutable and CheckMutable, since the mutability of a "live"
+// Sequence should never change - asMutable and asSymbol create copies.
+
 // A Sequence is a collection of data of one type.
 type Sequence struct {
 	Object
@@ -83,21 +91,17 @@ func (s *Sequence) Clone() Interface {
 
 // IsMutable returns whether the sequence can be modified safely.
 func (s *Sequence) IsMutable() bool {
-	// We don't have to acquire the lock because mutability of a sequence
-	// should never change while it's in the wild.
 	return s.Kind > 0
 }
 
 // SameType returns whether the sequence has the same data type as another,
 // regardless of mutability.
 func (s *Sequence) SameType(as *Sequence) bool {
-	// As above, we don't need the lock.
 	return s.Kind == as.Kind || s.Kind == -as.Kind
 }
 
 // Len returns the length of the sequence.
 func (s *Sequence) Len() int {
-	defer MutableMethod(s)()
 	switch s.Kind {
 	case SeqMU8, SeqIU8:
 		return len(s.Value.([]byte))
@@ -212,11 +216,18 @@ func (s *Sequence) At(vm *VM, i int) *Number {
 
 func (vm *VM) initSequence() {
 	// We can't use vm.NewString until we create the proto after this.
-	slots := Slots{}
-	vm.initImmutableSeq(slots)
-	vm.initMutableSeq(slots)
-	vm.initString(slots)
-	vm.initSeqMath(slots)
+	slots := Slots{
+		// sequence-immutable.go:
+		"size": vm.NewTypedCFunction(SequenceSize),
+
+		// sequence-mutable.go:
+		"asMutable": vm.NewTypedCFunction(SequenceAsMutable),
+
+		// sequence-string.go:
+		"encoding": vm.NewTypedCFunction(SequenceEncoding),
+		"setEncoding": vm.NewTypedCFunction(SequenceSetEncoding),
+		"validEncodings": vm.NewCFunction(SequenceValidEncodings),
+	}
 	ms := &Sequence{
 		Object: *vm.ObjectWith(slots),
 		Value: []byte(nil),
