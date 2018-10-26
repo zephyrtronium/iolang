@@ -22,9 +22,9 @@ func (vm *VM) NewString(value string) *Sequence {
 	}
 	return &Sequence{
 		Object: *vm.CoreInstance("String"),
-		Value: []byte(value),
-		Kind: SeqIU8,
-		Code: "utf8",
+		Value:  []byte(value),
+		Kind:   SeqIU8,
+		Code:   "utf8",
 	}
 }
 
@@ -47,10 +47,9 @@ func (s *Sequence) String() string {
 		b, _ := d.Bytes(s.Bytes()) // bytes :)
 		return string(b)
 	}
-	// We claim to support UCS-2 because Io does, but it's inferior to UTF-16
-	// in probably every way, plus UCS2 would actually be more work to
-	// implement.
-	if s.Code == "ucs2" || s.Code == "utf16" {
+	// Io supports UCS-2, but we support UTF-16. This could conceivably cause
+	// some compatibility issues between the two, but the ? operator exists.
+	if s.Code == "utf16" {
 		if s.Kind == SeqMU16 || s.Kind == SeqIU16 {
 			return string(utf16.Decode(s.Value.([]uint16)))
 		}
@@ -58,10 +57,9 @@ func (s *Sequence) String() string {
 		b, _ := d.Bytes(s.Bytes()) // bytes :)
 		return string(b)
 	}
-	// Again, we claim UCS-4 but do UTF-32. In this case, the benefit is less
-	// clear, since UTF-32 is a strict subset of UCS-4, but it's not like
-	// anyone uses either anyway. :)
-	if s.Code == "ucs4" || s.Code == "utf32" {
+	// Again, we use UTF-32 where Io supports UCS-4. This is probably less of
+	// an issue, though, because it's not like anyone uses either. :)
+	if s.Code == "utf32" {
 		if s.Kind == SeqMS32 || s.Kind == SeqIS32 {
 			// rune is an alias for int32, so we can convert directly to
 			// string.
@@ -132,7 +130,7 @@ func (s *Sequence) NumberString() string {
 			b.WriteString(strconv.FormatFloat(c, 'g', -1, 64))
 			b.WriteString(", ")
 		}
-	case SeqNone:
+	case SeqUntyped:
 		panic("use of untyped sequence")
 	default:
 		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
@@ -172,6 +170,18 @@ func (s *Sequence) Bytes() []byte {
 	return b.Bytes()
 }
 
+// CheckEncoding checks whether the given encoding name is a valid encoding
+// accepted by the VM.
+func (vm *VM) CheckEncoding(encoding string) bool {
+	encoding = strings.ToLower(encoding)
+	for _, enc := range vm.ValidEncodings {
+		if encoding == enc {
+			return true
+		}
+	}
+	return false
+}
+
 // SequenceEncoding is a Sequence method.
 //
 // encoding returns the sequence's encoding.
@@ -199,14 +209,7 @@ func SequenceSetEncoding(vm *VM, target, locals Interface, msg *Message) Interfa
 		return vm.IoError(err)
 	}
 	enc := strings.ToLower(arg.String())
-	have := false
-	for _, v := range vm.ValidEncodings {
-		if enc == v {
-			have = true
-			break
-		}
-	}
-	if !have {
+	if !vm.CheckEncoding(enc) {
 		return vm.RaiseExceptionf("invalid encoding %q", enc)
 	}
 	s.Code = enc
@@ -222,4 +225,53 @@ func SequenceValidEncodings(vm *VM, target, locals Interface, msg *Message) Inte
 		encs[k] = vm.NewString(v)
 	}
 	return vm.NewList(encs...)
+}
+
+// SequenceAsUTF8 is a Sequence method.
+//
+// asUTF8 creates a Sequence encoding the receiver in UTF-8.
+func SequenceAsUTF8(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if s.IsMutable() {
+		defer MutableMethod(target)()
+	}
+	if s.Code == "utf8" && (s.Kind == SeqMU8 || s.Kind == SeqIU8) {
+		return vm.NewSequence(s.Value, s.IsMutable(), "utf8")
+	}
+	// s.String already does what we want. We could duplicate its logic to
+	// avoid extra allocations, but that would make more work if/when we
+	// support more encodings.
+	v := s.String()
+	return vm.NewSequence([]byte(v), s.IsMutable(), "utf8")
+}
+
+// SequenceAsUTF16 is a Sequence method.
+//
+// asUTF16 creates a Sequence encoding the receiver in UTF-16.
+func SequenceAsUTF16(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if s.IsMutable() {
+		defer MutableMethod(target)()
+	}
+	if s.Code == "utf16" && (s.Kind == SeqMU16 || s.Kind == SeqIU16) {
+		return vm.NewSequence(s.Value, s.IsMutable(), "utf16")
+	}
+	// Again, we could duplicate s.String to skip extra copies, but :effort:.
+	v := []rune(s.String())
+	return vm.NewSequence(utf16.Encode(v), s.IsMutable(), "utf16")
+}
+
+// SequenceAsUTF32 is a Sequence method.
+//
+// asUTF32 creates a Sequence encoding the receiver in UTF-32.
+func SequenceAsUTF32(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if s.IsMutable() {
+		defer MutableMethod(target)()
+	}
+	if s.Code == "utf32" && (s.Kind == SeqMS32 || s.Kind == SeqIS32) {
+		return vm.NewSequence(s.Value, s.IsMutable(), "utf32")
+	}
+	v := s.String()
+	return vm.NewSequence([]rune(v), s.IsMutable(), "utf32")
 }

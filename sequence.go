@@ -24,7 +24,7 @@ import (
 // particularly IsMutable and CheckMutable, since the mutability of a "live"
 // Sequence should never change - asMutable and asSymbol create copies.
 
-// A Sequence is a collection of data of one type.
+// A Sequence is a collection of data of one fixed-size type.
 type Sequence struct {
 	Object
 	Value interface{}
@@ -39,7 +39,7 @@ type SeqKind int8
 // S means signed, F means floating point; and the number is the size in bits
 // of each datum.
 const (
-	SeqNone SeqKind = 0
+	SeqUntyped SeqKind = 0
 
 	SeqMU8, SeqIU8 SeqKind = iota, -iota
 	SeqMU16, SeqIU16
@@ -52,6 +52,64 @@ const (
 	SeqMF32, SeqIF32
 	SeqMF64, SeqIF64
 )
+
+// NewSequence creates a new Sequence with the given value and with the given
+// encoding. The value must be a slice of a basic fixed-size data type, and it
+// is copied. Panics if the encoding is not supported.
+func (vm *VM) NewSequence(value interface{}, mutable bool, encoding string) *Sequence {
+	if !vm.CheckEncoding(encoding) {
+		panic(fmt.Sprintf("unsupported encoding %q", encoding))
+	}
+	kind := SeqUntyped
+	switch v := value.(type) {
+	case []byte:
+		kind = SeqMU8
+		value = append([]byte{}, v...)
+	case []uint16:
+		kind = SeqMU16
+		value = append([]uint16{}, v...)
+	case []uint32:
+		kind = SeqMU32
+		value = append([]uint32{}, v...)
+	case []uint64:
+		kind = SeqMU64
+		value = append([]uint64{}, v...)
+	case []int8:
+		kind = SeqMS8
+		value = append([]int8{}, v...)
+	case []int16:
+		kind = SeqMS16
+		value = append([]int16{}, v...)
+	case []int32:
+		kind = SeqMS32
+		value = append([]int32{}, v...)
+	case []int64:
+		kind = SeqMS64
+		value = append([]int64{}, v...)
+	case []float32:
+		kind = SeqMF32
+		value = append([]float32{}, v...)
+	case []float64:
+		kind = SeqMF64
+		value = append([]float64{}, v...)
+	default:
+		panic(fmt.Sprintf("unsupported value type %T, must be slice of basic fixed-size data type", value))
+	}
+	if mutable {
+		return &Sequence{
+			Object: *vm.CoreInstance("Sequence"),
+			Value:  value,
+			Kind:   kind,
+			Code:   encoding,
+		}
+	}
+	return &Sequence{
+		Object: *vm.CoreInstance("ImmutableSequence"),
+		Value:  value,
+		Kind:   -kind,
+		Code:   encoding,
+	}
+}
 
 // Clone returns a new Sequence whose value is a copy of this one's.
 func (s *Sequence) Clone() Interface {
@@ -81,7 +139,7 @@ func (s *Sequence) Clone() Interface {
 		ns.Value = append([]float32{}, s.Value.([]float32)...)
 	case SeqMF64, SeqIF64:
 		ns.Value = append([]float64{}, s.Value.([]float64)...)
-	case SeqNone:
+	case SeqUntyped:
 		panic("use of untyped sequence")
 	default:
 		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
@@ -123,7 +181,7 @@ func (s *Sequence) Len() int {
 		return len(s.Value.([]float32))
 	case SeqMF64, SeqIF64:
 		return len(s.Value.([]float64))
-	case SeqNone:
+	case SeqUntyped:
 		panic("use of untyped sequence")
 	default:
 		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
@@ -207,7 +265,7 @@ func (s *Sequence) At(vm *VM, i int) *Number {
 			return nil
 		}
 		return vm.NewNumber(v[i])
-	case SeqNone:
+	case SeqUntyped:
 		panic("use of untyped sequence")
 	default:
 		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
@@ -218,21 +276,30 @@ func (vm *VM) initSequence() {
 	// We can't use vm.NewString until we create the proto after this.
 	slots := Slots{
 		// sequence-immutable.go:
-		"size": vm.NewTypedCFunction(SequenceSize),
+		"at":        vm.NewTypedCFunction(SequenceAt),
+		"isMutable": vm.NewTypedCFunction(SequenceIsMutable),
+		"itemSize":  vm.NewTypedCFunction(SequenceItemSize),
+		"itemType":  vm.NewTypedCFunction(SequenceItemType),
+		"size":      vm.NewTypedCFunction(SequenceSize),
 
 		// sequence-mutable.go:
 		"asMutable": vm.NewTypedCFunction(SequenceAsMutable),
 
 		// sequence-string.go:
-		"encoding": vm.NewTypedCFunction(SequenceEncoding),
-		"setEncoding": vm.NewTypedCFunction(SequenceSetEncoding),
+		"encoding":       vm.NewTypedCFunction(SequenceEncoding),
+		"setEncoding":    vm.NewTypedCFunction(SequenceSetEncoding),
 		"validEncodings": vm.NewCFunction(SequenceValidEncodings),
+		"asUTF8":         vm.NewTypedCFunction(SequenceAsUTF8),
+		"asUTF16":        vm.NewTypedCFunction(SequenceAsUTF16),
+		"asUTF32":        vm.NewTypedCFunction(SequenceAsUTF32),
+
+		// sequence-math.go:
 	}
 	ms := &Sequence{
 		Object: *vm.ObjectWith(slots),
-		Value: []byte(nil),
-		Kind: SeqMU8,
-		Code: "utf8",
+		Value:  []byte(nil),
+		Kind:   SeqMU8,
+		Code:   "utf8",
 	}
 	is := ms.Clone().(*Sequence)
 	is.Kind = SeqIU8

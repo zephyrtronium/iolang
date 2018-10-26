@@ -41,7 +41,7 @@ func NewVM() *VM {
 
 		Operators: &OpTable{},
 
-		ValidEncodings: []string{"ascii", "utf8", "ucs2", "ucs4", "number", "latin1", "utf16", "utf32"},
+		ValidEncodings: []string{"ascii", "utf8", "number", "latin1", "utf16", "utf32"},
 
 		// Memoize all integers in [-1, 255], 1/2, 1/3, 1/4, all mathematical
 		// constants defined in package math, +/- inf, and float/int extrema.
