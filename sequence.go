@@ -294,6 +294,7 @@ func (vm *VM) initSequence() {
 		"asUTF32":        vm.NewTypedCFunction(SequenceAsUTF32),
 
 		// sequence-math.go:
+		"cos": vm.NewTypedCFunction(SequenceCos),
 	}
 	ms := &Sequence{
 		Object: *vm.ObjectWith(slots),
