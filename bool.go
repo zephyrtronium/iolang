@@ -6,6 +6,7 @@ func (vm *VM) initTrue() {
 	vm.True.Slots = Slots{
 		"asSimpleString": s,
 		"asString":       s,
+		"clone":          vm.True,
 		"else":           vm.True,
 		"elseif":         vm.True,
 		"ifFalse":        vm.True,
@@ -14,6 +15,7 @@ func (vm *VM) initTrue() {
 		"or":             vm.True,
 		"type":           s,
 	}
+	vm.True.Slots["then"] = vm.True.Slots["ifTrue"]
 	SetSlot(vm.Core, "true", vm.True)
 }
 
@@ -24,6 +26,7 @@ func (vm *VM) initFalse() {
 		"and":            vm.False,
 		"asSimpleString": s,
 		"asString":       s,
+		"clone":          vm.False,
 		"else":           vm.NewCFunction(ObjectEvalArgAndReturnNil),
 		"elseif":         vm.NewCFunction(ObjectIf),
 		"ifFalse":        vm.NewCFunction(ObjectEvalArgAndReturnSelf),
@@ -43,6 +46,7 @@ func (vm *VM) initNil() {
 		"and":            vm.False,
 		"asSimpleString": s,
 		"asString":       s,
+		"clone":          vm.Nil,
 		"else":           vm.Nil,
 		"elseif":         vm.Nil,
 		"ifNil":          vm.NewCFunction(ObjectEvalArgAndReturnSelf),

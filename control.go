@@ -239,13 +239,6 @@ func ObjectReturn(vm *VM, target, locals Interface, msg *Message) Interface {
 // if evaluates its first argument, then evaluates the second if the first was
 // true or the third if it was false.
 func ObjectIf(vm *VM, target, locals Interface, msg *Message) Interface {
-	// The behavior of this does not exactly mimic that of the original Io
-	// implementation in strange cases:
-	// expression	Io		iolang
-	// if()			false	nil
-	// if(false)	false	nil
-	// if(true)		true	nil
-	// The behavior implemented here is the documented behavior of Io, though.
 	c := msg.EvalArgAt(vm, locals, 0)
 	if cc, ok := CheckStop(c, NoStop); ok {
 		c = cc
@@ -253,7 +246,15 @@ func ObjectIf(vm *VM, target, locals Interface, msg *Message) Interface {
 		return cc
 	}
 	if vm.AsBool(c) {
+		if len(msg.Args) < 2 {
+			// Return true to support `if(condition) then(action)`.
+			return vm.True
+		}
 		return msg.EvalArgAt(vm, locals, 1)
+	}
+	if len(msg.Args) < 3 {
+		// Return false to support `if(c, message) elseif(c, message)`.
+		return vm.False
 	}
 	// Even if only two arguments are supplied, this will evaluate to vm.Nil.
 	return msg.EvalArgAt(vm, locals, 2)
