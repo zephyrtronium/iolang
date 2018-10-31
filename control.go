@@ -2,6 +2,7 @@ package iolang
 
 import (
 	"fmt"
+	"io"
 	"math"
 )
 
@@ -295,14 +296,9 @@ func NumberRepeat(vm *VM, target, locals Interface, msg *Message) (result Interf
 	return result
 }
 
-// ListForeach is a List method.
-//
-// foreach performs a loop on each item of a list in order, optionally setting
-// index and value variables.
-func ListForeach(vm *VM, target, locals Interface, msg *Message) Interface {
-	var kn, vn string
-	var hkn, hvn bool
-	var ev *Message
+// ForeachArgs gets the arguments for a foreach method utilizing the standard
+// foreach([[key,] value,] message) syntax.
+func ForeachArgs(msg *Message) (kn, vn string, hkn, hvn bool, ev *Message) {
 	if len(msg.Args) == 3 {
 		kn = msg.ArgAt(0).Name()
 		vn = msg.ArgAt(1).Name()
@@ -314,19 +310,30 @@ func ListForeach(vm *VM, target, locals Interface, msg *Message) Interface {
 		hvn = true
 	} else if len(msg.Args) == 1 {
 		ev = msg.ArgAt(0)
-	} else {
+	}
+	return
+}
+
+// ListForeach is a List method.
+//
+// foreach performs a loop on each item of a list in order, optionally setting
+// index and value variables.
+func ListForeach(vm *VM, target, locals Interface, msg *Message) (result Interface) {
+	kn, vn, hkn, hvn, ev := ForeachArgs(msg)
+	if ev == nil {
 		return vm.RaiseException("foreach requires 1, 2, or 3 arguments")
 	}
 	l := target.(*List)
-	var result Interface
 	for k, v := range l.Value {
 		if hvn {
 			SetSlot(locals, vn, v)
 			if hkn {
 				SetSlot(locals, kn, vm.NewNumber(float64(k)))
 			}
+			result = ev.Eval(vm, locals)
+		} else {
+			result = ev.Send(vm, v, locals)
 		}
-		result = ev.Eval(vm, locals)
 		if rr, ok := CheckStop(result, NoStop); !ok {
 			switch s := rr.(Stop); s.Status {
 			case ContinueStop:
@@ -348,33 +355,17 @@ func ListForeach(vm *VM, target, locals Interface, msg *Message) Interface {
 // reverseForeach performs a loop on each item of a list in order, optionally
 // setting index and value variables, proceeding from the end of the list to
 // the start.
-func ListReverseForeach(vm *VM, target, locals Interface, msg *Message) Interface {
-	var kn, vn string
-	var hkn, hvn bool
-	var ev *Message
-	if len(msg.Args) == 3 {
-		kn = msg.ArgAt(0).Name()
-		vn = msg.ArgAt(1).Name()
-		ev = msg.ArgAt(2)
-		hkn, hvn = true, true
-	} else if len(msg.Args) == 2 {
-		vn = msg.ArgAt(0).Name()
-		ev = msg.ArgAt(1)
-		hvn = true
-	} else if len(msg.Args) == 1 {
-		ev = msg.ArgAt(0)
-	} else {
-		return vm.RaiseException("reverseForeach requires 1, 2, or 3 arguments")
+func ListReverseForeach(vm *VM, target, locals Interface, msg *Message) (result Interface) {
+	kn, vn, hkn, hvn, ev := ForeachArgs(msg)
+	if !hvn {
+		return vm.RaiseException("reverseForeach requires 2 or 3 arguments")
 	}
 	l := target.(*List)
-	var result Interface
 	for k := len(l.Value) - 1; k >= 0; k-- {
 		v := l.Value[k]
-		if hvn {
-			SetSlot(locals, vn, v)
-			if hkn {
-				SetSlot(locals, kn, vm.NewNumber(float64(k)))
-			}
+		SetSlot(locals, vn, v)
+		if hkn {
+			SetSlot(locals, kn, vm.NewNumber(float64(k)))
 		}
 		result = ev.Eval(vm, locals)
 		if rr, ok := CheckStop(result, NoStop); !ok {
@@ -388,6 +379,140 @@ func ListReverseForeach(vm *VM, target, locals Interface, msg *Message) Interfac
 			default:
 				panic(fmt.Sprintf("iolang: invalid Stop: %#v", rr))
 			}
+		}
+	}
+	return result
+}
+
+// FileForeach is a File method.
+//
+// foreach executes a message for each byte of the file.
+func FileForeach(vm *VM, target, locals Interface, msg *Message) (result Interface) {
+	defer MutableMethod(target)()
+	kn, vn, hkn, hvn, ev := ForeachArgs(msg)
+	if ev == nil {
+		return vm.RaiseException("foreach requires 2 or 3 arguments")
+	}
+	f := target.(*File)
+	if info, err := f.File.Stat(); err == nil && info.Mode().IsRegular() {
+		// Regular file, so we can read into a buffer and then seek back if we
+		// encounter a Stop.
+		k, j, n := 0, 0, 0
+		b := make([]byte, 4096)
+		defer func() {
+			f.File.Seek(int64(j-n), io.SeekCurrent)
+		}()
+		for {
+			n, err = f.File.Read(b)
+			j = 0
+			for _, c := range b[:n] {
+				v := vm.NewNumber(float64(c))
+				if hvn {
+					SetSlot(locals, vn, v)
+					if hkn {
+						SetSlot(locals, kn, vm.NewNumber(float64(k)))
+					}
+				}
+				result = ev.Send(vm, v, locals)
+				if rr, ok := CheckStop(result, NoStop); !ok {
+					switch s := rr.(Stop); s.Status {
+					case ContinueStop:
+						result = s.Result
+					case BreakStop:
+						return s.Result
+					case ReturnStop, ExceptionStop:
+						return rr
+					default:
+						panic(fmt.Sprintf("iolang: invalid Stop: %#v", rr))
+					}
+				}
+				k++
+				j++
+			}
+			if err == io.EOF {
+				f.EOF = true
+				break
+			}
+			if err != nil {
+				return vm.IoError(err)
+			}
+		}
+	} else {
+		// Other than a regular file. We can't necessarily seek around, so we
+		// have to read one byte at a time.
+		b := []byte{0}
+		for k := 0; err != io.EOF; k++ {
+			_, err = f.File.Read(b)
+			if err != nil {
+				if err == io.EOF {
+					f.EOF = true
+					break
+				}
+				return vm.IoError(err)
+			}
+			v := vm.NewNumber(float64(b[0]))
+			if hvn {
+				SetSlot(locals, vn, v)
+				if hkn {
+					SetSlot(locals, kn, vm.NewNumber(float64(k)))
+				}
+			}
+			result = ev.Send(vm, v, locals)
+			if rr, ok := CheckStop(result, NoStop); !ok {
+				switch s := rr.(Stop); s.Status {
+				case ContinueStop:
+					result = s.Result
+				case BreakStop:
+					return s.Result
+				case ReturnStop, ExceptionStop:
+					return rr
+				default:
+					panic(fmt.Sprintf("iolang: invalid Stop: %#v", rr))
+				}
+			}
+		}
+	}
+	return result
+}
+
+// FileForeachLine is a File method.
+//
+// foreachLine executes a message for each line of the file.
+func FileForeachLine(vm *VM, target, locals Interface, msg *Message) (result Interface) {
+	kn, vn, hkn, hvn, ev := ForeachArgs(msg)
+	if ev == nil {
+		return vm.RaiseException("foreach requires 1, 2, or 3 arguments")
+	}
+	f := target.(*File)
+	k := 0
+	// f.ReadLine implements the same logic as FileForeach above.
+	for {
+		line, err := f.ReadLine()
+		if line != nil {
+			v := vm.NewSequence(line, true, "latin1")
+			if hvn {
+				SetSlot(locals, vn, v)
+				if hkn {
+					SetSlot(locals, kn, vm.NewNumber(float64(k)))
+				}
+			}
+			result = ev.Send(vm, v, locals)
+			if rr, ok := CheckStop(result, NoStop); !ok {
+				switch s := rr.(Stop); s.Status {
+				case ContinueStop:
+					result = s.Result
+				case BreakStop:
+					return s.Result
+				case ReturnStop, ExceptionStop:
+					return rr
+				default:
+					panic(fmt.Sprintf("iolang: invalid Stop: %#v", rr))
+				}
+			}
+			if err != nil {
+				break
+			}
+			k++
 		}
 	}
 	return result

@@ -10,7 +10,7 @@ func (s *Sequence) CheckNumeric(name string) error {
 	if s.Code == "number" {
 		return nil
 	}
-	return fmt.Sprintf("%q not valid on non-number encodings", a)
+	return fmt.Errorf("%q not valid on non-number encodings", name)
 }
 
 // MapUnary replaces each value of the sequence with the result of applying op.
@@ -89,4 +89,5 @@ func SequenceCos(vm *VM, target, locals Interface, msg *Message) Interface {
 		return vm.IoError(err)
 	}
 	s.MapUnary(math.Cos)
+	return s
 }

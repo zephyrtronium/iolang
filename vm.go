@@ -71,6 +71,7 @@ func NewVM() *VM {
 	vm.initOpTable()
 	vm.initLocals()
 	vm.initList()
+	vm.initFile()
 	vm.initCFunction2() // CFunction needs sequences
 
 	vm.MemoizeString("")

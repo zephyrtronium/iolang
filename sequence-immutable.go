@@ -1,5 +1,9 @@
 package iolang
 
+import (
+	"fmt"
+)
+
 // SequenceAt is a Sequence method.
 //
 // at returns a value of the sequence as a number.
