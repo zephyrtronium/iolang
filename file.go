@@ -52,16 +52,17 @@ func (f *File) ReadLine() (line []byte, err error) {
 	// equivalent in the standard library, and Io uses fgets. :)
 	var fi os.FileInfo
 	fi, err = f.File.Stat()
-	n := 0
+	n, tn := 0, 0
 	if err == nil && fi.Mode().IsRegular() {
 		// If we can seek, we can read portions of the file at a time and seek
 		// back once we find what we're looking for.
 		b := make([]byte, 4096)
 		for {
-			n, err = f.File.Read(b)
-			if n == 0 {
+			tn, err = f.File.Read(b)
+			if tn == 0 {
 				break
 			}
+			n += tn
 			k := bytes.IndexByte(b[:n], '\n')
 			if k != -1 {
 				j := 0
@@ -84,10 +85,11 @@ func (f *File) ReadLine() (line []byte, err error) {
 		b := []byte{0}
 		err = nil // could be non-nil from Stat, but we don't care
 		for {
-			n, err = f.File.Read(b)
-			if err != nil {
+			tn, err = f.File.Read(b)
+			if tn == 0 {
 				break
 			}
+			n += tn
 			if b[0] == '\n' {
 				if len(line) > 0 && line[len(line)-1] == '\r' {
 					line = line[:len(line)-1]
@@ -148,6 +150,7 @@ func (vm *VM) initFile() {
 		"size":               vm.NewTypedCFunction(FileSize),
 		"temporaryFile":      vm.NewCFunction(FileTemporaryFile),
 		"truncateToSize":     vm.NewTypedCFunction(FileTruncateToSize),
+		"write":              vm.NewTypedCFunction(FileWrite),
 	}
 	slots["descriptorId"] = slots["descriptor"]
 	SetSlot(vm.Core, "File", &File{Object: *vm.ObjectWith(slots)})
@@ -793,19 +796,21 @@ func FileTruncateToSize(vm *VM, target, locals Interface, msg *Message) Interfac
 	return target
 }
 
-/* TODO: change AsString to ToString and make AsString be stop-safe
 // FileWrite is a File method.
 //
 // write writes its arguments to the file.
 func FileWrite(vm *VM, target, locals Interface, msg *Message) Interface {
 	defer MutableMethod(target)()
 	f := target.(*File)
-	for _, m := range msg.Args {
-		arg, ok := CheckStop(m.Eval(vm, locals), LoopStops)
-		if !ok {
-			return arg
+	for i := range msg.Args {
+		s, err := msg.StringArgAt(vm, locals, i)
+		if err != nil {
+			return vm.IoError(err)
 		}
-
+		_, err = f.File.Write(s.Bytes())
+		if err != nil {
+			return vm.IoError(err)
+		}
 	}
+	return target
 }
-*/
