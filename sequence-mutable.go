@@ -20,8 +20,5 @@ func SequenceAsMutable(vm *VM, target, locals Interface, msg *Message) Interface
 	// This isn't actually a mutable method, but it feels more appropriate
 	// here with them.
 	s := target.(*Sequence)
-	if s.IsMutable() {
-		defer MutableMethod(target)()
-	}
 	return vm.NewSequence(s.Value, true, s.Code)
 }

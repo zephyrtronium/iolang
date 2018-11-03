@@ -187,9 +187,6 @@ func (vm *VM) CheckEncoding(encoding string) bool {
 // encoding returns the sequence's encoding.
 func SequenceEncoding(vm *VM, target, locals Interface, msg *Message) Interface {
 	s := target.(*Sequence)
-	if s.IsMutable() {
-		defer MutableMethod(target)()
-	}
 	return vm.NewString(s.Code)
 }
 
@@ -203,7 +200,6 @@ func SequenceSetEncoding(vm *VM, target, locals Interface, msg *Message) Interfa
 	if err := s.CheckMutable("setEncoding"); err != nil {
 		return vm.IoError(err)
 	}
-	defer MutableMethod(target)()
 	arg, err := msg.StringArgAt(vm, locals, 0)
 	if err != nil {
 		return vm.IoError(err)
@@ -232,9 +228,6 @@ func SequenceValidEncodings(vm *VM, target, locals Interface, msg *Message) Inte
 // asUTF8 creates a Sequence encoding the receiver in UTF-8.
 func SequenceAsUTF8(vm *VM, target, locals Interface, msg *Message) Interface {
 	s := target.(*Sequence)
-	if s.IsMutable() {
-		defer MutableMethod(target)()
-	}
 	if s.Code == "utf8" && (s.Kind == SeqMU8 || s.Kind == SeqIU8) {
 		return vm.NewSequence(s.Value, s.IsMutable(), "utf8")
 	}
@@ -250,9 +243,6 @@ func SequenceAsUTF8(vm *VM, target, locals Interface, msg *Message) Interface {
 // asUTF16 creates a Sequence encoding the receiver in UTF-16.
 func SequenceAsUTF16(vm *VM, target, locals Interface, msg *Message) Interface {
 	s := target.(*Sequence)
-	if s.IsMutable() {
-		defer MutableMethod(target)()
-	}
 	if s.Code == "utf16" && (s.Kind == SeqMU16 || s.Kind == SeqIU16) {
 		return vm.NewSequence(s.Value, s.IsMutable(), "utf16")
 	}
@@ -266,9 +256,6 @@ func SequenceAsUTF16(vm *VM, target, locals Interface, msg *Message) Interface {
 // asUTF32 creates a Sequence encoding the receiver in UTF-32.
 func SequenceAsUTF32(vm *VM, target, locals Interface, msg *Message) Interface {
 	s := target.(*Sequence)
-	if s.IsMutable() {
-		defer MutableMethod(target)()
-	}
 	if s.Code == "utf32" && (s.Kind == SeqMS32 || s.Kind == SeqIS32) {
 		return vm.NewSequence(s.Value, s.IsMutable(), "utf32")
 	}

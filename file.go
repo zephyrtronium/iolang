@@ -169,7 +169,6 @@ func (vm *VM) initFile() {
 //
 // asBuffer reads the contents of the file into a buffer object.
 func FileAsBuffer(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	f := target.(*File)
 	b, err := ioutil.ReadFile(f.Path)
 	if err != nil {
@@ -182,7 +181,6 @@ func FileAsBuffer(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // at returns as a Number the byte in the file at a given position.
 func FileAt(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	f := target.(*File)
 	n, err := msg.NumberArgAt(vm, locals, 0)
 	if err != nil {
@@ -203,7 +201,6 @@ func FileAt(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // atPut writes a single byte to the file at a given position.
 func FileAtPut(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	f := target.(*File)
 	n, err := msg.NumberArgAt(vm, locals, 0)
 	if err != nil {
@@ -223,7 +220,6 @@ func FileAtPut(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // close closes the file.
 func FileClose(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	f := target.(*File)
 	switch f.File {
 	case nil, os.Stdin, os.Stdout, os.Stderr:
@@ -243,7 +239,6 @@ func FileClose(vm *VM, target, locals Interface, msg *Message) Interface {
 // contents reads the contents of the file into a buffer object. Same as
 // asBuffer, but can also read standardInput.
 func FileContents(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	f := target.(*File)
 	if f.File == os.Stdin {
 		b, err := ioutil.ReadAll(f.File)
@@ -263,7 +258,6 @@ func FileContents(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // descriptor returns the underlying file descriptor as a Number.
 func FileDescriptor(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	f := target.(*File)
 	return vm.NewNumber(float64(f.File.Fd()))
 }
@@ -272,7 +266,6 @@ func FileDescriptor(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // exists returns whether a file with this file's path exists.
 func FileExists(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	f := target.(*File)
 	_, err := os.Stat(f.Path)
 	if err == nil {
@@ -289,7 +282,6 @@ func FileExists(vm *VM, target, locals Interface, msg *Message) Interface {
 // flush synchronizes the file state between the program and the operating
 // system.
 func FileFlush(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	f := target.(*File)
 	if err := f.File.Sync(); err != nil {
 		return vm.IoError(err)
@@ -301,7 +293,6 @@ func FileFlush(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // isAtEnd returns true if the file is at EOF.
 func FileIsAtEnd(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	f := target.(*File)
 	return vm.IoBool(f.EOF)
 }
@@ -310,7 +301,6 @@ func FileIsAtEnd(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // isDirectory returns true if the path of the file is a directory.
 func FileIsDirectory(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	f := target.(*File)
 	fi, err := os.Stat(f.Path)
 	if err != nil {
@@ -323,7 +313,6 @@ func FileIsDirectory(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // isLink returns true if the path of the file is a symbolic link.
 func FileIsLink(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	f := target.(*File)
 	fi, err := os.Lstat(f.Path)
 	if err != nil {
@@ -336,7 +325,6 @@ func FileIsLink(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // isOpen returns true if the file is open.
 func FileIsOpen(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	f := target.(*File)
 	return vm.IoBool(f.File != nil)
 }
@@ -345,7 +333,6 @@ func FileIsOpen(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // isPipe returns true if the path of the file is a named pipe.
 func FileIsPipe(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	f := target.(*File)
 	fi, err := os.Stat(f.Path)
 	if err != nil {
@@ -358,7 +345,6 @@ func FileIsPipe(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // isRegularFile returns true if the path of the file is a regular file.
 func FileIsRegularFile(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	f := target.(*File)
 	fi, err := os.Stat(f.Path)
 	if err != nil {
@@ -371,7 +357,6 @@ func FileIsRegularFile(vm *VM, target, locals Interface, msg *Message) Interface
 //
 // isSocket returns true if the path of the file is a socket.
 func FileIsSocket(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	f := target.(*File)
 	fi, err := os.Stat(f.Path)
 	if err != nil {
@@ -385,7 +370,6 @@ func FileIsSocket(vm *VM, target, locals Interface, msg *Message) Interface {
 // isUserExecutable returns true if the path of the file is executable by its
 // owner. Always false on Windows.
 func FileIsUserExecutable(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	f := target.(*File)
 	fi, err := os.Stat(f.Path)
 	if err != nil {
@@ -399,7 +383,6 @@ func FileIsUserExecutable(vm *VM, target, locals Interface, msg *Message) Interf
 // mode returns a string describing the file's mode; one of "read", "update",
 // or "append".
 func FileMode(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	f := target.(*File)
 	return vm.NewString(f.Mode)
 }
@@ -408,7 +391,6 @@ func FileMode(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // moveTo moves the file at the file's path to the given path.
 func FileMoveTo(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	f := target.(*File)
 	s, err := msg.StringArgAt(vm, locals, 0)
 	if err != nil {
@@ -426,7 +408,6 @@ func FileMoveTo(vm *VM, target, locals Interface, msg *Message) Interface {
 // FileName returns the name of the file or directory at the file's path,
 // similar to UNIX basename.
 func FileName(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	f := target.(*File)
 	chrs := "/"
 	if runtime.GOOS == "windows" {
@@ -448,7 +429,6 @@ func FileName(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // open opens the file.
 func FileOpen(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	f := target.(*File)
 	if f.File == nil {
 		var err error
@@ -473,11 +453,8 @@ func FileOpen(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // openForAppending opens the file for appending.
 func FileOpenForAppending(vm *VM, target, locals Interface, msg *Message) Interface {
-	// Not using MutableMethod because we're calling another method that will.
 	f := target.(*File)
-	f.L.Lock()
 	f.Mode = "append"
-	f.L.Unlock()
 	return FileOpen(vm, target, locals, msg)
 }
 
@@ -485,11 +462,8 @@ func FileOpenForAppending(vm *VM, target, locals Interface, msg *Message) Interf
 //
 // openForReading opens the file for reading.
 func FileOpenForReading(vm *VM, target, locals Interface, msg *Message) Interface {
-	// Not using MutableMethod because we're calling another method that will.
 	f := target.(*File)
-	f.L.Lock()
 	f.Mode = "read"
-	f.L.Unlock()
 	return FileOpen(vm, target, locals, msg)
 }
 
@@ -497,11 +471,8 @@ func FileOpenForReading(vm *VM, target, locals Interface, msg *Message) Interfac
 //
 // openForUpdating opens the file for updating.
 func FileOpenForUpdating(vm *VM, target, locals Interface, msg *Message) Interface {
-	// Not using MutableMethod because we're calling another method that will.
 	f := target.(*File)
-	f.L.Lock()
 	f.Mode = "update"
-	f.L.Unlock()
 	return FileOpen(vm, target, locals, msg)
 }
 
@@ -509,7 +480,6 @@ func FileOpenForUpdating(vm *VM, target, locals Interface, msg *Message) Interfa
 //
 // path returns the file's absolute path.
 func FilePath(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	f := target.(*File)
 	p, err := filepath.Abs(f.Path)
 	if err != nil {
@@ -522,7 +492,6 @@ func FilePath(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // position returns the current position of the file cursor.
 func FilePosition(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	f := target.(*File)
 	p, err := f.File.Seek(0, io.SeekCurrent)
 	if err != nil {
@@ -535,7 +504,6 @@ func FilePosition(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // positionAtEnd moves the file cursor to the end of the file.
 func FilePositionAtEnd(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	f := target.(*File)
 	_, err := f.File.Seek(0, io.SeekEnd)
 	if err != nil {
@@ -549,7 +517,6 @@ func FilePositionAtEnd(vm *VM, target, locals Interface, msg *Message) Interface
 //
 // protectionMode returns the stat mode of the path of the file as a Number.
 func FileProtectionMode(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	f := target.(*File)
 	fi, err := os.Stat(f.Path)
 	if err != nil {
@@ -562,7 +529,6 @@ func FileProtectionMode(vm *VM, target, locals Interface, msg *Message) Interfac
 //
 // readBufferOfLength reads the specified number of bytes into a Sequence.
 func FileReadBufferOfLength(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	f := target.(*File)
 	count, err := msg.NumberArgAt(vm, locals, 0)
 	if err != nil {
@@ -589,7 +555,6 @@ func FileReadBufferOfLength(vm *VM, target, locals Interface, msg *Message) Inte
 //
 // readLine reads a line from the file.
 func FileReadLine(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	f := target.(*File)
 	b, err := f.ReadLine()
 	if err != nil {
@@ -605,7 +570,6 @@ func FileReadLine(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // readLines returns a List containing all lines in the file.
 func FileReadLines(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	f := target.(*File)
 	l := []Interface{}
 	for {
@@ -629,7 +593,6 @@ func FileReadLines(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // readStringOfLength reads a string up to the given length from the file.
 func FileReadStringOfLength(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	f := target.(*File)
 	count, err := msg.NumberArgAt(vm, locals, 0)
 	if err != nil {
@@ -657,7 +620,6 @@ func FileReadStringOfLength(vm *VM, target, locals Interface, msg *Message) Inte
 // readToEnd reads chunks of a given size (default 4096) to the end of the file
 // and returns a Sequence containing the bytes read.
 func FileReadToEnd(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	f := target.(*File)
 	sz := 4096
 	if len(msg.Args) > 0 {
@@ -695,7 +657,6 @@ func FileReadToEnd(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // remove removes the file at the file's path.
 func FileRemove(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	f := target.(*File)
 	err := os.Remove(f.Path)
 	if err != nil && !os.IsNotExist(err) {
@@ -708,7 +669,6 @@ func FileRemove(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // rewind returns the file cursor to the beginning of the file.
 func FileRewind(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	f := target.(*File)
 	_, err := f.File.Seek(0, io.SeekStart)
 	if err != nil {
@@ -722,7 +682,6 @@ func FileRewind(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // setPath sets the file's path.
 func FileSetPath(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	f := target.(*File)
 	s, err := msg.StringArgAt(vm, locals, 0)
 	if err != nil {
@@ -736,7 +695,6 @@ func FileSetPath(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // setPosition changes the file cursor's location.
 func FileSetPosition(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	f := target.(*File)
 	n, err := msg.NumberArgAt(vm, locals, 0)
 	if err != nil {
@@ -758,7 +716,6 @@ func FileSetPosition(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // size determines the file size.
 func FileSize(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	f := target.(*File)
 	fi, err := os.Stat(f.Path)
 	if err != nil {
@@ -783,7 +740,6 @@ func FileTemporaryFile(vm *VM, target, locals Interface, msg *Message) Interface
 //
 // truncateToSize truncates the file to the given size.
 func FileTruncateToSize(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	f := target.(*File)
 	n, err := msg.NumberArgAt(vm, locals, 0)
 	if err != nil {
@@ -800,7 +756,6 @@ func FileTruncateToSize(vm *VM, target, locals Interface, msg *Message) Interfac
 //
 // write writes its arguments to the file.
 func FileWrite(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	f := target.(*File)
 	for i := range msg.Args {
 		s, err := msg.StringArgAt(vm, locals, i)

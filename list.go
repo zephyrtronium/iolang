@@ -75,7 +75,6 @@ func (vm *VM) initList() {
 //
 // append adds items to the end of the list.
 func ListAppend(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	l := target.(*List)
 	nv := make([]Interface, 0, len(msg.Args))
 	defer func() {
@@ -96,7 +95,6 @@ func ListAppend(vm *VM, target, locals Interface, msg *Message) Interface {
 // appendIfAbsent adds items to the end of the list if they are not already in
 // it.
 func ListAppendIfAbsent(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	l := target.(*List)
 	nv := make([]Interface, 0, len(msg.Args))
 	defer func() {
@@ -126,7 +124,6 @@ outer:
 //
 // appendSeq adds the items in the given lists to the list.
 func ListAppendSeq(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	l := target.(*List)
 	nv := []Interface{}
 	defer func() {
@@ -138,7 +135,6 @@ func ListAppendSeq(vm *VM, target, locals Interface, msg *Message) Interface {
 			return v
 		}
 		if r, ok := v.(*List); ok {
-			defer MutableMethod(r)()
 			if r == l {
 				return vm.RaiseException("can't add a list to itself")
 			}
@@ -154,7 +150,6 @@ func ListAppendSeq(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // asString creates a string representation of an object.
 func ListAsString(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	l := target.(*List)
 	b := strings.Builder{}
 	b.WriteString("list(")
@@ -172,7 +167,6 @@ func ListAsString(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // at returns the nth item in the list. All out-of-bounds values are nil.
 func ListAt(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	n, err := msg.NumberArgAt(vm, locals, 0)
 	if err != nil {
 		return vm.IoError(err)
@@ -190,7 +184,6 @@ func ListAt(vm *VM, target, locals Interface, msg *Message) Interface {
 // atInsert adds an item to the list at the given position, moving back
 // existing items at or past that point.
 func ListAtInsert(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	n, err := msg.NumberArgAt(vm, locals, 0)
 	if err != nil {
 		return vm.IoError(err)
@@ -220,7 +213,6 @@ func ListAtInsert(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // atPut replaces an item in the list.
 func ListAtPut(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	n, err := msg.NumberArgAt(vm, locals, 0)
 	if err != nil {
 		return vm.IoError(err)
@@ -242,7 +234,6 @@ func ListAtPut(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // capacity is the number of items for which the list has allocated space.
 func ListCapacity(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	return vm.NewNumber(float64(cap(target.(*List).Value)))
 }
 
@@ -251,14 +242,12 @@ func ListCapacity(vm *VM, target, locals Interface, msg *Message) Interface {
 // compare returns -1 if the receiver is less than the argument, 1 if it is
 // greater, or 0 if they are equal.
 func ListCompare(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	l := target.(*List)
 	v, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
 	if !ok {
 		return v
 	}
 	if r, ok := v.(*List); ok {
-		defer MutableMethod(r)()
 		s1, s2 := len(l.Value), len(r.Value)
 		if s1 != s2 {
 			// This is not proper lexicographical order, but it is Io's order.
@@ -286,7 +275,6 @@ func ListCompare(vm *VM, target, locals Interface, msg *Message) Interface {
 // contains returns true if the list contains an item equal to the given
 // object.
 func ListContains(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	r, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
 	if !ok {
 		return r
@@ -308,7 +296,6 @@ func ListContains(vm *VM, target, locals Interface, msg *Message) Interface {
 // containsAll returns true if the list contains items equal to each of the
 // given objects.
 func ListContainsAll(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	r := make([]Interface, len(msg.Args))
 	var ok bool
 	for i := range msg.Args {
@@ -338,7 +325,6 @@ outer:
 // containsAny returns true if the list contains an item equal to any of the
 // given objects.
 func ListContainsAny(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	// TODO: use ID checks like ListRemove does
 	r := make([]Interface, len(msg.Args))
 	var ok bool
@@ -367,7 +353,6 @@ func ListContainsAny(vm *VM, target, locals Interface, msg *Message) Interface {
 // containsIdenticalTo returns true if the list contains exactly the given
 // object.
 func ListContainsIdenticalTo(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	r, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
 	if !ok {
 		return r
@@ -385,7 +370,6 @@ func ListContainsIdenticalTo(vm *VM, target, locals Interface, msg *Message) Int
 // indexOf returns the first index from the left of an item equal to the
 // argument. If there is no such item in the list, -1 is returned.
 func ListIndexOf(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	r, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
 	if !ok {
 		return r
@@ -406,7 +390,6 @@ func ListIndexOf(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // preallocateToSize ensures that the list has capacity for at least n items.
 func ListPreallocateToSize(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	r, err := msg.NumberArgAt(vm, locals, 0)
 	if err != nil {
 		return vm.IoError(err)
@@ -428,7 +411,6 @@ func ListPreallocateToSize(vm *VM, target, locals Interface, msg *Message) Inter
 //
 // prepend adds items to the beginning of the list.
 func ListPrepend(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	l := target.(*List)
 	nv := make([]Interface, 0, len(msg.Args))
 	for _, m := range msg.Args {
@@ -455,7 +437,6 @@ func ListPrepend(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // remove removes all occurrences of each item from the list.
 func ListRemove(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	l := target.(*List)
 	rv := make(map[Interface]struct{}, len(msg.Args))
 	for _, m := range msg.Args {
@@ -498,7 +479,6 @@ outer:
 //
 // removeAll removes all items from the list.
 func ListRemoveAll(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	l := target.(*List)
 	l.Value = l.Value[:0]
 	return target
@@ -508,7 +488,6 @@ func ListRemoveAll(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // removeAt removes the item in the given position from the list.
 func ListRemoveAt(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	l := target.(*List)
 	n, err := msg.NumberArgAt(vm, locals, 0)
 	if err != nil {
@@ -524,7 +503,6 @@ func ListRemoveAt(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // reverseInPlace reverses the order of items in the list.
 func ListReverseInPlace(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	l := target.(*List)
 	ll := len(l.Value)
 	for i := 0; i < ll/2; i++ {
@@ -538,7 +516,6 @@ func ListReverseInPlace(vm *VM, target, locals Interface, msg *Message) Interfac
 // setSize changes the size of the list, removing items from or adding nils to
 // the end as necessary.
 func ListSetSize(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	l := target.(*List)
 	v, err := msg.NumberArgAt(vm, locals, 0)
 	if err != nil {
@@ -564,7 +541,6 @@ func ListSetSize(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // size is the number of items in the list.
 func ListSize(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	return vm.NewNumber(float64(len(target.(*List).Value)))
 }
 
@@ -623,7 +599,6 @@ func fixSliceIndex(k, step, size int) int {
 //
 // slice returns a selected linear portion of the list.
 func ListSlice(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	l := target.(*List)
 	start, step, stop, err := sliceArgs(vm, locals, msg, len(l.Value))
 	if err != nil {
@@ -657,7 +632,6 @@ func ListSlice(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // sliceInPlace reduces the list to a selected linear portion.
 func ListSliceInPlace(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	l := target.(*List)
 	start, step, stop, err := sliceArgs(vm, locals, msg, len(l.Value))
 	if err != nil {
@@ -759,7 +733,6 @@ func (l *listSorter) Less(i, j int) bool {
 //
 // sortInPlace sorts the list according to the items' compare method.
 func ListSortInPlace(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	l := target.(*List)
 	ls := listSorter{
 		v:  l.Value,
@@ -780,7 +753,6 @@ func ListSortInPlace(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // sortInPlaceBy sorts the list using a given compare block.
 func ListSortInPlaceBy(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	l := target.(*List)
 	r, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), ReturnStop)
 	if !ok {
@@ -808,7 +780,6 @@ func ListSortInPlaceBy(vm *VM, target, locals Interface, msg *Message) Interface
 //
 // swapIndices swaps the values in two positions in the list.
 func ListSwapIndices(vm *VM, target, locals Interface, msg *Message) Interface {
-	defer MutableMethod(target)()
 	l := target.(*List)
 	a, err := msg.NumberArgAt(vm, locals, 0)
 	if err != nil {

@@ -388,7 +388,6 @@ func ListReverseForeach(vm *VM, target, locals Interface, msg *Message) (result 
 //
 // foreach executes a message for each byte of the file.
 func FileForeach(vm *VM, target, locals Interface, msg *Message) (result Interface) {
-	defer MutableMethod(target)()
 	kn, vn, hkn, hvn, ev := ForeachArgs(msg)
 	if ev == nil {
 		return vm.RaiseException("foreach requires 2 or 3 arguments")

@@ -9,9 +9,6 @@ import (
 // at returns a value of the sequence as a number.
 func SequenceAt(vm *VM, target, locals Interface, msg *Message) Interface {
 	s := target.(*Sequence)
-	if s.IsMutable() {
-		defer MutableMethod(target)()
-	}
 	arg, err := msg.NumberArgAt(vm, locals, 0)
 	if err != nil {
 		return vm.IoError(err)
@@ -28,9 +25,6 @@ func SequenceAt(vm *VM, target, locals Interface, msg *Message) Interface {
 // size returns the number of items in the sequence.
 func SequenceSize(vm *VM, target, locals Interface, msg *Message) Interface {
 	s := target.(*Sequence)
-	if s.IsMutable() {
-		defer MutableMethod(target)()
-	}
 	return vm.NewNumber(float64(s.Len()))
 }
 
@@ -39,9 +33,6 @@ func SequenceSize(vm *VM, target, locals Interface, msg *Message) Interface {
 // itemSize returns the size in bytes of each item in the sequence.
 func SequenceItemSize(vm *VM, target, locals Interface, msg *Message) Interface {
 	s := target.(*Sequence)
-	if s.IsMutable() {
-		defer MutableMethod(target)()
-	}
 	return vm.NewNumber(float64(s.ItemSize()))
 }
 
@@ -50,9 +41,6 @@ func SequenceItemSize(vm *VM, target, locals Interface, msg *Message) Interface 
 // itemType returns the type of the values in the sequence.
 func SequenceItemType(vm *VM, target, locals Interface, msg *Message) Interface {
 	s := target.(*Sequence)
-	if s.IsMutable() {
-		defer MutableMethod(target)()
-	}
 	switch s.Kind {
 	case SeqMU8, SeqIU8:
 		return vm.NewString("uint8")
