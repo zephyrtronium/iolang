@@ -190,6 +190,9 @@ func lexNumber(src *bufio.Reader, tokens chan<- token) lexFn {
 		}
 		if r == '-' || r == '+' {
 			r, _, err = src.ReadRune()
+			if err != nil {
+				return lexsend(err, tokens, token{Kind: badToken, Err: err})
+			}
 			b = append(b, 'e', byte(r))
 		} else {
 			b = append(b, 'e')

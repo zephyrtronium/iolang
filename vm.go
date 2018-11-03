@@ -193,8 +193,8 @@ func (vm *VM) finalInit() {
 	const (
 		object = `Object setSlot("and", method(v, v isTrue))
 		Object setSlot("-", method(v, v negate))`
-		false_ = `false setSlot("or", method(v, v isTrue))`
-		nil_   = `nil setSlot("or", method(v, v isTrue))`
+		false = `false setSlot("or", method(v, v isTrue))`
+		nil   = `nil setSlot("or", method(v, v isTrue))`
 		// number = `Number do(
 		// 	combinations := method(r, self factorial / ((self - r) factorial) / (r factorial))
 		// 	permutations := method(r, self factorial / ((self - r) factorial))
@@ -205,8 +205,8 @@ func (vm *VM) finalInit() {
 		// )`
 	)
 	vm.DoString(object)
-	vm.DoString(false_)
-	vm.DoString(nil_)
+	vm.DoString(false)
+	vm.DoString(nil)
 	// vm.DoString(number)
 	// vm.DoString(list)
 }

@@ -50,7 +50,7 @@ func (e *Exception) Raise() Interface {
 	return Stop{Status: ExceptionStop, Result: e}
 }
 
-// Determine whether an error is an Exception or Error from Io.
+// IsIoError returns true if the given object is an exception produced by Io.
 func IsIoError(err interface{}) bool {
 	switch e := err.(type) {
 	case *Exception:
@@ -79,7 +79,7 @@ func (vm *VM) IoError(err interface{}) Interface {
 	}
 }
 
-// Panic if the argument is an error; otherwise, return it.
+// Must panics if the argument is an error and otherwise returns it.
 func Must(v Interface) Interface {
 	if e, ok := v.(error); ok {
 		panic(e)

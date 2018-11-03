@@ -6,9 +6,9 @@ import (
 	"sync"
 )
 
-// All Io objects satisfy Interface. To satisfy this interface, *Object's
-// method set must be embedded and Clone() implemented to return a value of the
-// new type.
+// Interface is the interface which all Io objects satisfy. To satisfy this
+// interface, *Object's method set must be embedded and Clone() implemented to
+// return a value of the new type.
 type Interface interface {
 	// Get slots and protos.
 	SP() *Object
@@ -356,11 +356,11 @@ func (vm *VM) Compare(x, y Interface) Interface {
 // greater, or 0 if they are equal. The default order is the order of the
 // numeric values of the objects' addresses.
 func ObjectCompare(vm *VM, target, locals Interface, msg *Message) Interface {
-	if v, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops); !ok {
+	v, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
+	if !ok {
 		return v
-	} else {
-		return vm.NewNumber(float64(ptrCompare(target, v)))
 	}
+	return vm.NewNumber(float64(ptrCompare(target, v)))
 }
 
 // ptrCompare returns a compare value for the pointers of two objects. It

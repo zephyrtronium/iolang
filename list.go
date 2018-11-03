@@ -745,15 +745,14 @@ func (l *listSorter) Less(i, j int) bool {
 			return n.Value < 0
 		}
 		return l.vm.AsBool(r)
-	} else {
-		l.m.Args[0].Memo, l.m.Args[1].Memo = l.v[i], l.v[j]
-		r, ok := CheckStop(l.b.reallyActivate(l.vm, l.l, l.l, l.m), ReturnStop)
-		if !ok {
-			l.err = r
-			return i < j
-		}
-		return l.vm.AsBool(r)
 	}
+	l.m.Args[0].Memo, l.m.Args[1].Memo = l.v[i], l.v[j]
+	r, ok := CheckStop(l.b.reallyActivate(l.vm, l.l, l.l, l.m), ReturnStop)
+	if !ok {
+		l.err = r
+		return i < j
+	}
+	return l.vm.AsBool(r)
 }
 
 // ListSortInPlace is a List method.

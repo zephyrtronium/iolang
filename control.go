@@ -190,7 +190,7 @@ func ObjectLoop(vm *VM, target, locals Interface, msg *Message) (result Interfac
 		if rr, ok := CheckStop(result, NoStop); !ok {
 			switch s := rr.(Stop); s.Status {
 			case ContinueStop:
-				result = s.Result
+				// result = s.Result
 			case BreakStop:
 				return s.Result
 			case ReturnStop, ExceptionStop:
