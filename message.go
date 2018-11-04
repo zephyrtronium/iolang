@@ -16,9 +16,23 @@ type Message struct {
 	// Next and previous messages.
 	Next, Prev *Message
 
-	// Cached value of this message. If this is non-nil, it is used instead of
-	// activating the message.
+	// Cached value of this message. If this is non-nil, it is used instead
+	// of activating the message.
 	Memo Interface
+}
+
+// Activate activates the message. This evaluates the message using the
+// provided locals.
+func (m *Message) Activate(vm *VM, target, locals Interface, msg *Message) Interface {
+	return m.Eval(vm, locals)
+}
+
+// Clone returns a clone of the message with the same text only.
+func (m *Message) Clone() Interface {
+	return &Message{
+		Object: Object{Slots: Slots{}, Protos: []Interface{m}},
+		Text:   m.Text,
+	}
 }
 
 // IdentMessage creates a message of a given identifier. Additional messages
@@ -116,13 +130,17 @@ func (m *Message) ListArgAt(vm *VM, locals Interface, n int) (*List, error) {
 func (m *Message) AsStringArgAt(vm *VM, locals Interface, n int) (*Sequence, error) {
 	v := m.EvalArgAt(vm, locals, n)
 	if asString, proto := GetSlot(v, "asString"); proto != nil {
-		switch rr := asString.(type) {
-		case Actor:
-			if str, ok := vm.SimpleActivate(rr, v, locals, "asString").(*Sequence); ok {
-				return str, nil
+		r, ok := CheckStop(asString.Activate(vm, locals, locals, vm.IdentMessage("asString")), ReturnStop)
+		if !ok {
+			s := r.(Stop)
+			if err, ok := s.Result.(error); ok {
+				return nil, err
 			}
-		case *Sequence:
-			return rr, nil
+			// Something other than an Exception was raised. Is this possible?
+			return nil, vm.NewException(vm.AsString(s.Result))
+		}
+		if s, ok := r.(*Sequence); ok {
+			return s, nil
 		}
 	}
 	return nil, vm.NewExceptionf("argument %d to %s cannot be converted to string", n, m.Text)
@@ -153,25 +171,13 @@ func (m *Message) Send(vm *VM, target, locals Interface) (result Interface) {
 			if !m.IsTerminator() {
 				if newtarget, proto := GetSlot(target, m.Text); proto != nil {
 					// We have the slot.
-					switch a := newtarget.(type) {
-					case Stop:
-						a.Result = result
-						return a
-					case Actor:
-						var ok bool
-						result, ok = CheckStop(a.Activate(vm, target, locals, m), NoStop)
-						if !ok {
-							return result
-						}
-					default:
-						result = newtarget
+					var ok bool
+					result, ok = CheckStop(newtarget.Activate(vm, target, locals, m), NoStop)
+					if !ok {
+						return result
 					}
 				} else if forward, fp := GetSlot(target, "forward"); fp != nil {
-					if a, ok := forward.(Actor); ok {
-						result = a.Activate(vm, target, locals, m)
-					} else {
-						return vm.NewExceptionf("%s does not respond to %s", vm.TypeName(target), m.Text)
-					}
+					result = forward.Activate(vm, target, locals, m)
 				} else {
 					return vm.NewExceptionf("%s does not respond to %s", vm.TypeName(target), m.Text)
 				}

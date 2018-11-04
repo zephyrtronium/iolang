@@ -4,14 +4,26 @@ package iolang
 type Call struct {
 	Object
 	Sender    Interface
-	Activated Actor
+	Activated Interface
 	Msg       *Message
 	Target    Interface
 }
 
+// Activate returns the call.
+func (c *Call) Activate(vm *VM, target, locals Interface, msg *Message) Interface {
+	return c
+}
+
+// Clone creates a clone of this call with the same values. The clone holds the
+// same message pointer.
+func (c *Call) Clone() Interface {
+	nc := *c
+	return &nc
+}
+
 // NewCall creates a Call object sent from sender to the target's actor using
 // the message msg.
-func (vm *VM) NewCall(sender Interface, actor Actor, msg *Message, target Interface) *Call {
+func (vm *VM) NewCall(sender, actor Interface, msg *Message, target Interface) *Call {
 	return &Call{
 		Object:    *vm.CoreInstance("Call"),
 		Sender:    sender,

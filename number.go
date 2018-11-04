@@ -25,6 +25,11 @@ func (vm *VM) NewNumber(value float64) *Number {
 	}
 }
 
+// Activate returns the number.
+func (n *Number) Activate(vm *VM, target, locals Interface, msg *Message) Interface {
+	return n
+}
+
 // Clone creates a clone of this Number with the same value.
 func (n *Number) Clone() Interface {
 	return &Number{

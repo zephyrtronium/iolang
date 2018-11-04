@@ -20,6 +20,11 @@ func (vm *VM) NewList(items ...Interface) *List {
 	}
 }
 
+// Activate returns the list.
+func (l *List) Activate(vm *VM, target, locals Interface, msg *Message) Interface {
+	return l
+}
+
 // Clone creates a clone of this list and copies this list's values into it.
 func (l *List) Clone() Interface {
 	ll := make([]Interface, len(l.Value))

@@ -21,7 +21,7 @@ type Block struct {
 // Otherwise, this block is returned.
 func (b *Block) Activate(vm *VM, target, locals Interface, msg *Message) Interface {
 	// If this block isn't actually activatable, then it should be the result
-	// of evaluation.
+	// of activation.
 	if !b.Activatable {
 		return b
 	}

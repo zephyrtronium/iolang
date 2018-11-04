@@ -129,18 +129,11 @@ func (vm *VM) AsBool(obj Interface) bool {
 	if proto == nil {
 		return true
 	}
-	switch a := isTrue.(type) {
-	case *Object:
-		switch a {
-		case vm.True:
-			return true
-		case vm.False, vm.Nil:
+	r := vm.SimpleActivate(isTrue, obj, obj, "isTrue")
+	if a, ok := r.(*Object); ok {
+		if a == vm.False || a == vm.Nil {
 			return false
 		}
-	case Actor:
-		// This recursion could be avoided, but I just don't care enough.
-		// TODO: provide a Call
-		return vm.AsBool(vm.SimpleActivate(a, proto, vm.ObjectWith(Slots{}), "isTrue"))
 	}
 	return true
 }
@@ -148,26 +141,14 @@ func (vm *VM) AsBool(obj Interface) bool {
 // AsString attempts to convert an Io object to a string by activating its
 // asString slot. If the object has no such slot but is an fmt.Stringer, then
 // it returns the value of String(); otherwise, a default representation is
-// used. If the asString method returns an error, then the error message is the
-// return value.
+// used. If the asString method raises an exception, then the exception message
+// is the return value.
 func (vm *VM) AsString(obj Interface) string {
 	if obj == nil {
 		obj = vm.Nil
 	}
 	if asString, proto := GetSlot(obj, "asString"); proto != nil {
-		for {
-			switch a := asString.(type) {
-			case Actor:
-				asString = vm.SimpleActivate(a, obj, obj, "asString")
-				continue
-			case *Sequence:
-				return a.String()
-			}
-			if IsIoError(asString) {
-				return asString.(error).Error()
-			}
-			break
-		}
+		obj = vm.SimpleActivate(asString, obj, obj, "asString")
 	}
 	if s, ok := obj.(fmt.Stringer); ok {
 		return s.String()

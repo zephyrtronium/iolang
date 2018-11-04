@@ -35,6 +35,11 @@ func (vm *VM) NewFile(file *os.File, mode string) *File {
 	return &f
 }
 
+// Activate returns the file.
+func (f *File) Activate(vm *VM, target, locals Interface, msg *Message) Interface {
+	return f
+}
+
 // Clone creates a clone of this file with no associated file.
 func (f *File) Clone() Interface {
 	return &File{

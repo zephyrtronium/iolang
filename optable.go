@@ -14,6 +14,11 @@ type OpTable struct {
 	Operators map[string]Operator
 }
 
+// Activate returns the OpTable.
+func (o *OpTable) Activate(vm *VM, target, locals Interface, msg *Message) Interface {
+	return o
+}
+
 // Clone generates a shallow copy of the OpTable.
 func (o *OpTable) Clone() Interface {
 	return &OpTable{

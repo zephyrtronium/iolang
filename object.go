@@ -7,21 +7,18 @@ import (
 )
 
 // Interface is the interface which all Io objects satisfy. To satisfy this
-// interface, *Object's method set must be embedded and Clone() implemented to
-// return a value of the new type.
+// interface, *Object's method set must be embedded, then Clone() implemented
+// to return a value of the new type and Activate() implemented to return the
+// result of the object.
 type Interface interface {
 	// Get slots and protos.
 	SP() *Object
+	// Produce a result. For most objects, this returns self.
+	Activate(vm *VM, target, locals Interface, msg *Message) Interface
 	// Create an object with empty slots and this object as its only proto.
 	Clone() Interface
 
 	isIoObject()
-}
-
-// An Actor is an object which activates.
-type Actor interface {
-	Interface
-	Activate(vm *VM, target, locals Interface, msg *Message) Interface
 }
 
 // Slots holds the set of messages to which an object responds.
@@ -42,6 +39,11 @@ type Object struct {
 // SP returns this object's slots and protos. It primarily serves as a
 // polymorphic way to access slots and protos of types embedding *Object.
 func (o *Object) SP() *Object {
+	return o
+}
+
+// Activate returns the object.
+func (o *Object) Activate(vm *VM, target, locals Interface, msg *Message) Interface {
 	return o
 }
 
@@ -158,23 +160,14 @@ func SetSlot(o Interface, slot string, value Interface) {
 // If there is no such slot, the Go type name will be returned.
 func (vm *VM) TypeName(o Interface) string {
 	if typ, proto := GetSlot(o, "type"); proto != nil {
-		switch tt := typ.(type) {
-		case *Sequence:
-			return tt.String()
-		case Actor:
-			// TODO: provide a Call
-			name := vm.SimpleActivate(tt, o, nil, "type")
-			if s, ok := name.(*Sequence); ok {
-				return s.String()
-			}
-		}
+		return vm.AsString(typ)
 	}
 	return fmt.Sprintf("%T", o)
 }
 
 // SimpleActivate activates an Actor using the identifier message named with
 // text and with the given arguments. This does not propagate exceptions.
-func (vm *VM) SimpleActivate(o Actor, self, locals Interface, text string, args ...Interface) Interface {
+func (vm *VM) SimpleActivate(o, self, locals Interface, text string, args ...Interface) Interface {
 	a := make([]*Message, len(args))
 	for i, arg := range args {
 		// Since we are setting memos, we don't have to set anything else
@@ -194,10 +187,9 @@ func (vm *VM) SimpleActivate(o Actor, self, locals Interface, text string, args 
 func ObjectClone(vm *VM, target, locals Interface, msg *Message) Interface {
 	clone := target.Clone()
 	if init, proto := GetSlot(target, "init"); proto != nil {
-		if a, ok := init.(Actor); ok {
-			if result := vm.SimpleActivate(a, clone, locals, "init"); IsIoError(result) {
-				return result
-			}
+		r, ok := CheckStop(init.Activate(vm, clone, locals, vm.IdentMessage("init")), LoopStops)
+		if !ok {
+			return r
 		}
 	}
 	return clone
@@ -233,7 +225,7 @@ func ObjectUpdateSlot(vm *VM, target, locals Interface, msg *Message) Interface 
 	if ok {
 		_, proto := GetSlot(target, slot.String())
 		if proto == nil {
-			return vm.NewExceptionf("slot %s not found", slot.String())
+			return vm.RaiseExceptionf("slot %s not found", slot.String())
 		}
 		SetSlot(proto, slot.String(), v)
 	}
@@ -319,24 +311,16 @@ func ObjectAsString(vm *VM, target, locals Interface, msg *Message) Interface {
 
 // Compare uses the compare method of x to compare to y. The result should be a
 // *Number holding -1, 0, or 1, if the compare method is proper and no
-// exception occurs. If an exception is raised, its Stop will be returned. In
-// the event that the compare slot exists but is not an Actor, it will be
-// returned.
+// exception occurs. If an exception is raised, its Stop will be returned.
 func (vm *VM) Compare(x, y Interface) Interface {
 	cmp, proto := GetSlot(x, "compare")
 	if proto == nil {
 		// No compare method.
 		return vm.NewNumber(float64(ptrCompare(x, y)))
 	}
-	if a, ok := cmp.(Actor); ok {
-		arg := &Message{Memo: y}
-		r, _ := CheckStop(a.Activate(vm, x, x, vm.IdentMessage("compare", arg)), ReturnStop)
-		return r
-	}
-	// If the compare slot isn't an actor, there isn't really much to do except
-	// return it, in case someone does `theirObject compare := 1` to benchmark
-	// their sorting algorithm or something.
-	return cmp
+	arg := &Message{Memo: y}
+	r, _ := CheckStop(cmp.Activate(vm, x, x, vm.IdentMessage("compare", arg)), ReturnStop)
+	return r
 }
 
 // ObjectCompare is an Object method.

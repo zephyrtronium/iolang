@@ -15,7 +15,10 @@ type Stop struct {
 // Stops are not objects, but let's pretend anyway so they can be returned
 // from things like Message.Eval().
 
-func (Stop) SP() *Object      { panic("iolang: a Stop is not an Object!") }
+func (Stop) SP() *Object { panic("iolang: a Stop is not an Object!") }
+func (Stop) Activate(vm *VM, target, locals Interface, msg *Message) Interface {
+	panic("iolang: a Stop is not an Object!")
+}
 func (Stop) Clone() Interface { panic("iolang: a Stop is not an Object!") }
 func (Stop) isIoObject()      {}
 

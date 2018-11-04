@@ -7,6 +7,16 @@ type Exception struct {
 	Object
 }
 
+// Activate returns the exception.
+func (e *Exception) Activate(vm *VM, target, locals Interface, msg *Message) Interface {
+	return e
+}
+
+// Clone creates a clone of the exception.
+func (e *Exception) Clone() Interface {
+	return &Exception{Object: Object{Slots: Slots{}, Protos: []Interface{e}}}
+}
+
 // NewException creates a new Io Exception with the given error message.
 func (vm *VM) NewException(msg string) *Exception {
 	e := Exception{*vm.CoreInstance("Exception")}
