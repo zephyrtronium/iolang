@@ -171,23 +171,27 @@ func (vm *VM) initCore() {
 
 func (vm *VM) finalInit() {
 	// Define extras in Io once the VM is capable of executing code.
-	const (
-		object = `Object setSlot("and", method(v, v isTrue))
-		Object setSlot("-", method(v, v negate))`
-		false = `false setSlot("or", method(v, v isTrue))`
-		nil   = `nil setSlot("or", method(v, v isTrue))`
-		// number = `Number do(
-		// 	combinations := method(r, self factorial / ((self - r) factorial) / (r factorial))
-		// 	permutations := method(r, self factorial / ((self - r) factorial))
-		// )`
-		// list = `List do(
-		// 	first := method(self at(0))
-		// 	last  := method(self at(self size - 1))
-		// )`
-	)
-	vm.DoString(object)
-	vm.DoString(false)
-	vm.DoString(nil)
-	// vm.DoString(number)
-	// vm.DoString(list)
+	vm.DoString(finalInitCode)
 }
+
+const finalInitCode = `
+Object do(
+	and := method(v, v isTrue)
+	or  := method(v, self isTrue or(v))
+	not := method(self isTrue not)
+	setSlot("-", method(v, v negate)) // use setSlot directly to avoid opShuffle
+)
+false do(
+	or := method(v, v isTrue)
+)
+nil do(
+	or := method(v, v isTrue)
+)
+Number do(
+	combinations := method(r, self factorial / ((self - r) factorial) / (r factorial))
+	permutations := method(r, self factorial / ((self - r) factorial))
+)
+List do(
+	first := method(self at(0))
+	last  := method(self at(self size - 1))
+)`

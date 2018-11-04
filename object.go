@@ -75,10 +75,12 @@ func (vm *VM) initObject() {
 		"clone":      vm.NewCFunction(ObjectClone),
 		"compare":    vm.NewCFunction(ObjectCompare),
 		"continue":   vm.NewCFunction(ObjectContinue),
+		"do":         vm.NewCFunction(ObjectDo),
 		"for":        vm.NewCFunction(ObjectFor),
 		"getSlot":    vm.NewCFunction(ObjectGetSlot),
 		"if":         vm.NewCFunction(ObjectIf),
 		"isTrue":     vm.True,
+		"lexicalDo":  vm.NewCFunction(ObjectLexicalDo),
 		"loop":       vm.NewCFunction(ObjectLoop),
 		"method":     vm.NewCFunction(ObjectMethod),
 		"protos":     vm.NewCFunction(ObjectProtos),
@@ -296,6 +298,27 @@ func ObjectEvalArgAndReturnNil(vm *VM, target, locals Interface, msg *Message) I
 	if ok {
 		return vm.Nil
 	}
+	return result
+}
+
+// ObjectDo is an Object method.
+//
+// do evaluates its message in the context of the receiver.
+func ObjectDo(vm *VM, target, locals Interface, msg *Message) Interface {
+	return msg.EvalArgAt(vm, target, 0)
+}
+
+// ObjectLexicalDo is an Object method.
+//
+// lexicalDo appends the lexical context to the receiver's protos, evaluates
+// the message in the context of the receiver, then removes the added proto.
+func ObjectLexicalDo(vm *VM, target, locals Interface, msg *Message) Interface {
+	o := target.SP()
+	n := len(o.Protos)
+	o.Protos = append(o.Protos, locals)
+	result := msg.EvalArgAt(vm, target, 0)
+	copy(o.Protos[n:], o.Protos[n+1:])
+	o.Protos = o.Protos[:len(o.Protos)-1]
 	return result
 }
 
