@@ -193,10 +193,7 @@ func (vm *VM) DoReader(src io.Reader) Interface {
 
 // DoMessage evaluates a message.
 func (vm *VM) DoMessage(msg *Message, locals Interface) Interface {
-	r := msg.Eval(vm, locals)
-	if stop, ok := r.(Stop); ok {
-		return stop.Result
-	}
+	r, _ := CheckStop(msg.Eval(vm, locals), ExceptionStop)
 	return r
 }
 

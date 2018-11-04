@@ -22,7 +22,7 @@ func main() {
 		ps1, _ := iolang.GetSlot(vm.Lobby, "ps1")
 		fmt.Print(ps1.(*iolang.Sequence).String())
 		ok := stdin.Scan()
-		x := vm.DoString(stdin.Text())
+		x, _ := iolang.CheckStop(vm.DoString(stdin.Text()), iolang.ExceptionStop)
 		// spew.Dump(x)
 		fmt.Println(vm.AsString(x))
 		if !ok {

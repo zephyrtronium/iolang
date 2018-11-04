@@ -3,6 +3,7 @@ package iolang
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"io"
 	"strings"
 )
@@ -136,7 +137,12 @@ func eatSpace(src *bufio.Reader, tokens chan<- token) lexFn {
 	case r == '"':
 		return lexString
 	}
-	panic(r)
+	tokens <- token{
+		Kind:  badToken,
+		Value: string(r),
+		Err:   fmt.Errorf("lexer encountered invalid character %q", r),
+	}
+	return nil
 }
 
 // lexIdent lexes an identifier, which consists of a-z, A-Z, 0-9, _, ., and all
