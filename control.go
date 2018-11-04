@@ -86,14 +86,14 @@ func ObjectFor(vm *VM, target, locals Interface, msg *Message) (result Interface
 		m         = msg.ArgAt(3)
 	)
 	switch len(msg.Args) {
-	case 4:
+	case 5:
 		if v, err = msg.NumberArgAt(vm, locals, 3); err != nil {
 			return vm.IoError(err)
 		}
 		step = v.Value
 		m = msg.ArgAt(4)
 		fallthrough
-	case 3:
+	case 4:
 		if v, err = msg.NumberArgAt(vm, locals, 1); err != nil {
 			return vm.IoError(err)
 		}
@@ -134,7 +134,7 @@ func ObjectFor(vm *VM, target, locals Interface, msg *Message) (result Interface
 			i = vm.NewNumber(i.Value + step)
 		}
 	default:
-		return vm.RaiseExceptionf("Object for requires 3 or 4 arguments")
+		return vm.RaiseExceptionf("Object for requires 4 or 5 arguments")
 	}
 	return result
 }
