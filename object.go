@@ -326,6 +326,16 @@ func ObjectLexicalDo(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // asString creates a string representation of an object.
 func ObjectAsString(vm *VM, target, locals Interface, msg *Message) Interface {
+	// Non-standard, but if the object is one of the important basic objects,
+	// return a more informative name.
+	switch target {
+	case vm.BaseObject:
+		return vm.NewString(fmt.Sprintf("Core Object_%p", target))
+	case vm.Lobby:
+		return vm.NewString(fmt.Sprintf("Lobby_%p", target))
+	case vm.Core:
+		return vm.NewString(fmt.Sprintf("Core_%p", target))
+	}
 	if stringer, ok := target.(fmt.Stringer); ok {
 		return vm.NewString(stringer.String())
 	}
