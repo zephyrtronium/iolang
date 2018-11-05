@@ -176,16 +176,17 @@ func (vm *VM) finalInit() {
 
 const finalInitCode = `
 Object do(
-	and := method(v, v isTrue)
-	or  := method(v, self isTrue or(v))
 	not := method(self isTrue not)
-	setSlot("-", method(v, v negate)) // use setSlot directly to avoid opShuffle
+	// Use setSlot directly to circumvent operator shuffling.
+	setSlot("and", method(v, v isTrue))
+	setSlot("or", method(v, self isTrue or(v)))
+	setSlot("-", method(v, v negate))
 )
 false do(
-	or := method(v, v isTrue)
+	setSlot("or",  method(v, v isTrue))
 )
 nil do(
-	or := method(v, v isTrue)
+	setSlot("or",  method(v, v isTrue))
 )
 Number do(
 	combinations := method(r, self factorial / ((self - r) factorial) / (r factorial))
