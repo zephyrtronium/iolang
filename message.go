@@ -63,6 +63,40 @@ func (vm *VM) NumberMessage(v float64) *Message {
 	}
 }
 
+// DeepCopy creates a copy of the message linked to copies of each message
+// forward.
+func (m *Message) DeepCopy() *Message {
+	if m == nil {
+		return nil
+	}
+	// We can't use vm.CoreInstance because we won't have access to a VM
+	// everywhere we need it, e.g. Block.Clone(). Instead, steal the protos
+	// from the message we're copying.
+	fm := &Message{
+		Object: Object{Slots: Slots{}, Protos: append([]Interface{}, m.Protos...)},
+		Text:   m.Text,
+		Args:   make([]*Message, len(m.Args)),
+		Prev:   m.Prev,
+		Memo:   m.Memo,
+	}
+	for i, arg := range m.Args {
+		fm.Args[i] = arg.DeepCopy()
+	}
+	for pm, nm := fm, m.Next; nm != nil; pm, nm = pm.Next, nm.Next {
+		pm.Next = &Message{
+			Object: Object{Slots: Slots{}, Protos: append([]Interface{}, nm.Protos...)},
+			Text:   nm.Text,
+			Args:   make([]*Message, len(nm.Args)),
+			Prev:   pm,
+			Memo:   nm.Memo,
+		}
+		for i, arg := range nm.Args {
+			pm.Next.Args[i] = arg.DeepCopy()
+		}
+	}
+	return fm
+}
+
 // AssertArgCount returns an error if the message does not have the given
 // number of arguments. name is the name of the message used in the generated
 // error message.
