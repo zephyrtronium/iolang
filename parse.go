@@ -188,7 +188,7 @@ func (vm *VM) DoReader(src io.Reader) Interface {
 	if err := vm.OpShuffle(msg); err != nil {
 		return err
 	}
-	return vm.DoMessage(msg, vm.BaseObject)
+	return vm.DoMessage(msg, vm.Lobby)
 }
 
 // DoMessage evaluates a message.
