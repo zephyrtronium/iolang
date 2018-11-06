@@ -177,6 +177,8 @@ func (vm *VM) finalInit() {
 const finalInitCode = `
 Object do(
 	not := method(self isTrue not)
+	print := method(File standardOutput write(self asString); self)
+	println := method(File standardOutput write(self asString, "\n"); self)
 	// Use setSlot directly to circumvent operator shuffling.
 	setSlot("and", method(v, v isTrue))
 	setSlot("or", method(v, self isTrue or(v)))

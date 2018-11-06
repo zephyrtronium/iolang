@@ -30,6 +30,7 @@ const (
 	hexToken                // hexadecimal number
 	stringToken             // "string"
 	triquoteToken           // """string"""
+	commentToken            // //, #, or /* */
 )
 
 // lexFn is a lexer state function. Each lexFn lexes a token, sends it on the
@@ -47,7 +48,7 @@ func lex(src *bufio.Reader, tokens chan<- token) {
 
 // accept appends the next run of characters in src which satisfy the predicate
 // to b. Returns b after appending, the first rune which did not satisfy the
-// predicate, and any error that occurred. Iff there was no such error, the
+// predicate, and any error that occurred. If there was no such error, the
 // last rune is unread.
 func accept(src *bufio.Reader, predicate func(rune) bool, b []byte) ([]byte, rune, error) {
 	r, _, err := src.ReadRune()
@@ -136,6 +137,8 @@ func eatSpace(src *bufio.Reader, tokens chan<- token) lexFn {
 		return lexIdent
 	case r == '"':
 		return lexString
+	case r == '#':
+		return lexHashComment
 	}
 	tokens <- token{
 		Kind:  badToken,
@@ -162,7 +165,46 @@ func lexOp(src *bufio.Reader, tokens chan<- token) lexFn {
 	b, _, err := accept(src, func(r rune) bool {
 		return strings.ContainsRune("!$%&'*+-/:<=>?@\\^|~", r)
 	}, nil)
+	switch string(b) {
+	case "//":
+		return lexSlashSlashComment
+	case "/*":
+		return lexSlashStarComment
+	}
 	return lexsend(err, tokens, token{Kind: identToken, Value: string(b)})
+}
+
+// lexSlashSlashComment lexes a // comment.
+func lexSlashSlashComment(src *bufio.Reader, tokens chan<- token) lexFn {
+	b, _, err := accept(src, func(r rune) bool { return r != '\n' }, []byte("//"))
+	return lexsend(err, tokens, token{Kind: commentToken, Value: string(b)})
+}
+
+// lexHashComment lexes a # comment.
+func lexHashComment(src *bufio.Reader, tokens chan<- token) lexFn {
+	b, _, err := accept(src, func(r rune) bool { return r != '\n' }, nil)
+	return lexsend(err, tokens, token{Kind: commentToken, Value: string(b)})
+}
+
+// lexSlashStarComment lexes a /* */ comment.
+func lexSlashStarComment(src *bufio.Reader, tokens chan<- token) lexFn {
+	var pr rune
+	depth := 1
+	pred := func(r rune) bool {
+		if pr == '*' && r == '/' {
+			depth--
+			if depth <= 0 {
+				return false
+			}
+		} else if pr == '/' && r == '*' {
+			depth++
+		}
+		pr = r
+		return true
+	}
+	b, _, err := accept(src, pred, []byte("/*"))
+	src.ReadRune() // Re-read the / that accept unreads.
+	return lexsend(err, tokens, token{Kind: commentToken, Value: string(b)})
 }
 
 // lexNumber lexes a number.

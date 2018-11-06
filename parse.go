@@ -165,11 +165,13 @@ func (vm *VM) parseRecurse(open rune, src *bufio.Reader, tokens chan token) (tok
 			m.Text = tok.Value
 			m.Memo = vm.NewString(tok.Value[3 : len(tok.Value)-3])
 		}
-		m.Next = &Message{
-			Object: *vm.CoreInstance("Message"),
-			Prev:   m,
+		if tok.Kind != commentToken {
+			m.Next = &Message{
+				Object: *vm.CoreInstance("Message"),
+				Prev:   m,
+			}
+			m = m.Next
 		}
-		m = m.Next
 	}
 	return
 }
