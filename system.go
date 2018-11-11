@@ -13,10 +13,9 @@ func (vm *VM) initSystem() {
 		"getEnvironmentVariable": vm.NewCFunction(SystemGetEnvironmentVariable),
 		"iovmName":               vm.NewString("github.com/zephyrtronium/iolang"),
 		// TODO: iospecVersion
-		// launchScript should be set by the VM creator as appropriate.
-		"launchScript": vm.Nil,
-		"platform":     vm.NewString(runtime.GOOS),
-		// TODO: platformVersion
+		"launchScript":           vm.Nil,
+		"platform":               vm.NewString(runtime.GOOS),
+		"platformVersion":        vm.NewString(platformVersion),
 		"setEnvironmentVariable": vm.NewCFunction(SystemSetEnvironmentVariable),
 		"setLobby":               vm.NewCFunction(SystemSetLobby),
 		// TODO: sleep
@@ -59,6 +58,19 @@ func (vm *VM) initSystem() {
 		slots["launchPath"] = vm.Nil
 	}
 	SetSlot(vm.Core, "System", vm.ObjectWith(slots))
+}
+
+// SetLaunchScript sets the System launchScript slot to the given string, as a
+// convenience for VM creators who intend to execute that Io source file. The
+// default System launchScript value is nil, which signifies an interactive
+// session.
+func (vm *VM) SetLaunchScript(path string) {
+	s, proto := GetSlot(vm.Core, "System")
+	if proto == nil {
+		// No System. Is a "DOES NOT COMPUTE" joke sufficiently witty here?
+		return
+	}
+	SetSlot(s, "launchScript", vm.NewString(path))
 }
 
 // SystemActiveCpus is a System method.
