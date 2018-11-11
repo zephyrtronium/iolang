@@ -83,6 +83,7 @@ func NewVM() *VM {
 	vm.initList()
 	vm.initFile()
 	vm.initDate()
+	vm.initSystem()
 	vm.initCFunction2() // CFunction needs sequences
 
 	vm.MemoizeString("")
