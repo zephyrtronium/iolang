@@ -198,7 +198,7 @@ func DateFromNumber(vm *VM, target, locals Interface, msg *Message) Interface {
 	if err != nil {
 		return vm.IoError(err)
 	}
-	d.Date = vm.NewDate(time.Unix(0, int64(n.Value*1e9)))
+	d.Date = time.Unix(0, int64(n.Value*1e9))
 	return target
 }
 
