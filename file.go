@@ -15,6 +15,8 @@ import (
 type File struct {
 	Object
 	File *os.File
+	// Path is in the OS's convention internally, but Io-facing methods convert
+	// it to slash-separated.
 	Path string
 	Mode string
 	EOF  bool // no equivalent to feof() in Go
@@ -142,6 +144,7 @@ func (vm *VM) initFile() {
 		"openForAppending":   vm.NewTypedCFunction(FileOpenForAppending),
 		"openForReading":     vm.NewTypedCFunction(FileOpenForReading),
 		"openForUpdating":    vm.NewTypedCFunction(FileOpenForUpdating),
+		"path":               vm.NewTypedCFunction(FilePath),
 		"position":           vm.NewTypedCFunction(FilePosition),
 		"positionAtEnd":      vm.NewTypedCFunction(FilePositionAtEnd),
 		"protectionMode":     vm.NewTypedCFunction(FileProtectionMode),
@@ -420,7 +423,7 @@ func FileMoveTo(vm *VM, target, locals Interface, msg *Message) Interface {
 	if err != nil {
 		return vm.IoError(err)
 	}
-	to := s.String()
+	to := filepath.FromSlash(s.String())
 	if err = os.Rename(f.Path, to); err != nil {
 		return vm.IoError(err)
 	}
@@ -711,7 +714,7 @@ func FileSetPath(vm *VM, target, locals Interface, msg *Message) Interface {
 	if err != nil {
 		return vm.IoError(err)
 	}
-	f.Path = s.String()
+	f.Path = filepath.FromSlash(s.String())
 	return target
 }
 
