@@ -134,6 +134,7 @@ func (vm *VM) initFile() {
 		"isRegularFile":      vm.NewTypedCFunction(FileIsRegularFile),
 		"isSocket":           vm.NewTypedCFunction(FileIsSocket),
 		"isUserExecutable":   vm.NewTypedCFunction(FileIsUserExecutable),
+		"lastDataChangeDate": vm.NewTypedCFunction(FileLastDataChangeDate),
 		"mode":               vm.NewTypedCFunction(FileMode),
 		"moveTo":             vm.NewTypedCFunction(FileMoveTo),
 		"name":               vm.NewTypedCFunction(FileName),
@@ -155,7 +156,12 @@ func (vm *VM) initFile() {
 		"size":               vm.NewTypedCFunction(FileSize),
 		"temporaryFile":      vm.NewCFunction(FileTemporaryFile),
 		"truncateToSize":     vm.NewTypedCFunction(FileTruncateToSize),
+		"type":               vm.NewString("File"),
 		"write":              vm.NewTypedCFunction(FileWrite),
+
+		// Methods with platform-dependent implementations:
+		"lastAccessDate":     vm.NewTypedCFunction(FileLastAccessDate),
+		"lastInfoChangeDate": vm.NewTypedCFunction(FileLastInfoChangeDate),
 	}
 	slots["descriptorId"] = slots["descriptor"]
 	SetSlot(vm.Core, "File", &File{Object: *vm.ObjectWith(slots)})
@@ -381,6 +387,19 @@ func FileIsUserExecutable(vm *VM, target, locals Interface, msg *Message) Interf
 		return vm.IoError(err)
 	}
 	return vm.IoBool(fi.Mode().Perm()&0100 != 0)
+}
+
+// FileLastDataChangeDate is a File method.
+//
+// lastDataChangeDate returns the date at which the file's contents were last
+// modified.
+func FileLastDataChangeDate(vm *VM, target, locals Interface, msg *Message) Interface {
+	f := target.(*File)
+	fi, err := os.Stat(f.Path)
+	if err != nil {
+		return vm.IoError(err)
+	}
+	return vm.NewDate(fi.ModTime())
 }
 
 // FileMode is a File method.
