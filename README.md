@@ -18,31 +18,39 @@ Certain objects have special behavior when activated. Methods are encapsulated m
 
 If an object does not own a slot with the same name as a message passed to it, the object will instead check for that slot in its prototypes. Objects can have any number of protos, and the search proceeds in depth-first order without duplicates. If the slot is found in one of the protos, then it is activated, but still with the original object as the receiver. This implements an inheritance-like concept, but with "superclasses" being themselves objects. (If there isn't any proto with the slot, then the message is sent to the object's `forward` slot, and if that slot doesn't exist, either, then an exception is raised.)
 
-Producing "subclasses" is done using the `clone` method. A clone of an object, say `x`, is another object which has (initially) empty slots and `x` as its only prototype. If we say `y := x clone`, then `y` will respond to the same messages as `x` via delegation; new slots can be created which will be activated in place of the proto's, providing polymorphism. The typical pattern to implement a new "type" is to say `NewType := Object clone do(x := y; z := w)`, where `do` is an `Object` method which evaluates code in the context of its receiver.
+Producing "subclasses" is done using the `clone` method. A clone of an object, say `x`, is another object which has (initially) empty slots and `x` as its only prototype. If we say `y := x clone`, then `y` will respond to the same messages as `x` via delegation; new slots can be created which will be activated in place of the proto's, providing polymorphism. The typical pattern to implement a new "type" is to say `NewType := Object clone do(x := y; z := w)`, where `do` is an `Object` method which evaluates code in the context of its receiver. Then, "instances" of the new "class" can be created using `instance := NewType clone`. Notice that `clone` is the method used both to create a new type and an instance of that type - this is prototype-based programming.
 
-An important aspect of Io lacking syntax beyond messages is that control flow is implemented as Object methods. `if` is a method taking one to three arguments: `if(cond, message when cond is true, message when cond is false)` evaluates its first argument, then the second if it is true or the third if it is false. Because message arguments are themselves messages, the other argument is not evaluated. When any of the arguments are not supplied, the evaluation result is returned instead, which enables alternate forms of branching: `if(cond) then(message when cond is true) elseif(cond2, different message) else(last thing to try)`. There are also loops, including `for` to loop over a range with a counter, `while` to perform a loop as long as a condition is true, `loop` to perform a loop forever, and others. `continue`, `break`, and `return` generally do what you expect.
+An important aspect of Io lacking syntax beyond messages is that control flow is implemented as `Object` methods. `if` is a method taking one to three arguments: `if(cond, message when cond is true, message when cond is false)` evaluates its first argument, then the second if it is true or the third if it is false. Because message arguments are themselves messages, the other argument is not evaluated. When any of the arguments are not supplied, the evaluation result is returned instead, which enables alternate forms of branching: `if(cond) then(message when cond is true) elseif(cond2, different message) else(last thing to try)`. There are also loops, including `for` to loop over a range with a counter, `while` to perform a loop as long as a condition is true, `loop` to perform a loop forever, and others. `continue`, `break`, and `return` generally do what you expect. Each of these methods is an expression, and the last value produced during evaluation of each is returned.
 
 For a more in-depth introduction to Io, check out [the official guide](iolanguage.org/guide/guide.html) and [reference](iolanguage.org/reference/index.html). There are more code examples at [the original implementation's GitHub repository](https://github.com/IoLanguage/io) as well.
 
 ## TODO
 
-- Implement primitive types:
+- Implement primitive (Core) types:
 	+ Directory
-	+ Date
 	+ Duration
 	+ Map
-	+ System
+	+ Collector
+	+ Compiler
 - Concurrency; coroutines, futures, promises, actors, &c.
+	+ Core Coroutine
+	+ Core Scheduler
+- Implement a better TypedCFunction model, maybe using reflection.
 - Finish implementing CFunctions for existing primitive types:
 	+ Sequence
 	+ Exception
 	+ CFunction
 	+ Message
 	+ File
+		* Also figure out how/whether to implement popen and reopen.
 	+ Number
+	+ Date
+		* +, +=, -, -= require Duration to exist.
+		* fromString requires a robust implementation.
 	+ And many more!
-- Write initialization code for all types in Io.
+- Write initialization code/Io methods for all types.
+	+ Create Error type.
+	+ Lots to do for most Core types.
 - Write tests, both in Go and in Io.
+- Importer, and implement Addons, ideally supporting Go's `-buildmode=plugin`.
 - Document differences between this implementation and the original.
-- Get back to my home computer where my main todo list is.
-

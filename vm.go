@@ -1,6 +1,9 @@
 package iolang
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 // VM is an object for processing Io programs.
 type VM struct {
@@ -20,6 +23,10 @@ type VM struct {
 
 	// ValidEncodings is the list of accepted sequence encodings.
 	ValidEncodings []string
+
+	// StartTime is the time at which VM initialization began, used for the
+	// Date clock method.
+	StartTime time.Time
 
 	// Common numbers and strings to avoid needing new objects for each use.
 	NumberMemo map[float64]*Number
@@ -42,6 +49,9 @@ func NewVM() *VM {
 		Operators: &OpTable{},
 
 		ValidEncodings: []string{"ascii", "utf8", "number", "latin1", "utf16", "utf32"},
+
+		// TODO: should this be since program start instead to match Io?
+		StartTime: time.Now(),
 
 		// Memoize all integers in [-1, 255], 1/2, 1/3, 1/4, all mathematical
 		// constants defined in package math, +/- inf, and float/int extrema.
@@ -72,6 +82,7 @@ func NewVM() *VM {
 	vm.initLocals()
 	vm.initList()
 	vm.initFile()
+	vm.initDate()
 	vm.initCFunction2() // CFunction needs sequences
 
 	vm.MemoizeString("")
