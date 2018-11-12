@@ -85,6 +85,7 @@ func NewVM() *VM {
 	vm.initSystem()
 	vm.initMap()
 	vm.initCFunction2() // CFunction needs sequences
+	vm.initCollector()
 
 	vm.finalInit()
 

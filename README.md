@@ -28,7 +28,6 @@ For a more in-depth introduction to Io, check out [the official guide](iolanguag
 
 - Implement primitive (Core) types:
 	+ Duration
-	+ Collector
 	+ Compiler
 - Concurrency; coroutines, futures, promises, actors, &c.
 	+ Core Coroutine
