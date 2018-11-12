@@ -17,8 +17,13 @@ func (c *Call) Activate(vm *VM, target, locals Interface, msg *Message) Interfac
 // Clone creates a clone of this call with the same values. The clone holds the
 // same message pointer.
 func (c *Call) Clone() Interface {
-	nc := *c
-	return &nc
+	return &Call{
+		Object:    Object{Slots: Slots{}, Protos: []Interface{c}},
+		Sender:    c.Sender,
+		Activated: c.Activated,
+		Msg:       c.Msg,
+		Target:    c.Target,
+	}
 }
 
 // NewCall creates a Call object sent from sender to the target's actor using
