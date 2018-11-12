@@ -27,7 +27,6 @@ For a more in-depth introduction to Io, check out [the official guide](iolanguag
 ## TODO
 
 - Implement primitive (Core) types:
-	+ Directory
 	+ Duration
 	+ Map
 	+ Collector

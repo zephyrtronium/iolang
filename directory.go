@@ -45,6 +45,7 @@ func (vm *VM) initDirectory() {
 		"path":                       vm.NewTypedCFunction(DirectoryPath),
 		"setCurrentWorkingDirectory": vm.NewCFunction(DirectorySetCurrentWorkingDirectory),
 		"setPath":                    vm.NewCFunction(DirectorySetPath),
+		"type":                       vm.NewString("Directory"),
 	}
 	SetSlot(vm.Core, "Directory", &Directory{Object: *vm.ObjectWith(slots)})
 }
