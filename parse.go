@@ -199,6 +199,24 @@ func (vm *VM) DoMessage(msg *Message, locals Interface) Interface {
 	return r
 }
 
+// MustDoString parses and executes a string, panicking if the result is a
+// raised exception.
+func (vm *VM) MustDoString(src string) Interface {
+	r := strings.NewReader(src)
+	msg, err := vm.Parse(r)
+	if err != nil {
+		panic(err)
+	}
+	if err := vm.OpShuffle(msg); err != nil {
+		panic(err)
+	}
+	v, ok := CheckStop(msg.Eval(vm, vm.Lobby), ReturnStop)
+	if !ok {
+		panic(v.(Stop).Result)
+	}
+	return v
+}
+
 // IsStart determines whether this message is the start of a "statement." This
 // is true if it has no previous link or if the previous link is a SemiSym.
 func (m *Message) IsStart() bool {

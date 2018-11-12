@@ -178,7 +178,7 @@ func (vm *VM) initCore() {
 
 func (vm *VM) finalInit() {
 	// Define extras in Io once the VM is capable of executing code.
-	vm.DoString(finalInitCode)
+	vm.MustDoString(finalInitCode)
 }
 
 const finalInitCode = `
