@@ -12,7 +12,7 @@ func (vm *VM) initSystem() {
 		"exit":                   vm.NewCFunction(SystemExit),
 		"getEnvironmentVariable": vm.NewCFunction(SystemGetEnvironmentVariable),
 		"iovmName":               vm.NewString("github.com/zephyrtronium/iolang"),
-		// TODO: iospecVersion
+		"iospecVersion":          vm.NewString(IoSpecVer),
 		"launchScript":           vm.Nil,
 		"platform":               vm.NewString(runtime.GOOS),
 		"platformVersion":        vm.NewString(platformVersion),
@@ -22,7 +22,7 @@ func (vm *VM) initSystem() {
 		// TODO: system
 		"thisProcessPid": vm.NewCFunction(SystemThisProcessPid),
 		"type":           vm.NewString("System"),
-		// TODO: version
+		"version":        vm.NewString(IoVersion),
 	}
 	args := make([]Interface, len(os.Args)-1)
 	for i, v := range os.Args[1:] {
