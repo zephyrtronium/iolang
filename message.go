@@ -195,7 +195,6 @@ func (m *Message) Eval(vm *VM, locals Interface) (result Interface) {
 // object.
 func (m *Message) Send(vm *VM, target, locals Interface) (result Interface) {
 	firstTarget := target
-	result = target
 	for m != nil {
 		if m.Memo != nil {
 			// It is the parser's responsibility to set memos for literals.
