@@ -85,6 +85,7 @@ func NewVM() *VM {
 	vm.initDirectory()
 	vm.initDate()
 	vm.initSystem()
+	vm.initMap()
 	vm.initCFunction2() // CFunction needs sequences
 
 	vm.MemoizeString("")
@@ -213,5 +214,8 @@ List do(
 )
 Directory do(
 	size := method(self items size)
+)
+Map do(
+	hasValue := method(value, self values contains(value))
 )
 `
