@@ -17,9 +17,6 @@ import (
 // NewString creates a new Sequence object representing the given string in
 // UTF-8 encoding.
 func (vm *VM) NewString(value string) *Sequence {
-	if s, ok := vm.StringMemo[value]; ok {
-		return s
-	}
 	return &Sequence{
 		Object: *vm.CoreInstance("String"),
 		Value:  []byte(value),

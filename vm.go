@@ -56,8 +56,6 @@ func NewVM() *VM {
 		// Memoize all integers in [-1, 255], 1/2, 1/3, 1/4, all mathematical
 		// constants defined in package math, +/- inf, and float/int extrema.
 		NumberMemo: make(map[float64]*Number, 277),
-		// Memoize the empty string and all strings one byte in (UTF8) length.
-		StringMemo: make(map[string]*Sequence, 129),
 	}
 
 	// There is a specific order for initialization. First, we have to
@@ -87,11 +85,6 @@ func NewVM() *VM {
 	vm.initSystem()
 	vm.initMap()
 	vm.initCFunction2() // CFunction needs sequences
-
-	vm.MemoizeString("")
-	for i := rune(0); i <= 127; i++ {
-		vm.MemoizeString(string(i))
-	}
 
 	vm.finalInit()
 
