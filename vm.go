@@ -82,6 +82,7 @@ func NewVM() *VM {
 	vm.initLocals()
 	vm.initList()
 	vm.initFile()
+	vm.initDirectory()
 	vm.initDate()
 	vm.initSystem()
 	vm.initCFunction2() // CFunction needs sequences
@@ -209,4 +210,8 @@ Number do(
 List do(
 	first := method(self at(0))
 	last  := method(self at(self size - 1))
-)`
+)
+Directory do(
+	size := method(self items size)
+)
+`

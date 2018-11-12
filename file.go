@@ -7,8 +7,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"runtime"
-	"strings"
 )
 
 // A File is an object allowing interfacing with the operating system's files.
@@ -35,6 +33,16 @@ func (vm *VM) NewFile(file *os.File, mode string) *File {
 		f.Path = file.Name()
 	}
 	return &f
+}
+
+// NewFileAt creates a File object unopened at the given path. The mode will be
+// set to "read". The path should use the OS's separator convention.
+func (vm *VM) NewFileAt(path string) *File {
+	return &File{
+		Object: *vm.CoreInstance("File"),
+		Path:   path,
+		Mode:   "read",
+	}
 }
 
 // Activate returns the file.
@@ -436,20 +444,7 @@ func FileMoveTo(vm *VM, target, locals Interface, msg *Message) Interface {
 // similar to UNIX basename.
 func FileName(vm *VM, target, locals Interface, msg *Message) Interface {
 	f := target.(*File)
-	chrs := "/"
-	if runtime.GOOS == "windows" {
-		chrs = `\/` // it's a seagull c:
-	}
-	s := f.Path
-	p := strings.LastIndexAny(s, chrs)
-	for p == len(s)-1 && p >= 0 {
-		s = s[:len(s)-1]
-		p = strings.LastIndexAny(s, chrs)
-	}
-	if p < 0 {
-		return vm.NewString(s)
-	}
-	return vm.NewString(s[p:])
+	return vm.NewString(filepath.Base(f.Path))
 }
 
 // FileOpen is a File method.
@@ -508,11 +503,7 @@ func FileOpenForUpdating(vm *VM, target, locals Interface, msg *Message) Interfa
 // path returns the file's absolute path.
 func FilePath(vm *VM, target, locals Interface, msg *Message) Interface {
 	f := target.(*File)
-	p, err := filepath.Abs(f.Path)
-	if err != nil {
-		return vm.IoError(err)
-	}
-	return vm.NewString(filepath.ToSlash(p))
+	return vm.NewString(filepath.ToSlash(f.Path))
 }
 
 // FilePosition is a File method.
