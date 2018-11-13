@@ -278,28 +278,29 @@ func (s *Sequence) At(vm *VM, i int) *Number {
 }
 
 func (vm *VM) initSequence() {
+	var exemplar *Sequence
 	// We can't use vm.NewString until we create the proto after this.
 	slots := Slots{
 		// sequence-immutable.go:
-		"at":        vm.NewTypedCFunction(SequenceAt),
-		"isMutable": vm.NewTypedCFunction(SequenceIsMutable),
-		"itemSize":  vm.NewTypedCFunction(SequenceItemSize),
-		"itemType":  vm.NewTypedCFunction(SequenceItemType),
-		"size":      vm.NewTypedCFunction(SequenceSize),
+		"at":        vm.NewTypedCFunction(SequenceAt, exemplar),
+		"isMutable": vm.NewTypedCFunction(SequenceIsMutable, exemplar),
+		"itemSize":  vm.NewTypedCFunction(SequenceItemSize, exemplar),
+		"itemType":  vm.NewTypedCFunction(SequenceItemType, exemplar),
+		"size":      vm.NewTypedCFunction(SequenceSize, exemplar),
 
 		// sequence-mutable.go:
-		"asMutable": vm.NewTypedCFunction(SequenceAsMutable),
+		"asMutable": vm.NewTypedCFunction(SequenceAsMutable, exemplar),
 
 		// sequence-string.go:
-		"encoding":       vm.NewTypedCFunction(SequenceEncoding),
-		"setEncoding":    vm.NewTypedCFunction(SequenceSetEncoding),
+		"encoding":       vm.NewTypedCFunction(SequenceEncoding, exemplar),
+		"setEncoding":    vm.NewTypedCFunction(SequenceSetEncoding, exemplar),
 		"validEncodings": vm.NewCFunction(SequenceValidEncodings),
-		"asUTF8":         vm.NewTypedCFunction(SequenceAsUTF8),
-		"asUTF16":        vm.NewTypedCFunction(SequenceAsUTF16),
-		"asUTF32":        vm.NewTypedCFunction(SequenceAsUTF32),
+		"asUTF8":         vm.NewTypedCFunction(SequenceAsUTF8, exemplar),
+		"asUTF16":        vm.NewTypedCFunction(SequenceAsUTF16, exemplar),
+		"asUTF32":        vm.NewTypedCFunction(SequenceAsUTF32, exemplar),
 
 		// sequence-math.go:
-		"cos": vm.NewTypedCFunction(SequenceCos),
+		"cos": vm.NewTypedCFunction(SequenceCos, exemplar),
 	}
 	ms := &Sequence{
 		Object: *vm.ObjectWith(slots),

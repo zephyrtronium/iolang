@@ -40,18 +40,19 @@ func (m *Map) Clone() Interface {
 }
 
 func (vm *VM) initMap() {
+	var exemplar *Map
 	slots := Slots{
-		"at":            vm.NewTypedCFunction(MapAt),
-		"atIfAbsentPut": vm.NewTypedCFunction(MapAtIfAbsentPut),
-		"atPut":         vm.NewTypedCFunction(MapAtPut),
-		"empty":         vm.NewTypedCFunction(MapEmpty),
-		"foreach":       vm.NewTypedCFunction(MapForeach),
-		"hasKey":        vm.NewTypedCFunction(MapHasKey),
-		"keys":          vm.NewTypedCFunction(MapKeys),
-		"removeAt":      vm.NewTypedCFunction(MapRemoveAt),
-		"size":          vm.NewTypedCFunction(MapSize),
+		"at":            vm.NewTypedCFunction(MapAt, exemplar),
+		"atIfAbsentPut": vm.NewTypedCFunction(MapAtIfAbsentPut, exemplar),
+		"atPut":         vm.NewTypedCFunction(MapAtPut, exemplar),
+		"empty":         vm.NewTypedCFunction(MapEmpty, exemplar),
+		"foreach":       vm.NewTypedCFunction(MapForeach, exemplar),
+		"hasKey":        vm.NewTypedCFunction(MapHasKey, exemplar),
+		"keys":          vm.NewTypedCFunction(MapKeys, exemplar),
+		"removeAt":      vm.NewTypedCFunction(MapRemoveAt, exemplar),
+		"size":          vm.NewTypedCFunction(MapSize, exemplar),
 		"type":          vm.NewString("Map"),
-		"values":        vm.NewTypedCFunction(MapValues),
+		"values":        vm.NewTypedCFunction(MapValues, exemplar),
 	}
 	SetSlot(vm.Core, "Map", &Map{Object: *vm.ObjectWith(slots), Value: map[string]Interface{}})
 }

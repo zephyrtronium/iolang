@@ -39,14 +39,15 @@ func (vm *VM) NewCall(sender, actor Interface, msg *Message, target Interface) *
 }
 
 func (vm *VM) initCall() {
+	var exemplar *Call
 	slots := Slots{
-		"activated": vm.NewTypedCFunction(CallActivated),
-		"argAt":     vm.NewTypedCFunction(CallArgAt),
-		"argCount":  vm.NewTypedCFunction(CallArgCount),
-		"evalArgAt": vm.NewTypedCFunction(CallEvalArgAt),
-		"message":   vm.NewTypedCFunction(CallMessage),
-		"sender":    vm.NewTypedCFunction(CallSender),
-		"target":    vm.NewTypedCFunction(CallTarget),
+		"activated": vm.NewTypedCFunction(CallActivated, exemplar),
+		"argAt":     vm.NewTypedCFunction(CallArgAt, exemplar),
+		"argCount":  vm.NewTypedCFunction(CallArgCount, exemplar),
+		"evalArgAt": vm.NewTypedCFunction(CallEvalArgAt, exemplar),
+		"message":   vm.NewTypedCFunction(CallMessage, exemplar),
+		"sender":    vm.NewTypedCFunction(CallSender, exemplar),
+		"target":    vm.NewTypedCFunction(CallTarget, exemplar),
 		"type":      vm.NewString("Call"),
 	}
 	SetSlot(vm.Core, "Call", &Call{Object: *vm.ObjectWith(slots)})

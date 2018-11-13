@@ -14,6 +14,7 @@ type CFunction struct {
 	Object
 	Function Fn
 	Name     string
+	Type     reflect.Type
 }
 
 // NewCFunction creates a new CFunction wrapping f.
@@ -26,22 +27,18 @@ func (vm *VM) NewCFunction(f Fn) *CFunction {
 	}
 }
 
-// NewTypedCFunction creates a new CFunction with a wrapper that recovers from
-// failed type assertions and returns an appropriate error instead.
-func (vm *VM) NewTypedCFunction(f Fn) *CFunction {
+// NewTypedCFunction creates a new CFunction that raises an exception when
+// called on a target of a type different from that of the exemplar.
+func (vm *VM) NewTypedCFunction(f Fn, exemplar Interface) *CFunction {
 	u := reflect.ValueOf(f).Pointer()
 	name := runtime.FuncForPC(u).Name()
+	typ := reflect.TypeOf(exemplar)
 	return &CFunction{
 		Object: *vm.CoreInstance("CFunction"),
 		Function: func(vm *VM, target, locals Interface, msg *Message) (result Interface) {
-			defer func() {
-				e := recover()
-				if te, ok := e.(*runtime.TypeAssertionError); ok {
-					result = vm.NewExceptionf("error calling %s: %v", name, te)
-				} else if e != nil {
-					panic(e)
-				}
-			}()
+			if ttyp := reflect.TypeOf(target); ttyp != typ {
+				return vm.RaiseExceptionf("receiver of %s must be %v, not %v", name, typ, ttyp)
+			}
 			return f(vm, target, locals, msg)
 		},
 		Name: name,
@@ -51,9 +48,10 @@ func (vm *VM) NewTypedCFunction(f Fn) *CFunction {
 // Clone creates a clone of the CFunction with the same function and name.
 func (f *CFunction) Clone() Interface {
 	return &CFunction{
-		Object{Slots: Slots{}, Protos: []Interface{f}},
-		f.Function,
-		f.Name,
+		Object:   Object{Slots: Slots{}, Protos: []Interface{f}},
+		Function: f.Function,
+		Name:     f.Name,
+		Type:     f.Type,
 	}
 }
 

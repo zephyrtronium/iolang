@@ -32,7 +32,6 @@ For a more in-depth introduction to Io, check out [the official guide](iolanguag
 - Concurrency; coroutines, futures, promises, actors, &c.
 	+ Core Coroutine
 	+ Core Scheduler
-- Implement a better TypedCFunction model, maybe using reflection.
 - Finish implementing CFunctions for existing primitive types:
 	+ Sequence
 	+ Exception

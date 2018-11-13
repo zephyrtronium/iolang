@@ -34,15 +34,16 @@ func (d *Directory) Clone() Interface {
 }
 
 func (vm *VM) initDirectory() {
+	var exemplar *Directory
 	slots := Slots{
-		"at":                         vm.NewTypedCFunction(DirectoryAt),
-		"create":                     vm.NewTypedCFunction(DirectoryCreate),
-		"createSubdirectory":         vm.NewTypedCFunction(DirectoryCreateSubdirectory),
+		"at":                         vm.NewTypedCFunction(DirectoryAt, exemplar),
+		"create":                     vm.NewTypedCFunction(DirectoryCreate, exemplar),
+		"createSubdirectory":         vm.NewTypedCFunction(DirectoryCreateSubdirectory, exemplar),
 		"currentWorkingDirectory":    vm.NewCFunction(DirectoryCurrentWorkingDirectory),
-		"exists":                     vm.NewTypedCFunction(DirectoryExists),
-		"items":                      vm.NewTypedCFunction(DirectoryItems),
-		"name":                       vm.NewTypedCFunction(DirectoryName),
-		"path":                       vm.NewTypedCFunction(DirectoryPath),
+		"exists":                     vm.NewTypedCFunction(DirectoryExists, exemplar),
+		"items":                      vm.NewTypedCFunction(DirectoryItems, exemplar),
+		"name":                       vm.NewTypedCFunction(DirectoryName, exemplar),
+		"path":                       vm.NewTypedCFunction(DirectoryPath, exemplar),
 		"setCurrentWorkingDirectory": vm.NewCFunction(DirectorySetCurrentWorkingDirectory),
 		"setPath":                    vm.NewCFunction(DirectorySetPath),
 		"type":                       vm.NewString("Directory"),

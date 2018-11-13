@@ -75,18 +75,19 @@ func (vm *VM) NewLocals(self, call Interface) *Object {
 }
 
 func (vm *VM) initBlock() {
+	var exemplar *Block
 	slots := Slots{
-		"argumentNames":    vm.NewTypedCFunction(BlockArgumentNames),
-		"asString":         vm.NewTypedCFunction(BlockAsString),
-		"call":             vm.NewTypedCFunction(BlockCall),
-		"message":          vm.NewTypedCFunction(BlockMessage),
-		"passStops":        vm.NewTypedCFunction(BlockPassStops),
-		"performOn":        vm.NewTypedCFunction(BlockPerformOn),
-		"scope":            vm.NewTypedCFunction(BlockScope),
-		"setArgumentNames": vm.NewTypedCFunction(BlockSetArgumentNames),
-		"setMessage":       vm.NewTypedCFunction(BlockSetMessage),
-		"setPassStops":     vm.NewTypedCFunction(BlockSetPassStops),
-		"setScope":         vm.NewTypedCFunction(BlockSetScope),
+		"argumentNames":    vm.NewTypedCFunction(BlockArgumentNames, exemplar),
+		"asString":         vm.NewTypedCFunction(BlockAsString, exemplar),
+		"call":             vm.NewTypedCFunction(BlockCall, exemplar),
+		"message":          vm.NewTypedCFunction(BlockMessage, exemplar),
+		"passStops":        vm.NewTypedCFunction(BlockPassStops, exemplar),
+		"performOn":        vm.NewTypedCFunction(BlockPerformOn, exemplar),
+		"scope":            vm.NewTypedCFunction(BlockScope, exemplar),
+		"setArgumentNames": vm.NewTypedCFunction(BlockSetArgumentNames, exemplar),
+		"setMessage":       vm.NewTypedCFunction(BlockSetMessage, exemplar),
+		"setPassStops":     vm.NewTypedCFunction(BlockSetPassStops, exemplar),
+		"setScope":         vm.NewTypedCFunction(BlockSetScope, exemplar),
 		"type":             vm.NewString("Block"),
 	}
 	slots["code"] = slots["asString"]

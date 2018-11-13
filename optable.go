@@ -88,9 +88,9 @@ func (op Operator) MoreBinding(than Operator) bool {
 
 func (vm *VM) initOpTable() {
 	slots := Slots{
-		"addAssignOperator":    vm.NewTypedCFunction(OperatorTableAddAssignOperator),
-		"addOperator":          vm.NewTypedCFunction(OperatorTableAddOperator),
-		"asString":             vm.NewTypedCFunction(OperatorTableAsString),
+		"addAssignOperator":    vm.NewTypedCFunction(OperatorTableAddAssignOperator, vm.Operators),
+		"addOperator":          vm.NewTypedCFunction(OperatorTableAddOperator, vm.Operators),
+		"asString":             vm.NewTypedCFunction(OperatorTableAsString, vm.Operators),
 		"precedenceLevelCount": vm.NewNumber(32), // not really
 		"type":                 vm.NewString("OperatorTable"),
 	}
