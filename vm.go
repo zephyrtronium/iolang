@@ -213,6 +213,9 @@ Directory do(
 Map do(
 	hasValue := method(value, self values contains(value))
 )
+Date do(
+	setSlot("+", method(dur, self clone += dur))
+)
 Duration do(
 	setSlot("+", method(other, self clone += other))
 	setSlot("-", method(other, self clone -= other))

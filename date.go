@@ -37,6 +37,9 @@ func (d *Date) Clone() Interface {
 func (vm *VM) initDate() {
 	var exemplar *Date
 	slots := Slots{
+		"+=":                vm.NewTypedCFunction(DatePlusEq, exemplar),
+		"-":                 vm.NewTypedCFunction(DateMinus, exemplar),
+		"-=":                vm.NewTypedCFunction(DateMinusEq, exemplar),
 		"asNumber":          vm.NewTypedCFunction(DateAsNumber, exemplar),
 		"asString":          vm.NewTypedCFunction(DateAsString, exemplar),
 		"clock":             vm.NewCFunction(DateClock),
@@ -307,6 +310,43 @@ func DateLocation(vm *VM, target, locals Interface, msg *Message) Interface {
 	return vm.NewString(time.Local.String())
 }
 
+// DateMinus is a Date method.
+//
+// - produces a Date that is before the receiver by the given Duration, or
+// produces the Duration between the receiver and the given Date.
+func DateMinus(vm *VM, target, locals Interface, msg *Message) Interface {
+	d := target.(*Date)
+	r, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
+	if !ok {
+		return r
+	}
+	switch dd := r.(type) {
+	case *Date:
+		return vm.NewDuration(d.Date.Sub(dd.Date))
+	case *Duration:
+		return vm.NewDate(d.Date.Add(-dd.Value))
+	}
+	return vm.RaiseException("argument 0 to - must be Date or Duration, not " + vm.TypeName(r))
+}
+
+// DateMinusEq is a Date method.
+//
+// -= sets the receiver to the date that is before the receiver by the given
+// duration.
+func DateMinusEq(vm *VM, target, locals Interface, msg *Message) Interface {
+	d := target.(*Date)
+	r, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
+	if !ok {
+		return r
+	}
+	dur, ok := r.(*Duration)
+	if !ok {
+		return vm.RaiseException("argument 0 to -= must be Duration, not " + vm.TypeName(r))
+	}
+	d.Date = d.Date.Add(-dur.Value)
+	return target
+}
+
 // DateMinute is a Date method.
 //
 // minute returns the minute portion of the date.
@@ -329,6 +369,24 @@ func DateMonth(vm *VM, target, locals Interface, msg *Message) Interface {
 func DateNow(vm *VM, target, locals Interface, msg *Message) Interface {
 	d := target.(*Date)
 	d.Date = time.Now()
+	return target
+}
+
+// DatePlusEq is a Date method.
+//
+// += sets the receiver to the date that is after the receiver by the given
+// duration.
+func DatePlusEq(vm *VM, target, locals Interface, msg *Message) Interface {
+	d := target.(*Date)
+	r, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
+	if !ok {
+		return r
+	}
+	dur, ok := r.(*Duration)
+	if !ok {
+		return vm.RaiseException("argument 0 to += must be Duration, not " + vm.TypeName(r))
+	}
+	d.Date = d.Date.Add(dur.Value)
 	return target
 }
 
