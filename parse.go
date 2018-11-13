@@ -216,15 +216,3 @@ func (vm *VM) MustDoString(src string) Interface {
 	}
 	return v
 }
-
-// IsStart determines whether this message is the start of a "statement." This
-// is true if it has no previous link or if the previous link is a SemiSym.
-func (m *Message) IsStart() bool {
-	return m.Prev.IsTerminator()
-}
-
-// IsTerminator determines whether this message is the end of an expression.
-// This is true if it is nil or it is a semicolon or newline.
-func (m *Message) IsTerminator() bool {
-	return m == nil || m.Text == ";" || m.Text == "\n"
-}
