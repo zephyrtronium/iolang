@@ -82,6 +82,7 @@ func NewVM() *VM {
 	vm.initFile()
 	vm.initDirectory()
 	vm.initDate()
+	vm.initDuration()
 	vm.initSystem()
 	vm.initMap()
 	vm.initCFunction2() // CFunction needs sequences
@@ -211,5 +212,9 @@ Directory do(
 )
 Map do(
 	hasValue := method(value, self values contains(value))
+)
+Duration do(
+	setSlot("+", method(other, self clone += other))
+	setSlot("-", method(other, self clone -= other))
 )
 `
