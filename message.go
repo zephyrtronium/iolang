@@ -22,10 +22,9 @@ type Message struct {
 	Memo Interface
 }
 
-// Activate activates the message. This evaluates the message using the
-// provided locals.
+// Activate returns the message.
 func (m *Message) Activate(vm *VM, target, locals Interface, msg *Message) Interface {
-	return m.Eval(vm, locals)
+	return m
 }
 
 // Clone returns a clone of the message with the same text only.
