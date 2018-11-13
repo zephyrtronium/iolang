@@ -27,7 +27,6 @@ For a more in-depth introduction to Io, check out [the official guide](iolanguag
 ## TODO
 
 - Implement primitive (Core) types:
-	+ Duration
 	+ Compiler
 - Concurrency; coroutines, futures, promises, actors, &c.
 	+ Core Coroutine
@@ -41,7 +40,6 @@ For a more in-depth introduction to Io, check out [the official guide](iolanguag
 		* Also figure out how/whether to implement popen and reopen.
 	+ Number
 	+ Date
-		* +, +=, -, -= require Duration to exist.
 		* fromString requires a robust implementation.
 	+ And many more!
 - Write initialization code/Io methods for all types.
