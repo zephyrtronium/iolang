@@ -1,6 +1,7 @@
 package iolang
 
 import (
+	"path"
 	"reflect"
 	"runtime"
 )
@@ -23,7 +24,7 @@ func (vm *VM) NewCFunction(f Fn) *CFunction {
 	return &CFunction{
 		Object:   *vm.CoreInstance("CFunction"),
 		Function: f,
-		Name:     runtime.FuncForPC(u).Name(),
+		Name:     path.Base(runtime.FuncForPC(u).Name()),
 	}
 }
 
@@ -31,7 +32,7 @@ func (vm *VM) NewCFunction(f Fn) *CFunction {
 // called on a target of a type different from that of the exemplar.
 func (vm *VM) NewTypedCFunction(f Fn, exemplar Interface) *CFunction {
 	u := reflect.ValueOf(f).Pointer()
-	name := runtime.FuncForPC(u).Name()
+	name := path.Base(runtime.FuncForPC(u).Name())
 	typ := reflect.TypeOf(exemplar)
 	return &CFunction{
 		Object: *vm.CoreInstance("CFunction"),
