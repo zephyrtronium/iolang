@@ -376,7 +376,7 @@ func MessageAppendArg(vm *VM, target, locals Interface, msg *Message) Interface 
 	}
 	nm, ok := r.(*Message)
 	if !ok {
-		return vm.RaiseExceptionf("argument 0 to appendArg must be Message, not %T", r)
+		return vm.RaiseException("argument 0 to appendArg must be Message, not " + vm.TypeName(r))
 	}
 	m.Args = append(m.Args, nm)
 	return target

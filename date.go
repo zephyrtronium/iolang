@@ -167,7 +167,7 @@ func DateCopy(vm *VM, target, locals Interface, msg *Message) Interface {
 	}
 	dd, ok := a.(*Date)
 	if !ok {
-		return vm.RaiseExceptionf("argument 0 to copy must be Date, not %T", a)
+		return vm.RaiseException("argument 0 to copy must be Date, not " + vm.TypeName(a))
 	}
 	d.Date = dd.Date
 	return target
@@ -411,7 +411,7 @@ func DateSecondsSince(vm *VM, target, locals Interface, msg *Message) Interface 
 	}
 	d2, ok := v.(*Date)
 	if !ok {
-		return vm.RaiseExceptionf("argument 0 to secondsSince must be Date, not %T", v)
+		return vm.RaiseException("argument 0 to secondsSince must be Date, not " + vm.TypeName(v))
 	}
 	dur := d.Date.Sub(d2.Date)
 	return vm.NewNumber(dur.Seconds())
