@@ -173,9 +173,9 @@ func ListAsString(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // at returns the nth item in the list. All out-of-bounds values are nil.
 func ListAt(vm *VM, target, locals Interface, msg *Message) Interface {
-	n, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	n, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	l := target.(*List)
 	k := int(n.Value)
@@ -190,9 +190,9 @@ func ListAt(vm *VM, target, locals Interface, msg *Message) Interface {
 // atInsert adds an item to the list at the given position, moving back
 // existing items at or past that point.
 func ListAtInsert(vm *VM, target, locals Interface, msg *Message) Interface {
-	n, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	n, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	r, ok := CheckStop(msg.EvalArgAt(vm, locals, 1), LoopStops)
 	if !ok {
@@ -219,9 +219,9 @@ func ListAtInsert(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // atPut replaces an item in the list.
 func ListAtPut(vm *VM, target, locals Interface, msg *Message) Interface {
-	n, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	n, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	r, ok := CheckStop(msg.EvalArgAt(vm, locals, 1), LoopStops)
 	if !ok {
@@ -396,9 +396,9 @@ func ListIndexOf(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // preallocateToSize ensures that the list has capacity for at least n items.
 func ListPreallocateToSize(vm *VM, target, locals Interface, msg *Message) Interface {
-	r, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	r, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	if r.Value < 0 {
 		return vm.RaiseException("can't preallocate to negative size")
@@ -495,9 +495,9 @@ func ListRemoveAll(vm *VM, target, locals Interface, msg *Message) Interface {
 // removeAt removes the item in the given position from the list.
 func ListRemoveAt(vm *VM, target, locals Interface, msg *Message) Interface {
 	l := target.(*List)
-	n, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	n, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	k := int(n.Value)
 	copy(l.Value[k:], l.Value[k+1:])
@@ -523,9 +523,9 @@ func ListReverseInPlace(vm *VM, target, locals Interface, msg *Message) Interfac
 // the end as necessary.
 func ListSetSize(vm *VM, target, locals Interface, msg *Message) Interface {
 	l := target.(*List)
-	v, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	v, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	n := int(v.Value)
 	if n <= len(l.Value) {
@@ -550,7 +550,7 @@ func ListSize(vm *VM, target, locals Interface, msg *Message) Interface {
 	return vm.NewNumber(float64(len(target.(*List).Value)))
 }
 
-func sliceArgs(vm *VM, locals Interface, msg *Message, size int) (start, step, stop int, err error) {
+func sliceArgs(vm *VM, locals Interface, msg *Message, size int) (start, step, stop int, err Interface) {
 	start = 0
 	step = 1
 	stop = size
@@ -573,7 +573,7 @@ func sliceArgs(vm *VM, locals Interface, msg *Message, size int) (start, step, s
 			}
 			step = int(x.Value)
 			if step == 0 {
-				err = vm.NewException("slice step cannot be zero")
+				err = vm.RaiseException("slice step cannot be zero")
 				return
 			}
 		}
@@ -787,13 +787,13 @@ func ListSortInPlaceBy(vm *VM, target, locals Interface, msg *Message) Interface
 // swapIndices swaps the values in two positions in the list.
 func ListSwapIndices(vm *VM, target, locals Interface, msg *Message) Interface {
 	l := target.(*List)
-	a, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	a, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
-	b, err := msg.NumberArgAt(vm, locals, 1)
-	if err != nil {
-		return vm.IoError(err)
+	b, stop := msg.NumberArgAt(vm, locals, 1)
+	if stop != nil {
+		return stop
 	}
 	i, j := int(a.Value), int(b.Value)
 	l.Value[i], l.Value[j] = l.Value[j], l.Value[i]

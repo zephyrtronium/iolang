@@ -66,9 +66,9 @@ func CallActivated(vm *VM, target, locals Interface, msg *Message) Interface {
 // The argument is returned as the original message and is not evaluated.
 func CallArgAt(vm *VM, target, locals Interface, msg *Message) Interface {
 	m := target.(*Call).Msg
-	v, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	v, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	return m.ArgAt(int(v.Value))
 }
@@ -85,9 +85,9 @@ func CallArgCount(vm *VM, target, locals Interface, msg *Message) Interface {
 // evalArgAt evaluates the nth argument to the call.
 func CallEvalArgAt(vm *VM, target, locals Interface, msg *Message) Interface {
 	m := target.(*Call).Msg
-	v, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	v, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	return m.EvalArgAt(vm, locals, int(v.Value))
 }

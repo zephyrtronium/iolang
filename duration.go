@@ -86,9 +86,9 @@ func DurationAsString(vm *VM, target, locals Interface, msg *Message) Interface 
 	// nonsense, but I guess it's easy to program.
 	format := "%Y years %d days %H:%M:%S"
 	if msg.ArgCount() > 0 {
-		s, err := msg.StringArgAt(vm, locals, 0)
-		if err != nil {
-			return vm.IoError(err)
+		s, stop := msg.StringArgAt(vm, locals, 0)
+		if stop != nil {
+			return stop
 		}
 		format = s.String()
 	}
@@ -120,9 +120,9 @@ func DurationDays(vm *VM, target, locals Interface, msg *Message) Interface {
 // fromNumber sets the duration to the given number of seconds.
 func DurationFromNumber(vm *VM, target, locals Interface, msg *Message) Interface {
 	d := target.(*Duration)
-	n, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	n, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	d.Value = time.Duration(n.Value * float64(time.Second))
 	return target
@@ -194,9 +194,9 @@ func DurationSeconds(vm *VM, target, locals Interface, msg *Message) Interface {
 // as 60*60*24 seconds. Overflow into years is allowed.
 func DurationSetDays(vm *VM, target, locals Interface, msg *Message) Interface {
 	d := target.(*Duration)
-	n, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	n, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	cd := d.Value / (24 * time.Hour) % 365
 	delta := n.Value - float64(cd)
@@ -210,9 +210,9 @@ func DurationSetDays(vm *VM, target, locals Interface, msg *Message) Interface {
 // days is allowed.
 func DurationSetHours(vm *VM, target, locals Interface, msg *Message) Interface {
 	d := target.(*Duration)
-	n, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	n, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	ch := d.Value / time.Hour % 24
 	delta := n.Value - float64(ch)
@@ -226,9 +226,9 @@ func DurationSetHours(vm *VM, target, locals Interface, msg *Message) Interface 
 // hours is allowed.
 func DurationSetMinutes(vm *VM, target, locals Interface, msg *Message) Interface {
 	d := target.(*Duration)
-	n, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	n, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	cm := d.Value / time.Minute % 60
 	delta := n.Value - float64(cm)
@@ -242,9 +242,9 @@ func DurationSetMinutes(vm *VM, target, locals Interface, msg *Message) Interfac
 // underflow are handled correctly.
 func DurationSetSeconds(vm *VM, target, locals Interface, msg *Message) Interface {
 	d := target.(*Duration)
-	n, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	n, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	cs := d.Value / time.Second % 60
 	delta := n.Value - float64(cs)
@@ -260,9 +260,9 @@ func DurationSetSeconds(vm *VM, target, locals Interface, msg *Message) Interfac
 // nanoseconds internally, this conversion is never exact.
 func DurationSetYears(vm *VM, target, locals Interface, msg *Message) Interface {
 	d := target.(*Duration)
-	n, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	n, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	cy := d.Value / (24 * 365 * time.Hour)
 	delta := n.Value - float64(cy)

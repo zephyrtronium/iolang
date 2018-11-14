@@ -101,10 +101,11 @@ func DateAsString(vm *VM, target, locals Interface, msg *Message) Interface {
 	d := target.(*Date)
 	format := "%Y-%m-%d %H:%M:%S %Z"
 	if len(msg.Args) > 0 {
-		s, err := msg.StringArgAt(vm, locals, 0)
-		if err == nil {
-			format = s.String()
+		s, stop := msg.StringArgAt(vm, locals, 0)
+		if stop != nil {
+			return stop
 		}
+		format = s.String()
 	}
 	return vm.NewString(lctime.Strftime(format, d.Date))
 }
@@ -135,9 +136,9 @@ func DateConvertToLocation(vm *VM, target, locals Interface, msg *Message) Inter
 	// I'm providing this as an alternative to Io's Date convertToZone, because
 	// that would be a lot of effort to support and less consistent.
 	d := target.(*Date)
-	s, err := msg.StringArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	s, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	loc, err := time.LoadLocation(s.String())
 	if err != nil {
@@ -198,9 +199,9 @@ func DateDay(vm *VM, target, locals Interface, msg *Message) Interface {
 // seconds since the Unix epoch.
 func DateFromNumber(vm *VM, target, locals Interface, msg *Message) Interface {
 	d := target.(*Date)
-	n, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	n, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	d.Date = time.Unix(0, int64(n.Value*1e9))
 	return target
@@ -278,17 +279,17 @@ func DateIsPast(vm *VM, target, locals Interface, msg *Message) Interface {
 // isValidTime returns whether the given hour, minute, and second combination has
 // valid values for each component.
 func DateIsValidTime(vm *VM, target, locals Interface, msg *Message) Interface {
-	n1, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	n1, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
-	n2, err := msg.NumberArgAt(vm, locals, 1)
-	if err != nil {
-		return vm.IoError(err)
+	n2, stop := msg.NumberArgAt(vm, locals, 1)
+	if stop != nil {
+		return stop
 	}
-	n3, err := msg.NumberArgAt(vm, locals, 2)
-	if err != nil {
-		return vm.IoError(err)
+	n3, stop := msg.NumberArgAt(vm, locals, 2)
+	if stop != nil {
+		return stop
 	}
 	h, m, s := n1.Value, n2.Value, n3.Value
 	if h < 0 {
@@ -431,9 +432,9 @@ func DateSecondsSinceNow(vm *VM, target, locals Interface, msg *Message) Interfa
 // setDay sets the day of the date.
 func DateSetDay(vm *VM, target, locals Interface, msg *Message) Interface {
 	d := target.(*Date)
-	n, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	n, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	dd := d.Date
 	d.Date = time.Date(dd.Year(), dd.Month(), int(n.Value), dd.Hour(), dd.Minute(), dd.Second(), dd.Nanosecond(), dd.Location())
@@ -446,9 +447,9 @@ func DateSetDay(vm *VM, target, locals Interface, msg *Message) Interface {
 // west of UTC.
 func DateSetGmtOffset(vm *VM, target, locals Interface, msg *Message) Interface {
 	d := target.(*Date)
-	n, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	n, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	dd := d.Date
 	sw := int(n.Value * -60)
@@ -468,9 +469,9 @@ func DateSetGmtOffset(vm *VM, target, locals Interface, msg *Message) Interface 
 // setHour sets the hour of the date.
 func DateSetHour(vm *VM, target, locals Interface, msg *Message) Interface {
 	d := target.(*Date)
-	n, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	n, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	dd := d.Date
 	d.Date = time.Date(dd.Year(), dd.Month(), dd.Day(), int(n.Value), dd.Minute(), dd.Second(), dd.Nanosecond(), dd.Location())
@@ -482,9 +483,9 @@ func DateSetHour(vm *VM, target, locals Interface, msg *Message) Interface {
 // setMinute sets the minute of the date.
 func DateSetMinute(vm *VM, target, locals Interface, msg *Message) Interface {
 	d := target.(*Date)
-	n, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	n, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	dd := d.Date
 	d.Date = time.Date(dd.Year(), dd.Month(), dd.Day(), dd.Hour(), int(n.Value), dd.Second(), dd.Nanosecond(), dd.Location())
@@ -496,9 +497,9 @@ func DateSetMinute(vm *VM, target, locals Interface, msg *Message) Interface {
 // setMonth sets the month of the date.
 func DateSetMonth(vm *VM, target, locals Interface, msg *Message) Interface {
 	d := target.(*Date)
-	n, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	n, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	dd := d.Date
 	d.Date = time.Date(dd.Year(), time.Month(n.Value), dd.Day(), dd.Hour(), dd.Minute(), dd.Second(), dd.Nanosecond(), dd.Location())
@@ -510,9 +511,9 @@ func DateSetMonth(vm *VM, target, locals Interface, msg *Message) Interface {
 // setSecond sets the (fractional) second of the date.
 func DateSetSecond(vm *VM, target, locals Interface, msg *Message) Interface {
 	d := target.(*Date)
-	n, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	n, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	dd := d.Date
 	s := int(n.Value)
@@ -536,9 +537,9 @@ func DateSetToUTC(vm *VM, target, locals Interface, msg *Message) Interface {
 // setYear sets the year of the date.
 func DateSetYear(vm *VM, target, locals Interface, msg *Message) Interface {
 	d := target.(*Date)
-	n, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	n, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	dd := d.Date
 	d.Date = time.Date(int(n.Value), dd.Month(), dd.Day(), dd.Hour(), dd.Minute(), dd.Second(), dd.Nanosecond(), dd.Location())

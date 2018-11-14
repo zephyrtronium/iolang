@@ -57,9 +57,9 @@ func (vm *VM) initDirectory() {
 // the directory, or nil if there is no such file.
 func DirectoryAt(vm *VM, target, locals Interface, msg *Message) Interface {
 	d := target.(*Directory)
-	s, err := msg.StringArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	s, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	p := filepath.Join(d.Path, filepath.FromSlash(s.String()))
 	fi, err := os.Stat(p)
@@ -99,9 +99,9 @@ func DirectoryCreate(vm *VM, target, locals Interface, msg *Message) Interface {
 // Directory object for it.
 func DirectoryCreateSubdirectory(vm *VM, target, locals Interface, msg *Message) Interface {
 	d := target.(*Directory)
-	nm, err := msg.StringArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	nm, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	p := filepath.Join(d.Path, filepath.FromSlash(nm.String()))
 	fi, err := os.Stat(p)
@@ -194,9 +194,9 @@ func DirectoryPath(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // setCurrentWorkingDirectory sets the program's current working directory.
 func DirectorySetCurrentWorkingDirectory(vm *VM, target, locals Interface, msg *Message) Interface {
-	s, err := msg.StringArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	s, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	if err := os.Chdir(s.String()); err != nil {
 		return vm.False
@@ -209,9 +209,9 @@ func DirectorySetCurrentWorkingDirectory(vm *VM, target, locals Interface, msg *
 // setPath sets the path of the Directory object.
 func DirectorySetPath(vm *VM, target, locals Interface, msg *Message) Interface {
 	d := target.(*Directory)
-	s, err := msg.StringArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	s, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	d.Path = filepath.FromSlash(s.String())
 	return target

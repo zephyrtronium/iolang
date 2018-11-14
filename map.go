@@ -63,9 +63,9 @@ func (vm *VM) initMap() {
 // missing.
 func MapAt(vm *VM, target, locals Interface, msg *Message) Interface {
 	m := target.(*Map)
-	k, err := msg.StringArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	k, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	v, ok := m.Value[k.String()]
 	if ok {
@@ -80,9 +80,9 @@ func MapAt(vm *VM, target, locals Interface, msg *Message) Interface {
 // the value at the key if it is.
 func MapAtIfAbsentPut(vm *VM, target, locals Interface, msg *Message) Interface {
 	m := target.(*Map)
-	kk, err := msg.StringArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	kk, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	k := kk.String()
 	v, ok := m.Value[k]
@@ -102,9 +102,9 @@ func MapAtIfAbsentPut(vm *VM, target, locals Interface, msg *Message) Interface 
 // atPut sets the value of the given string key.
 func MapAtPut(vm *VM, target, locals Interface, msg *Message) Interface {
 	m := target.(*Map)
-	k, err := msg.StringArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	k, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	v, ok := CheckStop(msg.EvalArgAt(vm, locals, 1), LoopStops)
 	if !ok {
@@ -160,9 +160,9 @@ func MapForeach(vm *VM, target, locals Interface, msg *Message) (result Interfac
 // hasKey returns true if the key exists in the map.
 func MapHasKey(vm *VM, target, locals Interface, msg *Message) Interface {
 	m := target.(*Map)
-	k, err := msg.StringArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	k, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	_, ok := m.Value[k.String()]
 	return vm.IoBool(ok)
@@ -185,9 +185,9 @@ func MapKeys(vm *VM, target, locals Interface, msg *Message) Interface {
 // removeAt removes a key from the map if it exists.
 func MapRemoveAt(vm *VM, target, locals Interface, msg *Message) Interface {
 	m := target.(*Map)
-	k, err := msg.StringArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	k, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	delete(m.Value, k.String())
 	return target

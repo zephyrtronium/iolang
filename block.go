@@ -246,8 +246,8 @@ func BlockSetArgumentNames(vm *VM, target, locals Interface, msg *Message) Inter
 	blk := target.(*Block)
 	l := make([]string, len(msg.Args))
 	for i := range msg.Args {
-		s, err := msg.StringArgAt(vm, locals, i)
-		if err != nil {
+		s, stop := msg.StringArgAt(vm, locals, i)
+		if stop != nil {
 			return vm.RaiseException("all arguments to setArgumentNames must be strings")
 		}
 		l[i] = s.String()

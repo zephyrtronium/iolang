@@ -86,9 +86,9 @@ func SystemActiveCpus(vm *VM, target, locals Interface, msg *Message) Interface 
 func SystemExit(vm *VM, target, locals Interface, msg *Message) Interface {
 	code := 0
 	if len(msg.Args) > 0 {
-		n, err := msg.NumberArgAt(vm, locals, 0)
-		if err != nil {
-			return vm.IoError(err)
+		n, stop := msg.NumberArgAt(vm, locals, 0)
+		if stop != nil {
+			return stop
 		}
 		code = int(n.Value)
 	}
@@ -101,9 +101,9 @@ func SystemExit(vm *VM, target, locals Interface, msg *Message) Interface {
 // getEnvironmentVariable returns the value of the environment variable with
 // the given name, or nil if it does not exist.
 func SystemGetEnvironmentVariable(vm *VM, target, locals Interface, msg *Message) Interface {
-	name, err := msg.StringArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	name, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	s, ok := os.LookupEnv(name.String())
 	if ok {
@@ -116,15 +116,15 @@ func SystemGetEnvironmentVariable(vm *VM, target, locals Interface, msg *Message
 //
 // setEnvironmentVariable sets the value of an environment variable.
 func SystemSetEnvironmentVariable(vm *VM, target, locals Interface, msg *Message) Interface {
-	name, err := msg.StringArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	name, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
-	val, err := msg.StringArgAt(vm, locals, 1)
-	if err != nil {
-		return vm.IoError(err)
+	val, stop := msg.StringArgAt(vm, locals, 1)
+	if stop != nil {
+		return stop
 	}
-	err = os.Setenv(name.String(), val.String())
+	err := os.Setenv(name.String(), val.String())
 	if err != nil {
 		return vm.IoError(err)
 	}

@@ -191,9 +191,9 @@ func NumberAcos(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // + is an operator which sums two numbers.
 func NumberAdd(vm *VM, target, locals Interface, msg *Message) Interface {
-	arg, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	arg, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	return vm.NewNumber(target.(*Number).Value + arg.Value)
 }
@@ -280,9 +280,9 @@ func NumberAsin(vm *VM, target, locals Interface, msg *Message) Interface {
 //   io> 3 at(2)
 //   0
 func NumberAt(vm *VM, target, locals Interface, msg *Message) Interface {
-	arg, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	arg, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	return vm.NewNumber(float64(int64(target.(*Number).Value) >> uint64(arg.Value) & 1))
 }
@@ -299,9 +299,9 @@ func NumberAtan(vm *VM, target, locals Interface, msg *Message) Interface {
 // atan2 returns the directional arctangent of the target divided by the
 // argument.
 func NumberAtan2(vm *VM, target, locals Interface, msg *Message) Interface {
-	arg, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	arg, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	return vm.NewNumber(math.Atan2(target.(*Number).Value, arg.Value))
 }
@@ -311,13 +311,13 @@ func NumberAtan2(vm *VM, target, locals Interface, msg *Message) Interface {
 // between is true if the target is greater than or equal to the first argument
 // and less than or equal to the second.
 func NumberBetween(vm *VM, target, locals Interface, msg *Message) Interface {
-	arg1, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	arg1, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
-	arg2, err := msg.NumberArgAt(vm, locals, 1)
-	if err != nil {
-		return vm.IoError(err)
+	arg2, stop := msg.NumberArgAt(vm, locals, 1)
+	if stop != nil {
+		return stop
 	}
 	v := target.(*Number).Value
 	return vm.IoBool(arg1.Value <= v && v <= arg2.Value)
@@ -328,9 +328,9 @@ func NumberBetween(vm *VM, target, locals Interface, msg *Message) Interface {
 // bitwiseAnd returns the bitwise intersection of the target and the argument,
 // with each converted to 64-bit integers.
 func NumberBitwiseAnd(vm *VM, target, locals Interface, msg *Message) Interface {
-	arg, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	arg, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	return vm.NewNumber(float64(int64(target.(*Number).Value) & int64(arg.Value)))
 }
@@ -348,9 +348,9 @@ func NumberBitwiseComplement(vm *VM, target, locals Interface, msg *Message) Int
 // bitwiseOr returns the bitwise union of the target and the argument, with
 // each converted to 64-bit integers.
 func NumberBitwiseOr(vm *VM, target, locals Interface, msg *Message) Interface {
-	arg, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	arg, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	return vm.NewNumber(float64(int64(target.(*Number).Value) | int64(arg.Value)))
 }
@@ -360,9 +360,9 @@ func NumberBitwiseOr(vm *VM, target, locals Interface, msg *Message) Interface {
 // bitwiseXor returns the bitwise symmetric difference of the target and the
 // argument, with each converted to 64-bit integers.
 func NumberBitwiseXor(vm *VM, target, locals Interface, msg *Message) Interface {
-	arg, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	arg, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	return vm.NewNumber(float64(int64(target.(*Number).Value) ^ int64(arg.Value)))
 }
@@ -379,13 +379,13 @@ func NumberCeil(vm *VM, target, locals Interface, msg *Message) Interface {
 // clip returns the target if it is between the given bounds or else the
 // exceeded bound.
 func NumberClip(vm *VM, target, locals Interface, msg *Message) Interface {
-	arg1, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	arg1, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
-	arg2, err := msg.NumberArgAt(vm, locals, 1)
-	if err != nil {
-		return vm.IoError(err)
+	arg2, stop := msg.NumberArgAt(vm, locals, 1)
+	if stop != nil {
+		return stop
 	}
 	v := target.(*Number).Value
 	if v > arg2.Value {
@@ -403,9 +403,9 @@ func NumberClip(vm *VM, target, locals Interface, msg *Message) Interface {
 // greater, or 0 if they are equal.
 func NumberCompare(vm *VM, target, locals Interface, msg *Message) Interface {
 	// Io doesn't actually define a Number compare, but I'm doing it anyway.
-	arg, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	arg, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	a, b := target.(*Number).Value, arg.Value
 	if a < b {
@@ -436,9 +436,9 @@ func NumberCubed(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // / is an operator which divides the left value by the right.
 func NumberDiv(vm *VM, target, locals Interface, msg *Message) Interface {
-	arg, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	arg, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	return vm.NewNumber(target.(*Number).Value / arg.Value)
 }
@@ -610,9 +610,9 @@ func NumberLog2(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // max returns the larger of the target and the argument.
 func NumberMax(vm *VM, target, locals Interface, msg *Message) Interface {
-	arg, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	arg, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	if target.(*Number).Value >= arg.Value {
 		return target
@@ -624,9 +624,9 @@ func NumberMax(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // min returns the smaller of the target and the argument.
 func NumberMin(vm *VM, target, locals Interface, msg *Message) Interface {
-	arg, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	arg, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	if target.(*Number).Value <= arg.Value {
 		return target
@@ -638,9 +638,9 @@ func NumberMin(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // mod returns the remainder of division of the target by the argument.
 func NumberMod(vm *VM, target, locals Interface, msg *Message) Interface {
-	arg, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	arg, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	return vm.NewNumber(math.Remainder(target.(*Number).Value, arg.Value))
 }
@@ -656,9 +656,9 @@ func NumberNegate(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // * is an operator which multiplies its operands.
 func NumberMul(vm *VM, target, locals Interface, msg *Message) Interface {
-	arg, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	arg, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	return vm.NewNumber(target.(*Number).Value * arg.Value)
 }
@@ -668,9 +668,9 @@ func NumberMul(vm *VM, target, locals Interface, msg *Message) Interface {
 // pow returns the target raised to the power of the argument. The ** operator
 // is equivalent.
 func NumberPow(vm *VM, target, locals Interface, msg *Message) Interface {
-	arg, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	arg, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	return vm.NewNumber(math.Pow(target.(*Number).Value, arg.Value))
 }
@@ -702,9 +702,9 @@ func NumberRoundDown(vm *VM, target, locals Interface, msg *Message) Interface {
 // shiftLeft returns the target as a 64-bit integer shifted left by the
 // argument as a 64-bit unsigned integer.
 func NumberShiftLeft(vm *VM, target, locals Interface, msg *Message) Interface {
-	arg, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	arg, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	return vm.NewNumber(float64(int64(target.(*Number).Value) << uint64(arg.Value)))
 }
@@ -714,9 +714,9 @@ func NumberShiftLeft(vm *VM, target, locals Interface, msg *Message) Interface {
 // shiftRight returns the target as a 64-bit integer shifted right by the
 // argument as a 64-bit unsigned integer.
 func NumberShiftRight(vm *VM, target, locals Interface, msg *Message) Interface {
-	arg, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	arg, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	return vm.NewNumber(float64(int64(target.(*Number).Value) >> uint64(arg.Value)))
 }
@@ -747,9 +747,9 @@ func NumberSquared(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // - is an operator which subtracts the right value from the left.
 func NumberSub(vm *VM, target, locals Interface, msg *Message) Interface {
-	arg, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	arg, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	return vm.NewNumber(target.(*Number).Value - arg.Value)
 }
@@ -766,9 +766,9 @@ func NumberTan(vm *VM, target, locals Interface, msg *Message) Interface {
 // toBase returns the string representation of the target in the radix given in
 // the argument. Bases less than 2 and greater than 36 are not supported.
 func NumberToBase(vm *VM, target, locals Interface, msg *Message) Interface {
-	arg, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	arg, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	base := int(arg.Value)
 	if base < 2 || base > 36 {

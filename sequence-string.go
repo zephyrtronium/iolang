@@ -197,9 +197,9 @@ func SequenceSetEncoding(vm *VM, target, locals Interface, msg *Message) Interfa
 	if err := s.CheckMutable("setEncoding"); err != nil {
 		return vm.IoError(err)
 	}
-	arg, err := msg.StringArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	arg, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	enc := strings.ToLower(arg.String())
 	if !vm.CheckEncoding(enc) {

@@ -445,13 +445,13 @@ func (vm *VM) OpShuffle(m *Message) (err *Exception) {
 //   io> message(thing a <- b)
 //   thing send("a", b)
 func OperatorTableAddAssignOperator(vm *VM, target, locals Interface, msg *Message) Interface {
-	name, err := msg.StringArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	name, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
-	calls, err := msg.StringArgAt(vm, locals, 1)
-	if err != nil {
-		return vm.IoError(err)
+	calls, stop := msg.StringArgAt(vm, locals, 1)
+	if stop != nil {
+		return stop
 	}
 	op := Operator{
 		Calls: calls.String(),
@@ -472,13 +472,13 @@ func OperatorTableAddAssignOperator(vm *VM, target, locals Interface, msg *Messa
 //
 //   OperatorTable addOperator(":*", 2)
 func OperatorTableAddOperator(vm *VM, target, locals Interface, msg *Message) Interface {
-	name, err := msg.StringArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	name, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
-	prec, err := msg.NumberArgAt(vm, locals, 1)
-	if err != nil {
-		return vm.IoError(err)
+	prec, stop := msg.NumberArgAt(vm, locals, 1)
+	if stop != nil {
+		return stop
 	}
 	op := Operator{
 		Calls: "",

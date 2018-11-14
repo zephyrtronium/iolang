@@ -80,26 +80,26 @@ const (
 func ObjectFor(vm *VM, target, locals Interface, msg *Message) (result Interface) {
 	var (
 		low, high float64
-		err       error
+		stop      Interface
 		v         *Number
 		step      = 1.0
 		m         = msg.ArgAt(3)
 	)
 	switch len(msg.Args) {
 	case 5:
-		if v, err = msg.NumberArgAt(vm, locals, 3); err != nil {
-			return vm.IoError(err)
+		if v, stop = msg.NumberArgAt(vm, locals, 3); stop != nil {
+			return stop
 		}
 		step = v.Value
 		m = msg.ArgAt(4)
 		fallthrough
 	case 4:
-		if v, err = msg.NumberArgAt(vm, locals, 1); err != nil {
-			return vm.IoError(err)
+		if v, stop = msg.NumberArgAt(vm, locals, 1); stop != nil {
+			return stop
 		}
 		low = v.Value
-		if v, err = msg.NumberArgAt(vm, locals, 2); err != nil {
-			return vm.IoError(err)
+		if v, stop = msg.NumberArgAt(vm, locals, 2); stop != nil {
+			return stop
 		}
 		high = v.Value
 		ctrname := msg.ArgAt(0).Name()

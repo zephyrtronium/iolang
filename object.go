@@ -202,9 +202,9 @@ func ObjectClone(vm *VM, target, locals Interface, msg *Message) Interface {
 // setSlot sets the value of a slot on this object. It is typically invoked via
 // the := operator.
 func ObjectSetSlot(vm *VM, target, locals Interface, msg *Message) Interface {
-	slot, err := msg.StringArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	slot, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	v, ok := CheckStop(msg.EvalArgAt(vm, locals, 1), LoopStops)
 	if ok {
@@ -219,9 +219,9 @@ func ObjectSetSlot(vm *VM, target, locals Interface, msg *Message) Interface {
 // has the target slot, an exception is raised. This is typically invoked via
 // the = operator.
 func ObjectUpdateSlot(vm *VM, target, locals Interface, msg *Message) Interface {
-	slot, err := msg.StringArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	slot, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	v, ok := CheckStop(msg.EvalArgAt(vm, locals, 1), LoopStops)
 	if ok {
@@ -238,9 +238,9 @@ func ObjectUpdateSlot(vm *VM, target, locals Interface, msg *Message) Interface 
 //
 // getSlot gets the value of a slot. The slot is never activated.
 func ObjectGetSlot(vm *VM, target, locals Interface, msg *Message) Interface {
-	slot, err := msg.StringArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	slot, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	v, _ := GetSlot(target, slot.String())
 	return v

@@ -9,9 +9,9 @@ import (
 // at returns a value of the sequence as a number.
 func SequenceAt(vm *VM, target, locals Interface, msg *Message) Interface {
 	s := target.(*Sequence)
-	arg, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	arg, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	x := s.At(vm, int(arg.Value))
 	if x != nil {

@@ -205,12 +205,12 @@ func FileAsBuffer(vm *VM, target, locals Interface, msg *Message) Interface {
 // at returns as a Number the byte in the file at a given position.
 func FileAt(vm *VM, target, locals Interface, msg *Message) Interface {
 	f := target.(*File)
-	n, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	n, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	b := []byte{0}
-	switch _, err = f.File.ReadAt(b, int64(n.Value)); err {
+	switch _, err := f.File.ReadAt(b, int64(n.Value)); err {
 	case nil:
 		return vm.NewNumber(float64(b[0]))
 	case io.EOF:
@@ -225,13 +225,13 @@ func FileAt(vm *VM, target, locals Interface, msg *Message) Interface {
 // atPut writes a single byte to the file at a given position.
 func FileAtPut(vm *VM, target, locals Interface, msg *Message) Interface {
 	f := target.(*File)
-	n, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	n, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
-	c, err := msg.NumberArgAt(vm, locals, 1)
-	if err != nil {
-		return vm.IoError(err)
+	c, stop := msg.NumberArgAt(vm, locals, 1)
+	if stop != nil {
+		return stop
 	}
 	if _, err := f.File.WriteAt([]byte{byte(c.Value)}, int64(n.Value)); err != nil {
 		return vm.IoError(err)
@@ -428,12 +428,12 @@ func FileMode(vm *VM, target, locals Interface, msg *Message) Interface {
 // moveTo moves the file at the file's path to the given path.
 func FileMoveTo(vm *VM, target, locals Interface, msg *Message) Interface {
 	f := target.(*File)
-	s, err := msg.StringArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	s, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	to := filepath.FromSlash(s.String())
-	if err = os.Rename(f.Path, to); err != nil {
+	if err := os.Rename(f.Path, to); err != nil {
 		return vm.IoError(err)
 	}
 	return target
@@ -549,9 +549,9 @@ func FileProtectionMode(vm *VM, target, locals Interface, msg *Message) Interfac
 // readBufferOfLength reads the specified number of bytes into a Sequence.
 func FileReadBufferOfLength(vm *VM, target, locals Interface, msg *Message) Interface {
 	f := target.(*File)
-	count, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	count, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	if count.Value < 0 {
 		return vm.RaiseException("can't read negative bytes")
@@ -613,9 +613,9 @@ func FileReadLines(vm *VM, target, locals Interface, msg *Message) Interface {
 // readStringOfLength reads a string up to the given length from the file.
 func FileReadStringOfLength(vm *VM, target, locals Interface, msg *Message) Interface {
 	f := target.(*File)
-	count, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	count, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	if count.Value < 0 {
 		return vm.RaiseException("can't read negative bytes")
@@ -642,9 +642,9 @@ func FileReadToEnd(vm *VM, target, locals Interface, msg *Message) Interface {
 	f := target.(*File)
 	sz := 4096
 	if len(msg.Args) > 0 {
-		n, err := msg.NumberArgAt(vm, locals, 0)
-		if err != nil {
-			return vm.IoError(err)
+		n, stop := msg.NumberArgAt(vm, locals, 0)
+		if stop != nil {
+			return stop
 		}
 		if n.Value >= 1 {
 			sz = int(n.Value)
@@ -702,9 +702,9 @@ func FileRewind(vm *VM, target, locals Interface, msg *Message) Interface {
 // setPath sets the file's path.
 func FileSetPath(vm *VM, target, locals Interface, msg *Message) Interface {
 	f := target.(*File)
-	s, err := msg.StringArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	s, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	f.Path = filepath.FromSlash(s.String())
 	return target
@@ -715,11 +715,11 @@ func FileSetPath(vm *VM, target, locals Interface, msg *Message) Interface {
 // setPosition changes the file cursor's location.
 func FileSetPosition(vm *VM, target, locals Interface, msg *Message) Interface {
 	f := target.(*File)
-	n, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	n, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
-	_, err = f.File.Seek(int64(n.Value), io.SeekStart)
+	_, err := f.File.Seek(int64(n.Value), io.SeekStart)
 	if err != nil {
 		return vm.IoError(err)
 	}
@@ -760,11 +760,11 @@ func FileTemporaryFile(vm *VM, target, locals Interface, msg *Message) Interface
 // truncateToSize truncates the file to the given size.
 func FileTruncateToSize(vm *VM, target, locals Interface, msg *Message) Interface {
 	f := target.(*File)
-	n, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	n, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
-	err = f.File.Truncate(int64(n.Value))
+	err := f.File.Truncate(int64(n.Value))
 	if err != nil {
 		return vm.IoError(err)
 	}
@@ -777,11 +777,11 @@ func FileTruncateToSize(vm *VM, target, locals Interface, msg *Message) Interfac
 func FileWrite(vm *VM, target, locals Interface, msg *Message) Interface {
 	f := target.(*File)
 	for i := range msg.Args {
-		s, err := msg.StringArgAt(vm, locals, i)
-		if err != nil {
-			return vm.IoError(err)
+		s, stop := msg.StringArgAt(vm, locals, i)
+		if stop != nil {
+			return stop
 		}
-		_, err = f.File.Write(s.Bytes())
+		_, err := f.File.Write(s.Bytes())
 		if err != nil {
 			return vm.IoError(err)
 		}

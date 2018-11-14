@@ -137,62 +137,65 @@ func (m *Message) ArgAt(n int) *Message {
 	return m.Args[n]
 }
 
-// NumberArgAt evaluates the nth argument and returns it as a Number. If it is
-// not a Number, then the result is nil, and an error is returned.
-func (m *Message) NumberArgAt(vm *VM, locals Interface, n int) (*Number, error) {
-	v := m.EvalArgAt(vm, locals, n)
+// NumberArgAt evaluates the nth argument and returns it as a Number. If a
+// return expression or an exception occurs during evaluation, the result will
+// be nil, and the control flow object will be returned. If the evaluated
+// result is not a Number, the result will be nil and an exception will be
+// returned.
+func (m *Message) NumberArgAt(vm *VM, locals Interface, n int) (*Number, Interface) {
+	v, ok := CheckStop(m.EvalArgAt(vm, locals, n), LoopStops)
+	if !ok {
+		return nil, v
+	}
 	if num, ok := v.(*Number); ok {
 		return num, nil
 	}
 	// Not the expected type, so return an error.
-	if err, ok := v.(error); ok && !IsIoError(err) {
-		return nil, err
-	}
-	return nil, vm.NewExceptionf("argument %d to %s must be of type Number, not %s", n, m.Text, vm.TypeName(v))
+	return nil, vm.RaiseExceptionf("argument %d to %s must be Number, not %s", n, m.Text, vm.TypeName(v))
 }
 
-// StringArgAt evaluates the nth argument and returns it as a Sequence. If it
-// is not a Sequence, then the result is nil, and an error is returned.
-func (m *Message) StringArgAt(vm *VM, locals Interface, n int) (*Sequence, error) {
-	v := m.EvalArgAt(vm, locals, n)
+// StringArgAt evaluates the nth argument and returns it as a Sequence. If a
+// return expression or an exception occurs during evaluation, the result will
+// be nil, and the control flow object will be returned. If the evaluated
+// result is not a Sequence, the result will be nil and an exception will be
+// returned.
+func (m *Message) StringArgAt(vm *VM, locals Interface, n int) (*Sequence, Interface) {
+	v, ok := CheckStop(m.EvalArgAt(vm, locals, n), LoopStops)
+	if !ok {
+		return nil, v
+	}
 	if str, ok := v.(*Sequence); ok {
 		return str, nil
 	}
 	// Not the expected type, so return an error.
-	if err, ok := v.(error); ok && !IsIoError(err) {
-		return nil, err
-	}
-	return nil, vm.NewExceptionf("argument %d to %s must be of type Sequence, not %s", n, m.Text, vm.TypeName(v))
+	return nil, vm.RaiseExceptionf("argument %d to %s must be Sequence, not %s", n, m.Text, vm.TypeName(v))
 }
 
-// ListArgAt evaluates the nth argument and returns it as a List. If it is not
-// a List, then the result is nil, and an error is returned.
-func (m *Message) ListArgAt(vm *VM, locals Interface, n int) (*List, error) {
-	v := m.EvalArgAt(vm, locals, n)
+// ListArgAt evaluates the nth argument and returns it as a List. If a return
+// expression or an exception occurs during evaluation, the result will be nil,
+// and the control flow object will be returned. If the evaluated result is not
+// a List, the result will be nil, and an exception will be returned.
+func (m *Message) ListArgAt(vm *VM, locals Interface, n int) (*List, Interface) {
+	v, ok := CheckStop(m.EvalArgAt(vm, locals, n), LoopStops)
+	if !ok {
+		return nil, v
+	}
 	if lst, ok := v.(*List); ok {
 		return lst, nil
 	}
 	// Not the expected type, so return an error.
-	if err, ok := v.(error); ok && !IsIoError(err) {
-		return nil, err
-	}
-	return nil, vm.NewExceptionf("argument %d to %s must be of type List, not %s", n, m.Text, vm.TypeName(v))
+	return nil, vm.RaiseExceptionf("argument %d to %s must be List, not %s", n, m.Text, vm.TypeName(v))
 }
 
 // AsStringArgAt evaluates the nth argument, then activates its asString slot
 // for a string representation. If the result is not a string, then the result
 // is nil, and an error is returned.
-func (m *Message) AsStringArgAt(vm *VM, locals Interface, n int) (*Sequence, error) {
+func (m *Message) AsStringArgAt(vm *VM, locals Interface, n int) (*Sequence, Interface) {
 	v := m.EvalArgAt(vm, locals, n)
 	if asString, proto := GetSlot(v, "asString"); proto != nil {
-		r, ok := CheckStop(asString.Activate(vm, locals, locals, vm.IdentMessage("asString")), ReturnStop)
+		r, ok := CheckStop(asString.Activate(vm, locals, locals, vm.IdentMessage("asString")), LoopStops)
 		if !ok {
-			s := r.(Stop)
-			if err, ok := s.Result.(error); ok {
-				return nil, err
-			}
-			// Something other than an Exception was raised. Is this possible?
-			return nil, vm.NewException(vm.AsString(s.Result))
+			return nil, r
 		}
 		if s, ok := r.(*Sequence); ok {
 			return s, nil
@@ -400,9 +403,9 @@ func MessageAppendCachedArg(vm *VM, target, locals Interface, msg *Message) Inte
 // argAt returns the nth argument, or nil if out of bounds.
 func MessageArgAt(vm *VM, target, locals Interface, msg *Message) Interface {
 	m := target.(*Message)
-	n, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	n, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	r := m.ArgAt(int(n.Value))
 	if r != nil {
@@ -545,9 +548,9 @@ func MessageDoInContext(vm *VM, target, locals Interface, msg *Message) Interfac
 //
 // fromString parses the string into a message chain.
 func MessageFromString(vm *VM, target, locals Interface, msg *Message) Interface {
-	s, err := msg.StringArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	s, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	m, err := vm.Parse(strings.NewReader(s.String()), "<string>")
 	if err != nil {
@@ -687,9 +690,9 @@ func MessageRemoveCachedResult(vm *VM, target, locals Interface, msg *Message) I
 // the list argument.
 func MessageSetArguments(vm *VM, target, locals Interface, msg *Message) Interface {
 	m := target.(*Message)
-	l, err := msg.ListArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	l, stop := msg.ListArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	args := make([]*Message, len(l.Value))
 	for k, v := range l.Value {
@@ -723,9 +726,9 @@ func MessageSetCachedResult(vm *VM, target, locals Interface, msg *Message) Inte
 // column number within the line at which the message was parsed.
 func MessageSetCharacterNumber(vm *VM, target, locals Interface, msg *Message) Interface {
 	m := target.(*Message)
-	n, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	n, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	m.Col = int(n.Value)
 	return target
@@ -736,9 +739,9 @@ func MessageSetCharacterNumber(vm *VM, target, locals Interface, msg *Message) I
 // setLabel sets the label of the message to the given string.
 func MessageSetLabel(vm *VM, target, locals Interface, msg *Message) Interface {
 	m := target.(*Message)
-	s, err := msg.StringArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	s, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	m.Label = s.String()
 	return target
@@ -749,9 +752,9 @@ func MessageSetLabel(vm *VM, target, locals Interface, msg *Message) Interface {
 // setLineNumber sets the line number of the message to the given integer.
 func MessageSetLineNumber(vm *VM, target, locals Interface, msg *Message) Interface {
 	m := target.(*Message)
-	n, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	n, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	m.Line = int(n.Value)
 	return target
@@ -762,9 +765,9 @@ func MessageSetLineNumber(vm *VM, target, locals Interface, msg *Message) Interf
 // setName sets the message name to the given string.
 func MessageSetName(vm *VM, target, locals Interface, msg *Message) Interface {
 	m := target.(*Message)
-	s, err := msg.StringArgAt(vm, locals, 0)
-	if err != nil {
-		return vm.IoError(err)
+	s, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
 	}
 	m.Text = s.String()
 	return m
