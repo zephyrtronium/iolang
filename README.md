@@ -28,7 +28,6 @@ For a more in-depth introduction to Io, check out [the official guide](iolanguag
 
 - Implement primitive (Core) types:
 	+ Compiler
-- Change NumberArgAt, StringArgAt, &c. Message methods to return Interface instead of error as the second output, and make them Stop-safe.
 - Concurrency; coroutines, futures, promises, actors, &c.
 	+ Core Coroutine
 		* Call coroutine
