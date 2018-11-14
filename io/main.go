@@ -14,7 +14,7 @@ func main() {
 	iolang.SetSlot(vm.Lobby, "ps1", vm.NewString("io> "))
 	iolang.SetSlot(vm.Lobby, "ps2", vm.NewString("... "))
 	iolang.SetSlot(vm.Lobby, "isRunning", vm.True)
-	vm.DoString(`Lobby setSlot("exit", method(Lobby setSlot("isRunning", false)))`)
+	vm.MustDoString(`Lobby setSlot("exit", method(Lobby setSlot("isRunning", false)))`)
 
 	stdin := bufio.NewScanner(os.Stdin)
 	// spew.Config.MaxDepth = 2
@@ -22,7 +22,7 @@ func main() {
 		ps1, _ := iolang.GetSlot(vm.Lobby, "ps1")
 		fmt.Print(ps1.(*iolang.Sequence).String())
 		ok := stdin.Scan()
-		x, _ := iolang.CheckStop(vm.DoString(stdin.Text()), iolang.ExceptionStop)
+		x, _ := iolang.CheckStop(vm.DoString(stdin.Text(), "Command Line"), iolang.ExceptionStop)
 		// spew.Dump(x)
 		fmt.Println(vm.AsString(x))
 		if !ok {

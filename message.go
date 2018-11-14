@@ -20,6 +20,13 @@ type Message struct {
 	// Cached value of this message. If this is non-nil, it is used instead
 	// of activating the message.
 	Memo Interface
+
+	// Label of the message, generally the name of the file from which it was
+	// parsed, if any.
+	Label string
+	// One-based line and column numbers within the file at which the message
+	// was parsed.
+	Line, Col int
 }
 
 // Activate returns the message.
@@ -329,13 +336,16 @@ func (vm *VM) initMessage() {
 		"asMessageWithEvaluatedArgs": vm.NewTypedCFunction(MessageAsMessageWithEvaluatedArgs, exemplar),
 		"asString":                   vm.NewTypedCFunction(MessageAsString, exemplar),
 		"cachedResult":               vm.NewTypedCFunction(MessageCachedResult, exemplar),
+		"characterNumber":            vm.NewTypedCFunction(MessageCharacterNumber, exemplar),
 		"clone":                      vm.NewTypedCFunction(MessageClone, exemplar),
 		"doInContext":                vm.NewTypedCFunction(MessageDoInContext, exemplar),
 		"fromString":                 vm.NewCFunction(MessageFromString),
 		"hasCachedResult":            vm.NewTypedCFunction(MessageHasCachedResult, exemplar),
 		"isEndOfLine":                vm.NewTypedCFunction(MessageIsEndOfLine, exemplar),
+		"label":                      vm.NewTypedCFunction(MessageLabel, exemplar),
 		"last":                       vm.NewTypedCFunction(MessageLast, exemplar),
 		"lastBeforeEndOfLine":        vm.NewTypedCFunction(MessageLastBeforeEndOfLine, exemplar),
+		"lineNumber":                 vm.NewTypedCFunction(MessageLineNumber, exemplar),
 		"name":                       vm.NewTypedCFunction(MessageName, exemplar),
 		"next":                       vm.NewTypedCFunction(MessageNext, exemplar),
 		"nextIgnoreEndOfLines":       vm.NewTypedCFunction(MessageNextIgnoreEndOfLines, exemplar),
@@ -344,6 +354,9 @@ func (vm *VM) initMessage() {
 		"removeCachedResult":         vm.NewTypedCFunction(MessageRemoveCachedResult, exemplar),
 		"setArguments":               vm.NewTypedCFunction(MessageSetArguments, exemplar),
 		"setCachedResult":            vm.NewTypedCFunction(MessageSetCachedResult, exemplar),
+		"setCharacterNumber":         vm.NewTypedCFunction(MessageSetCharacterNumber, exemplar),
+		"setLabel":                   vm.NewTypedCFunction(MessageSetLabel, exemplar),
+		"setLineNumber":              vm.NewTypedCFunction(MessageSetLineNumber, exemplar),
 		"setName":                    vm.NewTypedCFunction(MessageSetName, exemplar),
 		"setNext":                    vm.NewTypedCFunction(MessageSetNext, exemplar),
 		"type":                       vm.NewString("Message"),
@@ -490,6 +503,14 @@ func MessageCachedResult(vm *VM, target, locals Interface, msg *Message) Interfa
 	return m.Memo
 }
 
+// MessageCharacterNumber is a Message method.
+//
+// characterNumber returns the column number of the character within the line
+// at which the message was parsed.
+func MessageCharacterNumber(vm *VM, target, locals Interface, msg *Message) Interface {
+	return vm.NewNumber(float64(target.(*Message).Col))
+}
+
 // MessageClone is a Message method.
 //
 // clone creates a deep copy of the message.
@@ -528,8 +549,7 @@ func MessageFromString(vm *VM, target, locals Interface, msg *Message) Interface
 	if err != nil {
 		return vm.IoError(err)
 	}
-	// TODO: get label
-	m, err := vm.Parse(strings.NewReader(s.String()))
+	m, err := vm.Parse(strings.NewReader(s.String()), "<string>")
 	if err != nil {
 		return vm.IoError(err)
 	}
@@ -554,6 +574,14 @@ func MessageIsEndOfLine(vm *VM, target, locals Interface, msg *Message) Interfac
 	return vm.IoBool(target.(*Message).IsTerminator())
 }
 
+// MessageLabel is a Message method.
+//
+// label returns the message's label, typically the name of the file from which
+// it was parsed.
+func MessageLabel(vm *VM, target, locals Interface, msg *Message) Interface {
+	return vm.NewString(target.(*Message).Label)
+}
+
 // MessageLast is a Message method.
 //
 // last returns the last message in the chain.
@@ -575,6 +603,13 @@ func MessageLastBeforeEndOfLine(vm *VM, target, locals Interface, msg *Message) 
 		m = m.Next
 	}
 	return m
+}
+
+// MessageLineNumber is a Message method.
+//
+// lineNumber returns the line number at which the message was parsed.
+func MessageLineNumber(vm *VM, target, locals Interface, msg *Message) Interface {
+	return vm.NewNumber(float64(target.(*Message).Line))
 }
 
 // MessageName is a Message method.
@@ -680,6 +715,46 @@ func MessageSetCachedResult(vm *VM, target, locals Interface, msg *Message) Inte
 	}
 	m.Memo = r
 	return m
+}
+
+// MessageSetCharacterNumber is a Message method.
+//
+// setCharacterNumber sets the character number of the message, typically the
+// column number within the line at which the message was parsed.
+func MessageSetCharacterNumber(vm *VM, target, locals Interface, msg *Message) Interface {
+	m := target.(*Message)
+	n, err := msg.NumberArgAt(vm, locals, 0)
+	if err != nil {
+		return vm.IoError(err)
+	}
+	m.Col = int(n.Value)
+	return target
+}
+
+// MessageSetLabel is a Message method.
+//
+// setLabel sets the label of the message to the given string.
+func MessageSetLabel(vm *VM, target, locals Interface, msg *Message) Interface {
+	m := target.(*Message)
+	s, err := msg.StringArgAt(vm, locals, 0)
+	if err != nil {
+		return vm.IoError(err)
+	}
+	m.Label = s.String()
+	return target
+}
+
+// MessageSetLineNumber is a Message method.
+//
+// setLineNumber sets the line number of the message to the given integer.
+func MessageSetLineNumber(vm *VM, target, locals Interface, msg *Message) Interface {
+	m := target.(*Message)
+	n, err := msg.NumberArgAt(vm, locals, 0)
+	if err != nil {
+		return vm.IoError(err)
+	}
+	m.Line = int(n.Value)
+	return target
 }
 
 // MessageSetName is a Message method.

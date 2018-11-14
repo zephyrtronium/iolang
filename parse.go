@@ -15,16 +15,16 @@ import (
 )
 
 // Parse converts Io source code into a message chain.
-func (vm *VM) Parse(source io.Reader) (msg *Message, err error) {
+func (vm *VM) Parse(source io.Reader, label string) (msg *Message, err error) {
 	src := bufio.NewReader(source)
 	tokens := make(chan token)
 	go lex(src, tokens)
-	_, msg, err = vm.parseRecurse(-1, src, tokens)
+	_, msg, err = vm.parseRecurse(-1, src, tokens, label)
 	return
 }
 
-func (vm *VM) parseRecurse(open rune, src *bufio.Reader, tokens chan token) (tok token, msg *Message, err error) {
-	msg = &Message{Object: *vm.CoreInstance("Message")}
+func (vm *VM) parseRecurse(open rune, src *bufio.Reader, tokens chan token, label string) (tok token, msg *Message, err error) {
+	msg = &Message{Object: *vm.CoreInstance("Message"), Label: label}
 	m := msg
 	defer func() {
 		if msg.Text == "" && msg.Args == nil {
@@ -41,6 +41,7 @@ func (vm *VM) parseRecurse(open rune, src *bufio.Reader, tokens chan token) (tok
 		}
 	}()
 	for tok = range tokens {
+		m.Line, m.Col = tok.Line, tok.Col
 		switch tok.Kind {
 		case badToken:
 			err = tok.Err
@@ -71,7 +72,8 @@ func (vm *VM) parseRecurse(open rune, src *bufio.Reader, tokens chan token) (tok
 			}
 			var atok token
 			var amsg *Message
-			for atok, amsg, err = vm.parseRecurse(rune(tok.Value[0]), src, tokens); atok.Kind == commaToken; atok, amsg, err = vm.parseRecurse(rune(tok.Value[0]), src, tokens) {
+			atok, amsg, err = vm.parseRecurse(rune(tok.Value[0]), src, tokens, label)
+			for atok.Kind == commaToken {
 				if amsg == nil {
 					err = fmt.Errorf("empty argument")
 				}
@@ -80,6 +82,7 @@ func (vm *VM) parseRecurse(open rune, src *bufio.Reader, tokens chan token) (tok
 					return
 				}
 				m.Args = append(m.Args, amsg)
+				atok, amsg, err = vm.parseRecurse(rune(tok.Value[0]), src, tokens, label)
 			}
 			if len(m.Args) == 1 {
 				if m.Args[0] == nil {
@@ -169,6 +172,7 @@ func (vm *VM) parseRecurse(open rune, src *bufio.Reader, tokens chan token) (tok
 			m.Next = &Message{
 				Object: *vm.CoreInstance("Message"),
 				Prev:   m,
+				Label:  label,
 			}
 			m = m.Next
 		}
@@ -177,13 +181,13 @@ func (vm *VM) parseRecurse(open rune, src *bufio.Reader, tokens chan token) (tok
 }
 
 // DoString parses and executes a string.
-func (vm *VM) DoString(src string) Interface {
-	return vm.DoReader(strings.NewReader(src))
+func (vm *VM) DoString(src string, label string) Interface {
+	return vm.DoReader(strings.NewReader(src), label)
 }
 
 // DoReader parses and executes an io.Reader.
-func (vm *VM) DoReader(src io.Reader) Interface {
-	msg, err := vm.Parse(src)
+func (vm *VM) DoReader(src io.Reader, label string) Interface {
+	msg, err := vm.Parse(src, label)
 	if err != nil {
 		return vm.IoError(err)
 	}
@@ -203,7 +207,7 @@ func (vm *VM) DoMessage(msg *Message, locals Interface) Interface {
 // raised exception.
 func (vm *VM) MustDoString(src string) Interface {
 	r := strings.NewReader(src)
-	msg, err := vm.Parse(r)
+	msg, err := vm.Parse(r, "<string>")
 	if err != nil {
 		panic(err)
 	}
