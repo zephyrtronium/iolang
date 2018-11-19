@@ -37,7 +37,6 @@ For a more in-depth introduction to Io, check out [the official guide](iolanguag
 	+ Object
 	+ Sequence
 	+ Exception
-	+ CFunction
 	+ File - figure out how/whether to implement popen and reopen.
 	+ Number
 	+ Date - fromString requires a robust implementation.
