@@ -87,6 +87,7 @@ func (vm *VM) initObject() {
 		"return":     vm.NewCFunction(ObjectReturn),
 		"setSlot":    vm.NewCFunction(ObjectSetSlot),
 		"slotNames":  vm.NewCFunction(ObjectSlotNames),
+		"try":        vm.NewCFunction(ObjectTry),
 		"type":       vm.NewString("Object"),
 		"updateSlot": vm.NewCFunction(ObjectUpdateSlot),
 		"while":      vm.NewCFunction(ObjectWhile),
@@ -489,4 +490,16 @@ func ObjectGreater(vm *VM, target, locals Interface, msg *Message) Interface {
 		return vm.IoBool(n.Value > 0)
 	}
 	return vm.IoBool(ptrCompare(target, c) > 0)
+}
+
+// ObjectTry is an Object method.
+//
+// try executes its message, returning any exception that occurs or nil if none
+// does.
+func ObjectTry(vm *VM, target, locals Interface, msg *Message) Interface {
+	r, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), ReturnStop)
+	if !ok {
+		return r.(Stop).Result
+	}
+	return vm.Nil
 }

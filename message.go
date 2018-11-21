@@ -236,7 +236,7 @@ func (m *Message) Send(vm *VM, target, locals Interface) (result Interface) {
 				} else if forward, fp := GetSlot(target, "forward"); fp != nil {
 					result = forward.Activate(vm, target, locals, m)
 				} else {
-					return vm.NewExceptionf("%s does not respond to %s", vm.TypeName(target), m.Text)
+					return vm.RaiseExceptionf("%s does not respond to %s", vm.TypeName(target), m.Text)
 				}
 				if result == nil {
 					// No message should evaluate to something that is not an

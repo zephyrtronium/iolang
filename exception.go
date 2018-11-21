@@ -42,16 +42,14 @@ func (vm *VM) RaiseExceptionf(format string, args ...interface{}) Interface {
 
 // String returns the error message.
 func (e *Exception) String() string {
-	e.L.Lock()
-	defer e.L.Unlock()
-	return e.Slots["error"].(*Sequence).String()
+	s, _ := GetSlot(e, "error")
+	return fmt.Sprint(s)
 }
 
 // Error returns the error message.
 func (e *Exception) Error() string {
-	e.L.Lock()
-	defer e.L.Unlock()
-	return e.Slots["error"].(*Sequence).String()
+	s, _ := GetSlot(e, "error")
+	return fmt.Sprint(s)
 }
 
 // Raise returns the exception in a Stop, so that the interpreter will treat it
@@ -100,9 +98,64 @@ func Must(v Interface) Interface {
 }
 
 func (vm *VM) initException() {
-	// TODO: Exception slots
+	var exemplar *Exception
 	slots := Slots{
-		"type": vm.NewString("Exception"),
+		"caughtMessage":   vm.Nil,
+		"error":           vm.Nil,
+		"nestedException": vm.Nil,
+		"originalCall":    vm.Nil,
+		"pass":            vm.NewTypedCFunction(ExceptionPass, exemplar),
+		"raise":           vm.NewCFunction(ExceptionRaise),
+		"raiseFrom":       vm.NewCFunction(ExceptionRaiseFrom),
+		"type":            vm.NewString("Exception"),
 	}
 	SetSlot(vm.Core, "Exception", &Exception{*vm.ObjectWith(slots)})
+}
+
+// ExceptionPass is an Exception method.
+//
+// pass re-raises a caught exception.
+func ExceptionPass(vm *VM, target, locals Interface, msg *Message) Interface {
+	return target.(*Exception).Raise()
+}
+
+// ExceptionRaise is an Exception method.
+//
+// raise creates an exception with the given error message and raises it.
+func ExceptionRaise(vm *VM, target, locals Interface, msg *Message) Interface {
+	s, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	nested, ok := CheckStop(msg.EvalArgAt(vm, locals, 1), LoopStops)
+	if !ok {
+		return nested
+	}
+	e := &Exception{Object: *vm.CoreInstance("Exception")}
+	SetSlot(e, "error", s)
+	SetSlot(e, "nestedException", nested)
+	return e.Raise()
+}
+
+// ExceptionRaiseFrom is an Exception method.
+//
+// raiseFrom raises an exception from the given call site.
+func ExceptionRaiseFrom(vm *VM, target, locals Interface, msg *Message) Interface {
+	call, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
+	if !ok {
+		return call
+	}
+	s, stop := msg.StringArgAt(vm, locals, 1)
+	if stop != nil {
+		return stop
+	}
+	nested, ok := CheckStop(msg.EvalArgAt(vm, locals, 2), LoopStops)
+	if !ok {
+		return nested
+	}
+	e := &Exception{Object: *vm.CoreInstance("Exception")}
+	SetSlot(e, "error", s)
+	SetSlot(e, "nestedException", nested)
+	SetSlot(e, "originalCall", call)
+	return e.Raise()
 }
