@@ -772,7 +772,7 @@ func NumberToBase(vm *VM, target, locals Interface, msg *Message) Interface {
 	}
 	base := int(arg.Value)
 	if base < 2 || base > 36 {
-		return vm.NewExceptionf("conversion to base %d not supported", base)
+		return vm.RaiseExceptionf("conversion to base %d not supported", base)
 	}
 	return vm.NewString(strconv.FormatInt(int64(target.(*Number).Value), base))
 }

@@ -201,7 +201,7 @@ func (m *Message) AsStringArgAt(vm *VM, locals Interface, n int) (*Sequence, Int
 			return s, nil
 		}
 	}
-	return nil, vm.NewExceptionf("argument %d to %s cannot be converted to string", n, m.Text)
+	return nil, vm.RaiseExceptionf("argument %d to %s cannot be converted to string", n, m.Text)
 }
 
 // EvalArgAt evaluates the nth argument.
