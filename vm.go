@@ -192,6 +192,21 @@ Object do(
 	setSlot("and", method(v, v isTrue))
 	setSlot("or", method(v, self isTrue or(v)))
 	setSlot("-", method(v, v negate))
+
+	ancestors := method(a,
+		if(a,
+			if(a containsIdenticalTo(getSlot("self")), return a)
+		,
+			a = List clone
+		)
+		a append(getSlot("self"))
+		getSlot("self") protos foreach(ancestors(a))
+		a
+	)
+	isKindOf := method(proto,
+		// Lazy method, building the entire list of ancestors.
+		getSlot("self") ancestors contains(proto)
+	)
 )
 false do(
 	setSlot("or",  method(v, v isTrue))
