@@ -353,7 +353,7 @@ func (vm *VM) Compare(x, y Interface) Interface {
 		return vm.NewNumber(float64(ptrCompare(x, y)))
 	}
 	arg := &Message{Memo: y}
-	r, _ := CheckStop(cmp.Activate(vm, x, x, vm.IdentMessage("compare", arg)), ReturnStop)
+	r, _ := CheckStop(cmp.Activate(vm, x, x, vm.IdentMessage("compare", arg)), LoopStops)
 	return r
 }
 
@@ -388,11 +388,11 @@ func ptrCompare(x, y Interface) int {
 //
 // x <(y) returns true if the result of x compare(y) is -1.
 func ObjectLess(vm *VM, target, locals Interface, msg *Message) Interface {
-	x, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), ReturnStop)
+	x, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
 	if !ok {
 		return x
 	}
-	c, ok := CheckStop(vm.Compare(target, x), ReturnStop)
+	c, ok := CheckStop(vm.Compare(target, x), LoopStops)
 	if !ok {
 		return x
 	}
@@ -406,11 +406,11 @@ func ObjectLess(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // x <=(y) returns true if the result of x compare(y) is not 1.
 func ObjectLessOrEqual(vm *VM, target, locals Interface, msg *Message) Interface {
-	x, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), ReturnStop)
+	x, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
 	if !ok {
 		return x
 	}
-	c, ok := CheckStop(vm.Compare(target, x), ReturnStop)
+	c, ok := CheckStop(vm.Compare(target, x), LoopStops)
 	if !ok {
 		return x
 	}
@@ -424,11 +424,11 @@ func ObjectLessOrEqual(vm *VM, target, locals Interface, msg *Message) Interface
 //
 // x ==(y) returns true if the result of x compare(y) is 0.
 func ObjectEqual(vm *VM, target, locals Interface, msg *Message) Interface {
-	x, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), ReturnStop)
+	x, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
 	if !ok {
 		return x
 	}
-	c, ok := CheckStop(vm.Compare(target, x), ReturnStop)
+	c, ok := CheckStop(vm.Compare(target, x), LoopStops)
 	if !ok {
 		return x
 	}
@@ -442,11 +442,11 @@ func ObjectEqual(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // x !=(y) returns true if the result of x compare(y) is not 0.
 func ObjectNotEqual(vm *VM, target, locals Interface, msg *Message) Interface {
-	x, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), ReturnStop)
+	x, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
 	if !ok {
 		return x
 	}
-	c, ok := CheckStop(vm.Compare(target, x), ReturnStop)
+	c, ok := CheckStop(vm.Compare(target, x), LoopStops)
 	if !ok {
 		return x
 	}
@@ -460,11 +460,11 @@ func ObjectNotEqual(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // x >=(y) returns true if the result of x compare(y) is not -1.
 func ObjectGreaterOrEqual(vm *VM, target, locals Interface, msg *Message) Interface {
-	x, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), ReturnStop)
+	x, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
 	if !ok {
 		return x
 	}
-	c, ok := CheckStop(vm.Compare(target, x), ReturnStop)
+	c, ok := CheckStop(vm.Compare(target, x), LoopStops)
 	if !ok {
 		return x
 	}
@@ -478,11 +478,11 @@ func ObjectGreaterOrEqual(vm *VM, target, locals Interface, msg *Message) Interf
 //
 // x >(y) returns true if the result of x compare(y) is 1.
 func ObjectGreater(vm *VM, target, locals Interface, msg *Message) Interface {
-	x, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), ReturnStop)
+	x, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
 	if !ok {
 		return x
 	}
-	c, ok := CheckStop(vm.Compare(target, x), ReturnStop)
+	c, ok := CheckStop(vm.Compare(target, x), LoopStops)
 	if !ok {
 		return x
 	}

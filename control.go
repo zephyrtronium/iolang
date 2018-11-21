@@ -150,16 +150,14 @@ func ObjectWhile(vm *VM, target, locals Interface, msg *Message) (result Interfa
 	cond := msg.ArgAt(0)
 	m := msg.ArgAt(1)
 	for {
-		c := cond.Eval(vm, locals)
 		// It's possible for a loop condition to evaluate to a Stop. Io's
 		// behavior, due to the way it implements control flow as a coroutine
 		// attribute, is to respect them wherever they occur, but I believe
 		// that is more likely to lead to unexplained stalling. We will instead
 		// accept continues and breaks as normal values.
-		if cc, ok := CheckStop(c, ReturnStop); ok {
-			c = cc
-		} else {
-			return cc
+		c, ok := CheckStop(cond.Eval(vm, locals), LoopStops)
+		if !ok {
+			return c
 		}
 		if vm.AsBool(c) {
 			return result

@@ -113,7 +113,7 @@ outer:
 			return r
 		}
 		for _, v := range l.Value {
-			c, ok := CheckStop(vm.Compare(v, r), ReturnStop)
+			c, ok := CheckStop(vm.Compare(v, r), LoopStops)
 			if !ok {
 				return c
 			}
@@ -263,7 +263,7 @@ func ListCompare(vm *VM, target, locals Interface, msg *Message) Interface {
 			return vm.NewNumber(1)
 		}
 		for i, v := range l.Value {
-			x, ok := CheckStop(vm.Compare(v, r.Value[i]), ReturnStop)
+			x, ok := CheckStop(vm.Compare(v, r.Value[i]), LoopStops)
 			if !ok {
 				return x
 			}
@@ -286,7 +286,7 @@ func ListContains(vm *VM, target, locals Interface, msg *Message) Interface {
 		return r
 	}
 	for _, v := range target.(*List).Value {
-		c, ok := CheckStop(vm.Compare(v, r), ReturnStop)
+		c, ok := CheckStop(vm.Compare(v, r), LoopStops)
 		if !ok {
 			return c
 		}
@@ -313,7 +313,7 @@ func ListContainsAll(vm *VM, target, locals Interface, msg *Message) Interface {
 outer:
 	for _, v := range r {
 		for _, ri := range target.(*List).Value {
-			c, ok := CheckStop(vm.Compare(ri, v), ReturnStop)
+			c, ok := CheckStop(vm.Compare(ri, v), LoopStops)
 			if !ok {
 				return c
 			}
@@ -342,7 +342,7 @@ func ListContainsAny(vm *VM, target, locals Interface, msg *Message) Interface {
 	}
 	for _, v := range target.(*List).Value {
 		for _, ri := range r {
-			c, ok := CheckStop(vm.Compare(ri, v), ReturnStop)
+			c, ok := CheckStop(vm.Compare(ri, v), LoopStops)
 			if !ok {
 				return c
 			}
@@ -381,7 +381,7 @@ func ListIndexOf(vm *VM, target, locals Interface, msg *Message) Interface {
 		return r
 	}
 	for i, v := range target.(*List).Value {
-		c, ok := CheckStop(vm.Compare(v, r), ReturnStop)
+		c, ok := CheckStop(vm.Compare(v, r), LoopStops)
 		if !ok {
 			return c
 		}
@@ -461,10 +461,8 @@ outer:
 		if _, ok := rv[v]; ok {
 			j++
 		} else {
-			// TODO: use Io comparison
-			// reminder: vvv is an else branch if Io comparison didn't match.
 			for r := range rv {
-				c, ok := CheckStop(vm.Compare(v, r), ReturnStop)
+				c, ok := CheckStop(vm.Compare(v, r), LoopStops)
 				if !ok {
 					return c
 				}
@@ -705,18 +703,18 @@ func (l *listSorter) Less(i, j int) bool {
 		a, b := l.v[i], l.v[j]
 		var ok bool
 		if l.e != nil {
-			a, ok = CheckStop(l.e.Send(l.vm, a, l.l), ReturnStop)
+			a, ok = CheckStop(l.e.Send(l.vm, a, l.l), LoopStops)
 			if !ok {
 				l.err = a
 				return i < j
 			}
-			b, ok = CheckStop(l.e.Send(l.vm, b, l.l), ReturnStop)
+			b, ok = CheckStop(l.e.Send(l.vm, b, l.l), LoopStops)
 			if !ok {
 				l.err = b
 				return i < j
 			}
 		}
-		r, ok := CheckStop(l.vm.Compare(a, b), ReturnStop)
+		r, ok := CheckStop(l.vm.Compare(a, b), LoopStops)
 		if !ok {
 			l.err = r
 			return i < j
@@ -727,7 +725,7 @@ func (l *listSorter) Less(i, j int) bool {
 		return l.vm.AsBool(r)
 	}
 	l.m.Args[0].Memo, l.m.Args[1].Memo = l.v[i], l.v[j]
-	r, ok := CheckStop(l.b.reallyActivate(l.vm, l.l, l.l, l.m), ReturnStop)
+	r, ok := CheckStop(l.b.reallyActivate(l.vm, l.l, l.l, l.m), LoopStops)
 	if !ok {
 		l.err = r
 		return i < j
@@ -760,7 +758,7 @@ func ListSortInPlace(vm *VM, target, locals Interface, msg *Message) Interface {
 // sortInPlaceBy sorts the list using a given compare block.
 func ListSortInPlaceBy(vm *VM, target, locals Interface, msg *Message) Interface {
 	l := target.(*List)
-	r, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), ReturnStop)
+	r, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
 	if !ok {
 		return r
 	}
