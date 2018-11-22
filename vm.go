@@ -208,11 +208,15 @@ Object do(
 		getSlot("self") ancestors contains(proto)
 	)
 )
+Exception do(
+	catch := method(proto, if(self isKindOf(proto), call evalArgAt(1); nil, self))
+)
 false do(
 	setSlot("or",  method(v, v isTrue))
 )
 nil do(
 	setSlot("or",  method(v, v isTrue))
+	catch := nil
 )
 Number do(
 	combinations := method(r, self factorial / ((self - r) factorial) / (r factorial))

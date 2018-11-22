@@ -46,6 +46,7 @@ func (vm *VM) initNil() {
 		"and":            vm.False,
 		"asSimpleString": s,
 		"asString":       s,
+		"catch":          vm.Nil,
 		"clone":          vm.Nil,
 		"else":           vm.Nil,
 		"elseif":         vm.Nil,
