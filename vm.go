@@ -185,12 +185,10 @@ func (vm *VM) finalInit() {
 
 const finalInitCode = `
 Object do(
-	not := method(self isTrue not)
 	print := method(File standardOutput write(self asString); self)
 	println := method(File standardOutput write(self asString, "\n"); self)
 	// Use setSlot directly to circumvent operator shuffling.
 	setSlot("and", method(v, v isTrue))
-	setSlot("or", method(v, self isTrue or(v)))
 	setSlot("-", method(v, v negate))
 
 	ancestors := method(a,
@@ -207,16 +205,29 @@ Object do(
 		// Lazy method, building the entire list of ancestors.
 		getSlot("self") ancestors contains(proto)
 	)
+
+	proto := method(protos first)
+	hasProto := getSlot("isKindOf")
+
+	hasSlot := method(slot, hasLocalSlot(slot) or ancestorWithSlot(slot) != nil)
+	setSlotWithType := method(slot, value,
+		setSlot(slot, value)
+		value type := slot
+	)
+
+	asBoolean := true
 )
 Exception do(
 	catch := method(proto, if(self isKindOf(proto), call evalArgAt(1); nil, self))
 )
 false do(
 	setSlot("or",  method(v, v isTrue))
+	asBoolean := false
 )
 nil do(
 	setSlot("or",  method(v, v isTrue))
 	catch := nil
+	asBoolean := nil
 )
 Number do(
 	combinations := method(r, self factorial / ((self - r) factorial) / (r factorial))
