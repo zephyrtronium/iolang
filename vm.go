@@ -236,6 +236,10 @@ Number do(
 List do(
 	first := method(self at(0))
 	last  := method(self at(self size - 1))
+
+	copy := method(l, empty; appendSeq(l); self)
+	sort := method(l := List clone copy(self); l sortInPlace)
+	reverse := method(l := List clone copy(self); l reverseInPlace)
 )
 Directory do(
 	size := method(self items size)

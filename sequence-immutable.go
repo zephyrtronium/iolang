@@ -76,3 +76,45 @@ func SequenceIsMutable(vm *VM, target, locals Interface, msg *Message) Interface
 	s := target.(*Sequence)
 	return vm.IoBool(s.IsMutable())
 }
+
+// SequenceCompare is a Sequence method.
+//
+// compare returns -1 if the receiver is less than the argument, 1 if it is
+// greater, or 0 if they are equal.
+func SequenceCompare(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	r, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
+	if !ok {
+		return r
+	}
+	t, ok := r.(*Sequence)
+	if !ok {
+		return vm.NewNumber(float64(ptrCompare(target, r)))
+	}
+	la, lb := s.Len(), t.Len()
+	ml := la
+	if lb < la {
+		ml = lb
+	}
+	// Getting this right is actually very tricky, considering cases like
+	// comparing uint64 and float64 - both have values that the other can't
+	// represent exactly. It might be worthwhile to revisit this at some point
+	// to address inconsistencies, but float64 is the most complete kind
+	// available, so for now, we'll make all comparisons in that type.
+	for i := 0; i < ml; i++ {
+		x, y := s.At(vm, i).Value, t.At(vm, i).Value
+		if x < y {
+			return vm.NewNumber(-1)
+		}
+		if x > y {
+			return vm.NewNumber(1)
+		}
+	}
+	if la < lb {
+		return vm.NewNumber(-1)
+	}
+	if la > lb {
+		return vm.NewNumber(1)
+	}
+	return vm.NewNumber(0)
+}

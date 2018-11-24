@@ -16,14 +16,6 @@ import (
 //    - sequence-math.go: Mathematical methods and operations. Eventually,
 //        this should have different versions for different arches.
 
-// NOTE:
-// There are a number of extra methods defined on *Sequence, but they do not
-// acquire their objects' locks. Thus, if the sequence is mutable, it is
-// possible for a race to occur when calling one of those methods if a VM
-// thread calls a mutating method. A few methods should always be safe,
-// particularly IsMutable and CheckMutable, since the mutability of a "live"
-// Sequence should never change - asMutable and asSymbol create copies.
-
 // A Sequence is a collection of data of one fixed-size type.
 type Sequence struct {
 	Object
@@ -283,6 +275,7 @@ func (vm *VM) initSequence() {
 	slots := Slots{
 		// sequence-immutable.go:
 		"at":        vm.NewTypedCFunction(SequenceAt, exemplar),
+		"compare":   vm.NewTypedCFunction(SequenceCompare, exemplar),
 		"isMutable": vm.NewTypedCFunction(SequenceIsMutable, exemplar),
 		"itemSize":  vm.NewTypedCFunction(SequenceItemSize, exemplar),
 		"itemType":  vm.NewTypedCFunction(SequenceItemType, exemplar),
@@ -316,4 +309,9 @@ func (vm *VM) initSequence() {
 	// Now that we have the String proto, we can use vm.NewString.
 	SetSlot(ms, "type", vm.NewString("Sequence"))
 	SetSlot(is, "type", vm.NewString("ImmutableSequence"))
+}
+
+// SequenceArgAt is a synonym for StringArgAt with nicer spelling.
+func (m *Message) SequenceArgAt(vm *VM, locals Interface, n int) (*Sequence, Interface) {
+	return m.StringArgAt(vm, locals, n)
 }
