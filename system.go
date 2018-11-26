@@ -24,11 +24,6 @@ func (vm *VM) initSystem() {
 		"type":           vm.NewString("System"),
 		"version":        vm.NewString(IoVersion),
 	}
-	args := make([]Interface, len(os.Args)-1)
-	for i, v := range os.Args[1:] {
-		args[i] = vm.NewString(v)
-	}
-	slots["args"] = vm.NewList(args...)
 	// installPrefix is the directory two above the executable path, and ioPath
 	// is $installPrefix/lib/io. It is notable that paths on the System object
 	// use the operating system's path separators, unlike most other paths in
@@ -58,6 +53,15 @@ func (vm *VM) initSystem() {
 		slots["launchPath"] = vm.Nil
 	}
 	SetSlot(vm.Core, "System", vm.ObjectWith(slots))
+}
+
+func (vm *VM) initArgs(args []string) {
+	l := make([]Interface, len(args))
+	for i, v := range args {
+		l[i] = vm.NewString(v)
+	}
+	s, _ := GetSlot(vm.Core, "System")
+	SetSlot(s, "args", vm.NewList(l...))
 }
 
 // SetLaunchScript sets the System launchScript slot to the given string, as a

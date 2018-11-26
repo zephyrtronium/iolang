@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	vm := iolang.NewVM()
+	vm := iolang.NewVM(os.Args[1:]...)
 	// iolang.Debugvm = vm
 	iolang.SetSlot(vm.Lobby, "ps1", vm.NewString("io> "))
 	iolang.SetSlot(vm.Lobby, "ps2", vm.NewString("... "))

@@ -33,8 +33,9 @@ type VM struct {
 	StringMemo map[string]*Sequence
 }
 
-// NewVM prepares a new VM to interpret Io code.
-func NewVM() *VM {
+// NewVM prepares a new VM to interpret Io code. String arguments may be passed
+// to occupy the System args slot, typically os.Args[1:].
+func NewVM(args ...string) *VM {
 	vm := VM{
 		Lobby: &Object{Slots: Slots{}},
 
@@ -84,6 +85,7 @@ func NewVM() *VM {
 	vm.initDate()
 	vm.initDuration()
 	vm.initSystem()
+	vm.initArgs(args)
 	vm.initMap()
 	vm.initCFunction2() // CFunction needs sequences
 	vm.initCollector()
