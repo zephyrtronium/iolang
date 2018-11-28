@@ -124,7 +124,7 @@ func CFunctionPerformOn(vm *VM, target, locals Interface, msg *Message) Interfac
 	nl := locals
 	nm := msg
 	if msg.ArgCount() > 1 {
-		nl, ok := CheckStop(msg.EvalArgAt(vm, locals, 1), LoopStops)
+		nl, ok = CheckStop(msg.EvalArgAt(vm, locals, 1), LoopStops)
 		if !ok {
 			return nl
 		}
