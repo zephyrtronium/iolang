@@ -427,10 +427,13 @@ func ObjectLexicalDo(vm *VM, target, locals Interface, msg *Message) Interface {
 	o := target.SP()
 	n := len(o.Protos)
 	o.Protos = append(o.Protos, locals)
-	result := msg.EvalArgAt(vm, target, 0)
+	result, ok := CheckStop(msg.EvalArgAt(vm, target, 0), LoopStops)
 	copy(o.Protos[n:], o.Protos[n+1:])
 	o.Protos = o.Protos[:len(o.Protos)-1]
-	return result
+	if !ok {
+		return result
+	}
+	return target
 }
 
 // ObjectAsString is an Object method.
