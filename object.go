@@ -44,8 +44,27 @@ func (o *Object) SP() *Object {
 	return o
 }
 
-// Activate returns the object.
+// Activate activates the object. If the isActivatable slot is true, and the
+// activate slot exists, then this activates that slot; otherwise, it returns
+// the object.
 func (o *Object) Activate(vm *VM, target, locals Interface, msg *Message) Interface {
+	// Check only local slots.
+	o.L.Lock()
+	active := o.Slots["isActivatable"]
+	o.L.Unlock()
+	// We can't use vm.AsBool even though it's one of the few situations where
+	// we'd want to, because it will attempt to activate the isTrue slot, which
+	// is typically a plain Object, which will activate this method and recurse
+	// infinitely.
+	if active == nil || active == vm.False || active == vm.Nil {
+		return o
+	}
+	o.L.Lock()
+	act, ok := o.Slots["activate"]
+	o.L.Unlock()
+	if ok {
+		return act.Activate(vm, target, locals, msg)
+	}
 	return o
 }
 

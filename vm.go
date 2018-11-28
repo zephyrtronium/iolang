@@ -217,6 +217,9 @@ Object do(
 		value type := slot
 	)
 
+	isActivatable := false
+	setIsActivatable := method(v, getSlot("self") isActivatable := v; self)
+
 	asBoolean := true
 )
 Exception do(
