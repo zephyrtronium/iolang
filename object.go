@@ -48,21 +48,16 @@ func (o *Object) SP() *Object {
 // activate slot exists, then this activates that slot; otherwise, it returns
 // the object.
 func (o *Object) Activate(vm *VM, target, locals Interface, msg *Message) Interface {
-	// Check only local slots.
-	o.L.Lock()
-	active := o.Slots["isActivatable"]
-	o.L.Unlock()
+	ok, proto := GetSlot(o, "isActivatable")
 	// We can't use vm.AsBool even though it's one of the few situations where
 	// we'd want to, because it will attempt to activate the isTrue slot, which
 	// is typically a plain Object, which will activate this method and recurse
 	// infinitely.
-	if active == nil || active == vm.False || active == vm.Nil {
+	if proto == nil || ok == vm.False || ok == vm.Nil {
 		return o
 	}
-	o.L.Lock()
-	act, ok := o.Slots["activate"]
-	o.L.Unlock()
-	if ok {
+	act, proto := GetSlot(o, "activate")
+	if proto != nil {
 		return act.Activate(vm, target, locals, msg)
 	}
 	return o
@@ -417,7 +412,11 @@ func ObjectEvalArgAndReturnNil(vm *VM, target, locals Interface, msg *Message) I
 //
 // do evaluates its message in the context of the receiver.
 func ObjectDo(vm *VM, target, locals Interface, msg *Message) Interface {
-	return msg.EvalArgAt(vm, target, 0)
+	r, ok := CheckStop(msg.EvalArgAt(vm, target, 0), LoopStops)
+	if !ok {
+		return r
+	}
+	return target
 }
 
 // ObjectLexicalDo is an Object method.
