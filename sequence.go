@@ -515,7 +515,7 @@ func (s *Sequence) appendGrow(other *Sequence) {
 	old := reflect.ValueOf(s.Value)
 	b := reflect.ValueOf(other.Value)
 	t := b.Type().Elem()
-	a := reflect.MakeSlice(t, 0, old.Len() + b.Len())
+	a := reflect.MakeSlice(t, 0, old.Len()+b.Len())
 	for i := 0; i < old.Len(); i++ {
 		a = reflect.Append(a, old.Index(i).Convert(t))
 	}
@@ -528,15 +528,16 @@ func (vm *VM) initSequence() {
 	// We can't use vm.NewString until we create the proto after this.
 	slots := Slots{
 		// sequence-immutable.go:
-		"at":        vm.NewTypedCFunction(SequenceAt, exemplar),
-		"compare":   vm.NewTypedCFunction(SequenceCompare, exemplar),
-		"isMutable": vm.NewTypedCFunction(SequenceIsMutable, exemplar),
-		"itemSize":  vm.NewTypedCFunction(SequenceItemSize, exemplar),
-		"itemType":  vm.NewTypedCFunction(SequenceItemType, exemplar),
-		"size":      vm.NewTypedCFunction(SequenceSize, exemplar),
+		"at":             vm.NewTypedCFunction(SequenceAt, exemplar),
+		"cloneAppendSeq": vm.NewTypedCFunction(SequenceCloneAppendSeq, exemplar),
+		"compare":        vm.NewTypedCFunction(SequenceCompare, exemplar),
+		"isMutable":      vm.NewTypedCFunction(SequenceIsMutable, exemplar),
+		"itemSize":       vm.NewTypedCFunction(SequenceItemSize, exemplar),
+		"itemType":       vm.NewTypedCFunction(SequenceItemType, exemplar),
+		"size":           vm.NewTypedCFunction(SequenceSize, exemplar),
 
 		// sequence-mutable.go:
-		"append": vm.NewTypedCFunction(SequenceAppend, exemplar),
+		"append":    vm.NewTypedCFunction(SequenceAppend, exemplar),
 		"appendSeq": vm.NewTypedCFunction(SequenceAppendSeq, exemplar),
 		"asMutable": vm.NewTypedCFunction(SequenceAsMutable, exemplar),
 

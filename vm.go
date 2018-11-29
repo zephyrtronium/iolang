@@ -192,6 +192,7 @@ Object do(
 	// Use setSlot directly to circumvent operator shuffling.
 	setSlot("and", method(v, v isTrue))
 	setSlot("-", method(v, v negate))
+	setSlot("..", method(v, getSlot("self") asString .. v asString))
 
 	ancestors := method(a,
 		if(a,
@@ -221,6 +222,9 @@ Object do(
 	setIsActivatable := method(v, getSlot("self") isActivatable := v; self)
 
 	asBoolean := true
+)
+Sequence do(
+	setSlot("..", method(v, self asString cloneAppendSeq(v asString)))
 )
 Exception do(
 	catch := method(proto, if(self isKindOf(proto), call evalArgAt(1); nil, self))

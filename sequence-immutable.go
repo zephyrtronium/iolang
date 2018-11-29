@@ -118,3 +118,27 @@ func SequenceCompare(vm *VM, target, locals Interface, msg *Message) Interface {
 	}
 	return vm.NewNumber(0)
 }
+
+// SequenceCloneAppendSeq is a Sequence method.
+//
+// cloneAppendSeq creates a new symbol with the elements of the argument appended
+// to those of the receiver.
+func SequenceCloneAppendSeq(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	r, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
+	if !ok {
+		return r
+	}
+	other, ok := r.(*Sequence)
+	if !ok {
+		n, ok := r.(*Number)
+		if !ok {
+			return vm.RaiseException("argument 0 to cloneAppendSeq must be Sequence or Number, not " + vm.TypeName(r))
+		}
+		other = vm.NewString(n.String())
+	}
+	v := vm.NewSequence(s.Value, true, s.Code)
+	v.Append(other)
+	v.Kind = -v.Kind
+	return v
+}
