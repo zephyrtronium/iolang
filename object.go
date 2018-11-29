@@ -962,9 +962,7 @@ func ObjectShallowCopy(vm *VM, target, locals Interface, msg *Message) Interface
 	defer o.L.Unlock()
 	n := &Object{Slots: make(Slots, len(o.Slots)), Protos: make([]Interface, len(o.Protos))}
 	// The shallow copy in Io doesn't actually copy the protos...
-	for i, p := range o.Protos {
-		n.Protos[i] = p
-	}
+	copy(n.Protos, o.Protos)
 	for slot, value := range o.Slots {
 		n.Slots[slot] = value
 	}
