@@ -196,73 +196,73 @@ func (s *Sequence) ItemSize() int {
 	return seqItemSizes[-s.Kind]
 }
 
-// At returns the value of an item in the sequence as a Number. If the index is
-// out of bounds, the result will be nil.
-func (s *Sequence) At(vm *VM, i int) *Number {
+// At returns the value of an item in the sequence as a float64. If the index
+// is out of bounds, the second return value is false.
+func (s *Sequence) At(i int) (float64, bool) {
 	if i < 0 {
-		return nil
+		return 0, false
 	}
 	switch s.Kind {
 	case SeqMU8, SeqIU8:
 		v := s.Value.([]byte)
 		if i >= len(v) {
-			return nil
+			return 0, false
 		}
-		return vm.NewNumber(float64(v[i]))
+		return float64(v[i]), true
 	case SeqMU16, SeqIU16:
 		v := s.Value.([]uint16)
 		if i >= len(v) {
-			return nil
+			return 0, false
 		}
-		return vm.NewNumber(float64(v[i]))
+		return float64(v[i]), true
 	case SeqMU32, SeqIU32:
 		v := s.Value.([]uint32)
 		if i >= len(v) {
-			return nil
+			return 0, false
 		}
-		return vm.NewNumber(float64(v[i]))
+		return float64(v[i]), true
 	case SeqMU64, SeqIU64:
 		v := s.Value.([]uint64)
 		if i >= len(v) {
-			return nil
+			return 0, false
 		}
-		return vm.NewNumber(float64(v[i]))
+		return float64(v[i]), true
 	case SeqMS8, SeqIS8:
 		v := s.Value.([]int8)
 		if i >= len(v) {
-			return nil
+			return 0, false
 		}
-		return vm.NewNumber(float64(v[i]))
+		return float64(v[i]), true
 	case SeqMS16, SeqIS16:
 		v := s.Value.([]int16)
 		if i >= len(v) {
-			return nil
+			return 0, false
 		}
-		return vm.NewNumber(float64(v[i]))
+		return float64(v[i]), true
 	case SeqMS32, SeqIS32:
 		v := s.Value.([]int32)
 		if i >= len(v) {
-			return nil
+			return 0, false
 		}
-		return vm.NewNumber(float64(v[i]))
+		return float64(v[i]), true
 	case SeqMS64, SeqIS64:
 		v := s.Value.([]int64)
 		if i >= len(v) {
-			return nil
+			return 0, false
 		}
-		return vm.NewNumber(float64(v[i]))
+		return float64(v[i]), true
 	case SeqMF32, SeqIF32:
 		v := s.Value.([]float32)
 		if i >= len(v) {
-			return nil
+			return 0, false
 		}
-		return vm.NewNumber(float64(v[i]))
+		return float64(v[i]), true
 	case SeqMF64, SeqIF64:
 		v := s.Value.([]float64)
 		if i >= len(v) {
-			return nil
+			return 0, false
 		}
-		return vm.NewNumber(v[i])
+		return v[i], true
 	case SeqUntyped:
 		panic("use of untyped sequence")
 	default:
@@ -291,61 +291,70 @@ func (s *Sequence) Convert(vm *VM, kind SeqKind) *Sequence {
 	case SeqMU8, SeqIU8:
 		v := make([]byte, s.Len())
 		for i := range v {
-			v[i] = byte(s.At(vm, i).Value)
+			x, _ := s.At(i)
+			v[i] = byte(x)
 		}
 		return vm.NewSequence(v, kind > 0, s.Code)
 	case SeqMU16, SeqIU16:
 		v := make([]uint16, s.Len())
 		for i := range v {
-			v[i] = uint16(s.At(vm, i).Value)
+			x, _ := s.At(i)
+			v[i] = uint16(x)
 		}
 		return vm.NewSequence(v, kind > 0, s.Code)
 	case SeqMU32, SeqIU32:
 		v := make([]uint32, s.Len())
 		for i := range v {
-			v[i] = uint32(s.At(vm, i).Value)
+			x, _ := s.At(i)
+			v[i] = uint32(x)
 		}
 		return vm.NewSequence(v, kind > 0, s.Code)
 	case SeqMU64, SeqIU64:
 		v := make([]uint64, s.Len())
 		for i := range v {
-			v[i] = uint64(s.At(vm, i).Value)
+			x, _ := s.At(i)
+			v[i] = uint64(x)
 		}
 		return vm.NewSequence(v, kind > 0, s.Code)
 	case SeqMS8, SeqIS8:
 		v := make([]int8, s.Len())
 		for i := range v {
-			v[i] = int8(s.At(vm, i).Value)
+			x, _ := s.At(i)
+			v[i] = int8(x)
 		}
 		return vm.NewSequence(v, kind > 0, s.Code)
 	case SeqMS16, SeqIS16:
 		v := make([]int16, s.Len())
 		for i := range v {
-			v[i] = int16(s.At(vm, i).Value)
+			x, _ := s.At(i)
+			v[i] = int16(x)
 		}
 		return vm.NewSequence(v, kind > 0, s.Code)
 	case SeqMS32, SeqIS32:
 		v := make([]int32, s.Len())
 		for i := range v {
-			v[i] = int32(s.At(vm, i).Value)
+			x, _ := s.At(i)
+			v[i] = int32(x)
 		}
 		return vm.NewSequence(v, kind > 0, s.Code)
 	case SeqMS64, SeqIS64:
 		v := make([]int64, s.Len())
 		for i := range v {
-			v[i] = int64(s.At(vm, i).Value)
+			x, _ := s.At(i)
+			v[i] = int64(x)
 		}
 		return vm.NewSequence(v, kind > 0, s.Code)
 	case SeqMF32, SeqIF32:
 		v := make([]float32, s.Len())
 		for i := range v {
-			v[i] = float32(s.At(vm, i).Value)
+			x, _ := s.At(i)
+			v[i] = float32(x)
 		}
 		return vm.NewSequence(v, kind > 0, s.Code)
 	case SeqMF64, SeqIF64:
 		v := make([]float64, s.Len())
 		for i := range v {
-			v[i] = s.At(vm, i).Value
+			v[i], _ = s.At(i)
 		}
 		return vm.NewSequence(v, kind > 0, s.Code)
 	}

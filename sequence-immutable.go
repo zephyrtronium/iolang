@@ -13,9 +13,9 @@ func SequenceAt(vm *VM, target, locals Interface, msg *Message) Interface {
 	if stop != nil {
 		return stop
 	}
-	x := s.At(vm, int(arg.Value))
-	if x != nil {
-		return x
+	x, ok := s.At(int(arg.Value))
+	if ok {
+		return vm.NewNumber(x)
 	}
 	return vm.Nil
 }
@@ -102,7 +102,8 @@ func SequenceCompare(vm *VM, target, locals Interface, msg *Message) Interface {
 	// to address inconsistencies, but float64 is the most complete kind
 	// available, so for now, we'll make all comparisons in that type.
 	for i := 0; i < ml; i++ {
-		x, y := s.At(vm, i).Value, t.At(vm, i).Value
+		x, _ := s.At(i)
+		y, _ := t.At(i)
 		if x < y {
 			return vm.NewNumber(-1)
 		}
