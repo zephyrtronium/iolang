@@ -559,6 +559,8 @@ func (vm *VM) initSequence() {
 		"asUTF32":        vm.NewTypedCFunction(SequenceAsUTF32, exemplar),
 
 		// sequence-math.go:
+		"**=": vm.NewTypedCFunction(SequenceStarStarEq, exemplar),
+		"*=":  vm.NewTypedCFunction(SequenceStarEq, exemplar),
 		"cos": vm.NewTypedCFunction(SequenceCos, exemplar),
 	}
 	ms := &Sequence{
