@@ -530,6 +530,7 @@ func (s *Sequence) appendGrow(other *Sequence) {
 	}
 	a = reflect.AppendSlice(a, b)
 	s.Value = a.Interface()
+	s.Kind = other.Kind
 }
 
 func (vm *VM) initSequence() {
