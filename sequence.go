@@ -269,6 +269,1015 @@ func (s *Sequence) At(vm *VM, i int) *Number {
 	}
 }
 
+// Convert changes the item type of the sequence. The conversion is such that
+// the result keeps the same number of items.
+func (s *Sequence) Convert(vm *VM, kind SeqKind) *Sequence {
+	if kind == s.Kind || kind == -s.Kind {
+		return vm.NewSequence(s.Value, kind > 0, s.Code)
+	}
+	if kind == 0 {
+		panic("conversion to untyped sequence")
+	}
+	if kind != SeqMF32 && kind != SeqIF32 && kind != SeqMF64 && kind != SeqIF64 {
+		if s.Kind == SeqMU64 || s.Kind == SeqIU64 {
+			return s.convertU64(vm, kind)
+		}
+		if s.Kind == SeqMS64 || s.Kind == SeqIS64 {
+			return s.convertS64(vm, kind)
+		}
+	}
+	switch kind {
+	case SeqMU8, SeqIU8:
+		v := make([]byte, s.Len())
+		for i := range v {
+			v[i] = byte(s.At(vm, i).Value)
+		}
+		return vm.NewSequence(v, kind > 0, s.Code)
+	case SeqMU16, SeqIU16:
+		v := make([]uint16, s.Len())
+		for i := range v {
+			v[i] = uint16(s.At(vm, i).Value)
+		}
+		return vm.NewSequence(v, kind > 0, s.Code)
+	case SeqMU32, SeqIU32:
+		v := make([]uint32, s.Len())
+		for i := range v {
+			v[i] = uint32(s.At(vm, i).Value)
+		}
+		return vm.NewSequence(v, kind > 0, s.Code)
+	case SeqMU64, SeqIU64:
+		v := make([]uint64, s.Len())
+		for i := range v {
+			v[i] = uint64(s.At(vm, i).Value)
+		}
+		return vm.NewSequence(v, kind > 0, s.Code)
+	case SeqMS8, SeqIS8:
+		v := make([]int8, s.Len())
+		for i := range v {
+			v[i] = int8(s.At(vm, i).Value)
+		}
+		return vm.NewSequence(v, kind > 0, s.Code)
+	case SeqMS16, SeqIS16:
+		v := make([]int16, s.Len())
+		for i := range v {
+			v[i] = int16(s.At(vm, i).Value)
+		}
+		return vm.NewSequence(v, kind > 0, s.Code)
+	case SeqMS32, SeqIS32:
+		v := make([]int32, s.Len())
+		for i := range v {
+			v[i] = int32(s.At(vm, i).Value)
+		}
+		return vm.NewSequence(v, kind > 0, s.Code)
+	case SeqMS64, SeqIS64:
+		v := make([]int64, s.Len())
+		for i := range v {
+			v[i] = int64(s.At(vm, i).Value)
+		}
+		return vm.NewSequence(v, kind > 0, s.Code)
+	case SeqMF32, SeqIF32:
+		v := make([]float32, s.Len())
+		for i := range v {
+			v[i] = float32(s.At(vm, i).Value)
+		}
+		return vm.NewSequence(v, kind > 0, s.Code)
+	case SeqMF64, SeqIF64:
+		v := make([]float64, s.Len())
+		for i := range v {
+			v[i] = s.At(vm, i).Value
+		}
+		return vm.NewSequence(v, kind > 0, s.Code)
+	}
+	panic(fmt.Sprintf("unknown sequence kind %#v", kind))
+}
+
+// convertU64 converts a uint64 sequence to an integer type without loss of
+// precision.
+func (s *Sequence) convertU64(vm *VM, kind SeqKind) *Sequence {
+	sv := s.Value.([]uint64)
+	switch kind {
+	case SeqMU8, SeqIU8:
+		v := make([]byte, len(sv))
+		for i, x := range sv {
+			v[i] = byte(x)
+		}
+		return vm.NewSequence(v, kind > 0, s.Code)
+	case SeqMU16, SeqIU16:
+		v := make([]uint16, len(sv))
+		for i, x := range sv {
+			v[i] = uint16(x)
+		}
+		return vm.NewSequence(v, kind > 0, s.Code)
+	case SeqMU32, SeqIU32:
+		v := make([]uint32, len(sv))
+		for i, x := range sv {
+			v[i] = uint32(x)
+		}
+		return vm.NewSequence(v, kind > 0, s.Code)
+		// U64 is handled by Convert's same-type case.
+	case SeqMS8, SeqIS8:
+		v := make([]int8, len(sv))
+		for i, x := range sv {
+			v[i] = int8(x)
+		}
+		return vm.NewSequence(v, kind > 0, s.Code)
+	case SeqMS16, SeqIS16:
+		v := make([]int16, len(sv))
+		for i, x := range sv {
+			v[i] = int16(x)
+		}
+		return vm.NewSequence(v, kind > 0, s.Code)
+	case SeqMS32, SeqIS32:
+		v := make([]int32, len(sv))
+		for i, x := range sv {
+			v[i] = int32(x)
+		}
+		return vm.NewSequence(v, kind > 0, s.Code)
+	case SeqMS64, SeqIS64:
+		v := make([]int64, len(sv))
+		for i, x := range sv {
+			v[i] = int64(x)
+		}
+		return vm.NewSequence(v, kind > 0, s.Code)
+	}
+	panic(fmt.Sprintf("unknown sequence kind %#v", kind))
+}
+
+// convertS64 converts an int64 sequence to an integer type without loss of
+// precision.
+func (s *Sequence) convertS64(vm *VM, kind SeqKind) *Sequence {
+	sv := s.Value.([]int64)
+	switch kind {
+	case SeqMU8, SeqIU8:
+		v := make([]byte, len(sv))
+		for i, x := range sv {
+			v[i] = byte(x)
+		}
+		return vm.NewSequence(v, kind > 0, s.Code)
+	case SeqMU16, SeqIU16:
+		v := make([]uint16, len(sv))
+		for i, x := range sv {
+			v[i] = uint16(x)
+		}
+		return vm.NewSequence(v, kind > 0, s.Code)
+	case SeqMU32, SeqIU32:
+		v := make([]uint32, len(sv))
+		for i, x := range sv {
+			v[i] = uint32(x)
+		}
+		return vm.NewSequence(v, kind > 0, s.Code)
+	case SeqMU64, SeqIU64:
+		v := make([]uint64, len(sv))
+		for i, x := range sv {
+			v[i] = uint64(x)
+		}
+		return vm.NewSequence(v, kind > 0, s.Code)
+	case SeqMS8, SeqIS8:
+		v := make([]int8, len(sv))
+		for i, x := range sv {
+			v[i] = int8(x)
+		}
+		return vm.NewSequence(v, kind > 0, s.Code)
+	case SeqMS16, SeqIS16:
+		v := make([]int16, len(sv))
+		for i, x := range sv {
+			v[i] = int16(x)
+		}
+		return vm.NewSequence(v, kind > 0, s.Code)
+	case SeqMS32, SeqIS32:
+		v := make([]int32, len(sv))
+		for i, x := range sv {
+			v[i] = int32(x)
+		}
+		return vm.NewSequence(v, kind > 0, s.Code)
+		// S64 is handled by Convert's same-type case.
+	}
+	panic(fmt.Sprintf("unknown sequence kind %#v", kind))
+}
+
+// Append appends other's items to this sequence. If other has a larger item
+// size than this sequence, then this sequence will be converted to the item
+// type of other. Panics if this sequence is not mutable.
+func (s *Sequence) Append(other *Sequence) {
+	if err := s.CheckMutable("*Sequence.Append"); err != nil {
+		panic(err)
+	}
+	if s.Kind == other.Kind || s.Kind == -other.Kind {
+		s.appendSameKind(other)
+		return
+	}
+	// This implementation is about 800 lines and took me about twelve hours
+	// to write, which makes me wonder whether there is not a better
+	// solution within Go's type system. Even if we have to use reflection,
+	// I don't think this method is viable.
+	switch other.Kind {
+	case SeqMU8, SeqIU8:
+		s.appendU8(other)
+	case SeqMU16, SeqIU16:
+		s.appendU16(other)
+	case SeqMU32, SeqIU32:
+		s.appendU32(other)
+	case SeqMU64, SeqIU64:
+		s.appendU64(other)
+	case SeqMS8, SeqIS8:
+		s.appendS8(other)
+	case SeqMS16, SeqIS16:
+		s.appendS16(other)
+	case SeqMS32, SeqIS32:
+		s.appendS32(other)
+	case SeqMS64, SeqIS64:
+		s.appendS64(other)
+	case SeqMF32, SeqIF32:
+		s.appendF32(other)
+	case SeqMF64, SeqIF64:
+		s.appendF64(other)
+	case SeqUntyped:
+		panic("use of untyped sequence")
+	default:
+		panic(fmt.Sprintf("unknown sequence kind %#v", other.Kind))
+	}
+}
+
+func (s *Sequence) appendSameKind(other *Sequence) {
+	switch s.Kind {
+	case SeqMU8:
+		s.Value = append(s.Value.([]byte), other.Value.([]byte)...)
+	case SeqMU16:
+		s.Value = append(s.Value.([]uint16), other.Value.([]uint16)...)
+	case SeqMU32:
+		s.Value = append(s.Value.([]uint32), other.Value.([]uint32)...)
+	case SeqMU64:
+		s.Value = append(s.Value.([]uint64), other.Value.([]uint64)...)
+	case SeqMS8:
+		s.Value = append(s.Value.([]int8), other.Value.([]int8)...)
+	case SeqMS16:
+		s.Value = append(s.Value.([]int16), other.Value.([]int16)...)
+	case SeqMS32:
+		s.Value = append(s.Value.([]int32), other.Value.([]int32)...)
+	case SeqMS64:
+		s.Value = append(s.Value.([]int64), other.Value.([]int64)...)
+	case SeqMF32:
+		s.Value = append(s.Value.([]float32), other.Value.([]float32)...)
+	case SeqMF64:
+		s.Value = append(s.Value.([]float64), other.Value.([]float64)...)
+	case SeqUntyped:
+		panic("use of untyped sequence")
+	default:
+		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+	}
+}
+
+func (s *Sequence) appendU8(other *Sequence) {
+	ov := other.Value.([]byte)
+	switch s.Kind {
+	case SeqMU16:
+		v := s.Value.([]uint16)
+		for _, x := range ov {
+			v = append(v, uint16(x))
+		}
+		s.Value = v
+	case SeqMU32:
+		v := s.Value.([]uint32)
+		for _, x := range ov {
+			v = append(v, uint32(x))
+		}
+		s.Value = v
+	case SeqMU64:
+		v := s.Value.([]uint64)
+		for _, x := range ov {
+			v = append(v, uint64(x))
+		}
+		s.Value = v
+	case SeqMS8:
+		v := s.Value.([]int8)
+		for _, x := range ov {
+			v = append(v, int8(x))
+		}
+		s.Value = v
+	case SeqMS16:
+		v := s.Value.([]int16)
+		for _, x := range ov {
+			v = append(v, int16(x))
+		}
+		s.Value = v
+	case SeqMS32:
+		v := s.Value.([]int32)
+		for _, x := range ov {
+			v = append(v, int32(x))
+		}
+		s.Value = v
+	case SeqMS64:
+		v := s.Value.([]int64)
+		for _, x := range ov {
+			v = append(v, int64(x))
+		}
+		s.Value = v
+	case SeqMF32:
+		v := s.Value.([]float32)
+		for _, x := range ov {
+			v = append(v, float32(x))
+		}
+		s.Value = v
+	case SeqMF64:
+		v := s.Value.([]float64)
+		for _, x := range ov {
+			v = append(v, float64(x))
+		}
+		s.Value = v
+	case SeqUntyped:
+		panic("use of untyped sequence")
+	default:
+		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+	}
+}
+
+func (s *Sequence) appendU16(other *Sequence) {
+	ov := other.Value.([]uint16)
+	switch s.Kind {
+	case SeqMU8:
+		old := s.Value.([]byte)
+		v := make([]uint16, len(old), len(old)+len(ov))
+		for i, x := range old {
+			v[i] = uint16(x)
+		}
+		v = append(v, ov...)
+		s.Value = v
+		s.Kind = SeqMU16
+	case SeqMU32:
+		v := s.Value.([]uint32)
+		for _, x := range ov {
+			v = append(v, uint32(x))
+		}
+		s.Value = v
+	case SeqMU64:
+		v := s.Value.([]uint64)
+		for _, x := range ov {
+			v = append(v, uint64(x))
+		}
+		s.Value = v
+	case SeqMS8:
+		old := s.Value.([]int8)
+		v := make([]uint16, len(old), len(old)+len(ov))
+		for i, x := range old {
+			v[i] = uint16(x)
+		}
+		v = append(v, ov...)
+		s.Value = v
+		s.Kind = SeqMU16
+	case SeqMS16:
+		v := s.Value.([]int16)
+		for _, x := range ov {
+			v = append(v, int16(x))
+		}
+		s.Value = v
+	case SeqMS32:
+		v := s.Value.([]int32)
+		for _, x := range ov {
+			v = append(v, int32(x))
+		}
+		s.Value = v
+	case SeqMS64:
+		v := s.Value.([]int64)
+		for _, x := range ov {
+			v = append(v, int64(x))
+		}
+		s.Value = v
+	case SeqMF32:
+		v := s.Value.([]float32)
+		for _, x := range ov {
+			v = append(v, float32(x))
+		}
+		s.Value = v
+	case SeqMF64:
+		v := s.Value.([]float64)
+		for _, x := range ov {
+			v = append(v, float64(x))
+		}
+		s.Value = v
+	case SeqUntyped:
+		panic("use of untyped sequence")
+	default:
+		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+	}
+}
+
+func (s *Sequence) appendU32(other *Sequence) {
+	ov := other.Value.([]uint32)
+	switch s.Kind {
+	case SeqMU8:
+		old := s.Value.([]byte)
+		v := make([]uint32, len(old), len(old)+len(ov))
+		for i, x := range old {
+			v[i] = uint32(x)
+		}
+		v = append(v, ov...)
+		s.Value = v
+		s.Kind = SeqMU32
+	case SeqMU16:
+		old := s.Value.([]uint16)
+		v := make([]uint32, len(old), len(old)+len(ov))
+		for i, x := range old {
+			v[i] = uint32(x)
+		}
+		v = append(v, ov...)
+		s.Value = v
+		s.Kind = SeqMU32
+	case SeqMU64:
+		v := s.Value.([]uint64)
+		for _, x := range ov {
+			v = append(v, uint64(x))
+		}
+		s.Value = v
+	case SeqMS8:
+		old := s.Value.([]int8)
+		v := make([]uint32, len(old), len(old)+len(ov))
+		for i, x := range old {
+			v[i] = uint32(x)
+		}
+		v = append(v, ov...)
+		s.Value = v
+		s.Kind = SeqMU32
+	case SeqMS16:
+		old := s.Value.([]int16)
+		v := make([]uint32, len(old), len(old)+len(ov))
+		for i, x := range old {
+			v[i] = uint32(x)
+		}
+		v = append(v, ov...)
+		s.Value = v
+		s.Kind = SeqMU32
+	case SeqMS32:
+		v := s.Value.([]int32)
+		for _, x := range ov {
+			v = append(v, int32(x))
+		}
+		s.Value = v
+	case SeqMS64:
+		v := s.Value.([]int64)
+		for _, x := range ov {
+			v = append(v, int64(x))
+		}
+		s.Value = v
+	case SeqMF32:
+		v := s.Value.([]float32)
+		for _, x := range ov {
+			v = append(v, float32(x))
+		}
+		s.Value = v
+	case SeqMF64:
+		v := s.Value.([]float64)
+		for _, x := range ov {
+			v = append(v, float64(x))
+		}
+		s.Value = v
+	case SeqUntyped:
+		panic("use of untyped sequence")
+	default:
+		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+	}
+}
+
+func (s *Sequence) appendU64(other *Sequence) {
+	ov := other.Value.([]uint64)
+	switch s.Kind {
+	case SeqMU8:
+		old := s.Value.([]byte)
+		v := make([]uint64, len(old), len(old)+len(ov))
+		for i, x := range old {
+			v[i] = uint64(x)
+		}
+		v = append(v, ov...)
+		s.Value = v
+		s.Kind = SeqMU64
+	case SeqMU16:
+		old := s.Value.([]uint16)
+		v := make([]uint64, len(old), len(old)+len(ov))
+		for i, x := range old {
+			v[i] = uint64(x)
+		}
+		v = append(v, ov...)
+		s.Value = v
+		s.Kind = SeqMU64
+	case SeqMU32:
+		old := s.Value.([]uint32)
+		v := make([]uint64, len(old), len(old)+len(ov))
+		for i, x := range old {
+			v[i] = uint64(x)
+		}
+		v = append(v, ov...)
+		s.Value = v
+		s.Kind = SeqMU64
+	case SeqMS8:
+		old := s.Value.([]int8)
+		v := make([]uint64, len(old), len(old)+len(ov))
+		for i, x := range old {
+			v[i] = uint64(x)
+		}
+		v = append(v, ov...)
+		s.Value = v
+		s.Kind = SeqMU64
+	case SeqMS16:
+		old := s.Value.([]int16)
+		v := make([]uint64, len(old), len(old)+len(ov))
+		for i, x := range old {
+			v[i] = uint64(x)
+		}
+		v = append(v, ov...)
+		s.Value = v
+		s.Kind = SeqMU64
+	case SeqMS32:
+		old := s.Value.([]int32)
+		v := make([]uint64, len(old), len(old)+len(ov))
+		for i, x := range old {
+			v[i] = uint64(x)
+		}
+		v = append(v, ov...)
+		s.Value = v
+		s.Kind = SeqMU64
+	case SeqMS64:
+		v := s.Value.([]int64)
+		for _, x := range ov {
+			v = append(v, int64(x))
+		}
+		s.Value = v
+	case SeqMF32:
+		old := s.Value.([]float32)
+		v := make([]uint64, len(old), len(old)+len(ov))
+		for i, x := range old {
+			v[i] = uint64(x)
+		}
+		v = append(v, ov...)
+		s.Value = v
+		s.Kind = SeqMU64
+	case SeqMF64:
+		v := s.Value.([]float64)
+		for _, x := range ov {
+			v = append(v, float64(x))
+		}
+		s.Value = v
+	case SeqUntyped:
+		panic("use of untyped sequence")
+	default:
+		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+	}
+}
+
+func (s *Sequence) appendS8(other *Sequence) {
+	ov := other.Value.([]int8)
+	switch s.Kind {
+	case SeqMU8:
+		v := s.Value.([]byte)
+		for _, x := range ov {
+			v = append(v, byte(x))
+		}
+		s.Value = v
+	case SeqMU16:
+		v := s.Value.([]uint16)
+		for _, x := range ov {
+			v = append(v, uint16(x))
+		}
+		s.Value = v
+	case SeqMU32:
+		v := s.Value.([]uint32)
+		for _, x := range ov {
+			v = append(v, uint32(x))
+		}
+		s.Value = v
+	case SeqMU64:
+		v := s.Value.([]uint64)
+		for _, x := range ov {
+			v = append(v, uint64(x))
+		}
+		s.Value = v
+	case SeqMS16:
+		v := s.Value.([]int16)
+		for _, x := range ov {
+			v = append(v, int16(x))
+		}
+		s.Value = v
+	case SeqMS32:
+		v := s.Value.([]int32)
+		for _, x := range ov {
+			v = append(v, int32(x))
+		}
+		s.Value = v
+	case SeqMS64:
+		v := s.Value.([]int64)
+		for _, x := range ov {
+			v = append(v, int64(x))
+		}
+		s.Value = v
+	case SeqMF32:
+		v := s.Value.([]float32)
+		for _, x := range ov {
+			v = append(v, float32(x))
+		}
+		s.Value = v
+	case SeqMF64:
+		v := s.Value.([]float64)
+		for _, x := range ov {
+			v = append(v, float64(x))
+		}
+		s.Value = v
+	case SeqUntyped:
+		panic("use of untyped sequence")
+	default:
+		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+	}
+}
+
+func (s *Sequence) appendS16(other *Sequence) {
+	ov := other.Value.([]int16)
+	switch s.Kind {
+	case SeqMU8:
+		old := s.Value.([]byte)
+		v := make([]int16, len(old), len(old)+len(ov))
+		for i, x := range old {
+			v[i] = int16(x)
+		}
+		v = append(v, ov...)
+		s.Value = v
+		s.Kind = SeqMS16
+	case SeqMU16:
+		v := s.Value.([]uint16)
+		for _, x := range ov {
+			v = append(v, uint16(x))
+		}
+		s.Value = v
+	case SeqMU32:
+		v := s.Value.([]uint32)
+		for _, x := range ov {
+			v = append(v, uint32(x))
+		}
+		s.Value = v
+	case SeqMU64:
+		v := s.Value.([]uint64)
+		for _, x := range ov {
+			v = append(v, uint64(x))
+		}
+		s.Value = v
+	case SeqMS8:
+		old := s.Value.([]int8)
+		v := make([]int16, len(old), len(old)+len(ov))
+		for i, x := range old {
+			v[i] = int16(x)
+		}
+		v = append(v, ov...)
+		s.Value = v
+		s.Kind = SeqMS16
+	case SeqMS32:
+		v := s.Value.([]int32)
+		for _, x := range ov {
+			v = append(v, int32(x))
+		}
+		s.Value = v
+	case SeqMS64:
+		v := s.Value.([]int64)
+		for _, x := range ov {
+			v = append(v, int64(x))
+		}
+		s.Value = v
+	case SeqMF32:
+		v := s.Value.([]float32)
+		for _, x := range ov {
+			v = append(v, float32(x))
+		}
+		s.Value = v
+	case SeqMF64:
+		v := s.Value.([]float64)
+		for _, x := range ov {
+			v = append(v, float64(x))
+		}
+		s.Value = v
+	case SeqUntyped:
+		panic("use of untyped sequence")
+	default:
+		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+	}
+}
+
+func (s *Sequence) appendS32(other *Sequence) {
+	ov := other.Value.([]int32)
+	switch s.Kind {
+	case SeqMU8:
+		old := s.Value.([]byte)
+		v := make([]int32, len(old), len(old)+len(ov))
+		for i, x := range old {
+			v[i] = int32(x)
+		}
+		v = append(v, ov...)
+		s.Value = v
+		s.Kind = SeqMS32
+	case SeqMU16:
+		old := s.Value.([]uint16)
+		v := make([]int32, len(old), len(old)+len(ov))
+		for i, x := range old {
+			v[i] = int32(x)
+		}
+		v = append(v, ov...)
+		s.Value = v
+		s.Kind = SeqMS32
+	case SeqMU32:
+		v := s.Value.([]uint32)
+		for _, x := range ov {
+			v = append(v, uint32(x))
+		}
+		s.Value = v
+	case SeqMU64:
+		v := s.Value.([]uint64)
+		for _, x := range ov {
+			v = append(v, uint64(x))
+		}
+		s.Value = v
+	case SeqMS8:
+		old := s.Value.([]int8)
+		v := make([]int32, len(old), len(old)+len(ov))
+		for i, x := range old {
+			v[i] = int32(x)
+		}
+		v = append(v, ov...)
+		s.Value = v
+		s.Kind = SeqMS32
+	case SeqMS16:
+		old := s.Value.([]int16)
+		v := make([]int32, len(old), len(old)+len(ov))
+		for i, x := range old {
+			v[i] = int32(x)
+		}
+		v = append(v, ov...)
+		s.Value = v
+		s.Kind = SeqMS32
+	case SeqMS64:
+		v := s.Value.([]int64)
+		for _, x := range ov {
+			v = append(v, int64(x))
+		}
+		s.Value = v
+	case SeqMF32:
+		v := s.Value.([]float32)
+		for _, x := range ov {
+			v = append(v, float32(x))
+		}
+		s.Value = v
+	case SeqMF64:
+		v := s.Value.([]float64)
+		for _, x := range ov {
+			v = append(v, float64(x))
+		}
+		s.Value = v
+	case SeqUntyped:
+		panic("use of untyped sequence")
+	default:
+		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+	}
+}
+
+func (s *Sequence) appendS64(other *Sequence) {
+	ov := other.Value.([]int64)
+	switch s.Kind {
+	case SeqMU8:
+		old := s.Value.([]byte)
+		v := make([]int64, len(old), len(old)+len(ov))
+		for i, x := range old {
+			v[i] = int64(x)
+		}
+		v = append(v, ov...)
+		s.Value = v
+		s.Kind = SeqMS64
+	case SeqMU16:
+		old := s.Value.([]uint16)
+		v := make([]int64, len(old), len(old)+len(ov))
+		for i, x := range old {
+			v[i] = int64(x)
+		}
+		v = append(v, ov...)
+		s.Value = v
+		s.Kind = SeqMS64
+	case SeqMU32:
+		old := s.Value.([]uint32)
+		v := make([]int64, len(old), len(old)+len(ov))
+		for i, x := range old {
+			v[i] = int64(x)
+		}
+		v = append(v, ov...)
+		s.Value = v
+		s.Kind = SeqMS64
+	case SeqMU64:
+		v := s.Value.([]uint64)
+		for _, x := range ov {
+			v = append(v, uint64(x))
+		}
+		s.Value = v
+	case SeqMS8:
+		old := s.Value.([]int8)
+		v := make([]int64, len(old), len(old)+len(ov))
+		for i, x := range old {
+			v[i] = int64(x)
+		}
+		v = append(v, ov...)
+		s.Value = v
+		s.Kind = SeqMS64
+	case SeqMS16:
+		old := s.Value.([]int16)
+		v := make([]int64, len(old), len(old)+len(ov))
+		for i, x := range old {
+			v[i] = int64(x)
+		}
+		v = append(v, ov...)
+		s.Value = v
+		s.Kind = SeqMS64
+	case SeqMS32:
+		old := s.Value.([]int32)
+		v := make([]int64, len(old), len(old)+len(ov))
+		for i, x := range old {
+			v[i] = int64(x)
+		}
+		v = append(v, ov...)
+		s.Value = v
+		s.Kind = SeqMS64
+	case SeqMF32:
+		old := s.Value.([]float32)
+		v := make([]int64, len(old), len(old)+len(ov))
+		for i, x := range old {
+			v[i] = int64(x)
+		}
+		v = append(v, ov...)
+		s.Value = v
+		s.Kind = SeqMS64
+	case SeqMF64:
+		v := s.Value.([]float64)
+		for _, x := range ov {
+			v = append(v, float64(x))
+		}
+		s.Value = v
+	case SeqUntyped:
+		panic("use of untyped sequence")
+	default:
+		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+	}
+}
+
+func (s *Sequence) appendF32(other *Sequence) {
+	ov := other.Value.([]float32)
+	switch s.Kind {
+	case SeqMU8:
+		old := s.Value.([]byte)
+		v := make([]float32, len(old), len(old)+len(ov))
+		for i, x := range old {
+			v[i] = float32(x)
+		}
+		v = append(v, ov...)
+		s.Value = v
+		s.Kind = SeqMF32
+	case SeqMU16:
+		old := s.Value.([]uint16)
+		v := make([]float32, len(old), len(old)+len(ov))
+		for i, x := range old {
+			v[i] = float32(x)
+		}
+		v = append(v, ov...)
+		s.Value = v
+		s.Kind = SeqMF32
+	case SeqMU32:
+		v := s.Value.([]uint32)
+		for _, x := range ov {
+			v = append(v, uint32(x))
+		}
+		s.Value = v
+	case SeqMU64:
+		v := s.Value.([]uint64)
+		for _, x := range ov {
+			v = append(v, uint64(x))
+		}
+		s.Value = v
+	case SeqMS8:
+		old := s.Value.([]int8)
+		v := make([]float32, len(old), len(old)+len(ov))
+		for i, x := range old {
+			v[i] = float32(x)
+		}
+		v = append(v, ov...)
+		s.Value = v
+		s.Kind = SeqMF32
+	case SeqMS16:
+		old := s.Value.([]int16)
+		v := make([]float32, len(old), len(old)+len(ov))
+		for i, x := range old {
+			v[i] = float32(x)
+		}
+		v = append(v, ov...)
+		s.Value = v
+		s.Kind = SeqMF32
+	case SeqMS32:
+		v := s.Value.([]int32)
+		for _, x := range ov {
+			v = append(v, int32(x))
+		}
+		s.Value = v
+	case SeqMS64:
+		v := s.Value.([]int64)
+		for _, x := range ov {
+			v = append(v, int64(x))
+		}
+		s.Value = v
+	case SeqMF64:
+		v := s.Value.([]float64)
+		for _, x := range ov {
+			v = append(v, float64(x))
+		}
+		s.Value = v
+	case SeqUntyped:
+		panic("use of untyped sequence")
+	default:
+		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+	}
+}
+
+func (s *Sequence) appendF64(other *Sequence) {
+	ov := other.Value.([]float64)
+	switch s.Kind {
+	case SeqMU8:
+		old := s.Value.([]byte)
+		v := make([]float64, len(old), len(old)+len(ov))
+		for i, x := range old {
+			v[i] = float64(x)
+		}
+		v = append(v, ov...)
+		s.Value = v
+		s.Kind = SeqMF64
+	case SeqMU16:
+		old := s.Value.([]uint16)
+		v := make([]float64, len(old), len(old)+len(ov))
+		for i, x := range old {
+			v[i] = float64(x)
+		}
+		v = append(v, ov...)
+		s.Value = v
+		s.Kind = SeqMF64
+	case SeqMU32:
+		old := s.Value.([]uint32)
+		v := make([]float64, len(old), len(old)+len(ov))
+		for i, x := range old {
+			v[i] = float64(x)
+		}
+		v = append(v, ov...)
+		s.Value = v
+		s.Kind = SeqMF64
+	case SeqMU64:
+		v := s.Value.([]uint64)
+		for _, x := range ov {
+			v = append(v, uint64(x))
+		}
+		s.Value = v
+	case SeqMS8:
+		old := s.Value.([]int8)
+		v := make([]float64, len(old), len(old)+len(ov))
+		for i, x := range old {
+			v[i] = float64(x)
+		}
+		v = append(v, ov...)
+		s.Value = v
+		s.Kind = SeqMF64
+	case SeqMS16:
+		old := s.Value.([]int16)
+		v := make([]float64, len(old), len(old)+len(ov))
+		for i, x := range old {
+			v[i] = float64(x)
+		}
+		v = append(v, ov...)
+		s.Value = v
+		s.Kind = SeqMF64
+	case SeqMS32:
+		old := s.Value.([]int32)
+		v := make([]float64, len(old), len(old)+len(ov))
+		for i, x := range old {
+			v[i] = float64(x)
+		}
+		v = append(v, ov...)
+		s.Value = v
+		s.Kind = SeqMF64
+	case SeqMS64:
+		v := s.Value.([]int64)
+		for _, x := range ov {
+			v = append(v, int64(x))
+		}
+		s.Value = v
+	case SeqMF32:
+		old := s.Value.([]float32)
+		v := make([]float64, len(old), len(old)+len(ov))
+		for i, x := range old {
+			v[i] = float64(x)
+		}
+		v = append(v, ov...)
+		s.Value = v
+		s.Kind = SeqMF64
+	case SeqUntyped:
+		panic("use of untyped sequence")
+	default:
+		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+	}
+}
+
 func (vm *VM) initSequence() {
 	var exemplar *Sequence
 	// We can't use vm.NewString until we create the proto after this.
@@ -282,6 +1291,8 @@ func (vm *VM) initSequence() {
 		"size":      vm.NewTypedCFunction(SequenceSize, exemplar),
 
 		// sequence-mutable.go:
+		"append": vm.NewTypedCFunction(SequenceAppend, exemplar),
+		"appendSeq": vm.NewTypedCFunction(SequenceAppendSeq, exemplar),
 		"asMutable": vm.NewTypedCFunction(SequenceAsMutable, exemplar),
 
 		// sequence-string.go:
