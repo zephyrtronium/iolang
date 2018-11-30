@@ -226,7 +226,7 @@ Object do(
 Sequence do(
 	setSlot("..", method(v, self asString cloneAppendSeq(v asString)))
 	setSlot("*", method(v, Sequence clone copy(self) *= v))
-	setSlot("**", method(v, Sequence clone copy(self) **= v))
+	setSlot("**", method(v, Sequence clone copy(self) **=(v)))
 )
 Exception do(
 	catch := method(proto, if(self isKindOf(proto), call evalArgAt(1); nil, self))
