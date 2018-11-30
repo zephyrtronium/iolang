@@ -186,6 +186,23 @@ func (s *Sequence) MapBinary(op func(float64, float64) float64, t *Sequence, def
 	}
 }
 
+// SeqOrNumArgAt evaluates the given argument, then returns it as a Sequence
+// or Number, or a raised exception if it is neither, or a return or raised
+// exception if one occurs during evaluation.
+func (m *Message) SeqOrNumArgAt(vm *VM, locals Interface, n int) (*Sequence, *Number, Interface) {
+	r, ok := CheckStop(m.EvalArgAt(vm, locals, n), LoopStops)
+	if !ok {
+		return nil, nil, r
+	}
+	switch v := r.(type) {
+	case *Sequence:
+		return v, nil, nil
+	case *Number:
+		return nil, v, nil
+	}
+	return nil, nil, vm.RaiseExceptionf("argument %d to %s must be Sequence or Number, not %s", n, m.Name(), vm.TypeName(r))
+}
+
 // SequenceStarStarEq is a Sequence method.
 //
 // **= sets each element of the receiver to its value raised to the power of the
@@ -195,11 +212,16 @@ func SequenceStarStarEq(vm *VM, target, locals Interface, msg *Message) Interfac
 	if err := s.CheckNumeric("**=", true); err != nil {
 		return vm.IoError(err)
 	}
-	t, stop := msg.SequenceArgAt(vm, locals, 0)
+	t, n, stop := msg.SeqOrNumArgAt(vm, locals, 0)
 	if stop != nil {
 		return stop
 	}
-	s.MapBinary(math.Pow, t, 1)
+	if t != nil {
+		s.MapBinary(math.Pow, t, 1)
+	} else {
+		y := n.Value
+		s.MapUnary(func(x float64) float64 { return math.Pow(x, y) })
+	}
 	return target
 }
 
@@ -212,11 +234,16 @@ func SequenceStarEq(vm *VM, target, locals Interface, msg *Message) Interface {
 	if err := s.CheckNumeric("*=", true); err != nil {
 		return vm.IoError(err)
 	}
-	t, stop := msg.SequenceArgAt(vm, locals, 0)
+	t, n, stop := msg.SeqOrNumArgAt(vm, locals, 0)
 	if stop != nil {
 		return stop
 	}
-	s.MapBinary(func(x, y float64) float64 { return x * y }, t, 1)
+	if t != nil {
+		s.MapBinary(func(x, y float64) float64 { return x * y }, t, 1)
+	} else {
+		y := n.Value
+		s.MapUnary(func(x float64) float64 { return x * y })
+	}
 	return target
 }
 
