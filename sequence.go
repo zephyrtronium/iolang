@@ -852,12 +852,12 @@ func (vm *VM) initSequence() {
 		"setItemType":       vm.NewTypedCFunction(SequenceSetItemType, exemplar),
 
 		// sequence-string.go:
+		"asUTF16":        vm.NewTypedCFunction(SequenceAsUTF16, exemplar),
+		"asUTF32":        vm.NewTypedCFunction(SequenceAsUTF32, exemplar),
+		"asUTF8":         vm.NewTypedCFunction(SequenceAsUTF8, exemplar),
 		"encoding":       vm.NewTypedCFunction(SequenceEncoding, exemplar),
 		"setEncoding":    vm.NewTypedCFunction(SequenceSetEncoding, exemplar),
 		"validEncodings": vm.NewCFunction(SequenceValidEncodings),
-		"asUTF8":         vm.NewTypedCFunction(SequenceAsUTF8, exemplar),
-		"asUTF16":        vm.NewTypedCFunction(SequenceAsUTF16, exemplar),
-		"asUTF32":        vm.NewTypedCFunction(SequenceAsUTF32, exemplar),
 
 		// sequence-math.go:
 		"**=":  vm.NewTypedCFunction(SequenceStarStarEq, exemplar),
