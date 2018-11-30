@@ -544,7 +544,7 @@ func (s *Sequence) appendGrow(other *Sequence) {
 	old := reflect.ValueOf(s.Value)
 	b := reflect.ValueOf(other.Value)
 	t := b.Type().Elem()
-	a := reflect.MakeSlice(t, 0, old.Len()+b.Len())
+	a := reflect.MakeSlice(b.Type(), 0, old.Len()+b.Len())
 	for i := 0; i < old.Len(); i++ {
 		a = reflect.Append(a, old.Index(i).Convert(t))
 	}
@@ -553,11 +553,288 @@ func (s *Sequence) appendGrow(other *Sequence) {
 	s.Kind = other.Kind
 }
 
+// Find locates the first instance of other in the sequence. Comparison is done
+// following conversion to the same type. If there is no match, the result is
+// -1.
+func (s *Sequence) Find(other *Sequence) int {
+	ol := other.Len()
+	if ol == 0 {
+		return 0
+	}
+	checks := s.Len() - ol
+	for i := 0; i < checks; i++ {
+		if s.findMatch(other, i, ol) {
+			return i
+		}
+	}
+	return -1
+}
+
+func (s *Sequence) findMatch(other *Sequence, i, ol int) bool {
+	// TODO: this method is slow and imprecise for 64-bit types.
+	for k := 0; k < ol; k++ {
+		x, _ := s.At(i + k)
+		y, _ := other.At(k)
+		if x != y {
+			return false
+		}
+	}
+	return true
+}
+
+// Slice reduces the sequence to a selected linear portion.
+func (s *Sequence) Slice(start, stop, step int) {
+	if !s.IsMutable() {
+		panic("cannot slice immutable sequence")
+	}
+	l := s.Len()
+	start = fixSliceIndex(start, step, l)
+	stop = fixSliceIndex(stop, step, l)
+	if step > 0 {
+		s.sliceForward(start, stop, step)
+	} else if step < 0 {
+		s.sliceBackward(start, stop, step)
+	} else {
+		panic("cannot slice with zero step")
+	}
+}
+
+func (s *Sequence) sliceForward(start, stop, step int) {
+	j := 0
+	switch s.Kind {
+	case SeqMU8:
+		v := s.Value.([]byte)
+		for start < stop {
+			v[j] = v[start]
+			j++
+			start += step
+		}
+		s.Value = v[:j]
+	case SeqMU16:
+		v := s.Value.([]uint16)
+		for start < stop {
+			v[j] = v[start]
+			j++
+			start += step
+		}
+		s.Value = v[:j]
+	case SeqMU32:
+		v := s.Value.([]uint32)
+		for start < stop {
+			v[j] = v[start]
+			j++
+			start += step
+		}
+		s.Value = v[:j]
+	case SeqMU64:
+		v := s.Value.([]uint64)
+		for start < stop {
+			v[j] = v[start]
+			j++
+			start += step
+		}
+		s.Value = v[:j]
+	case SeqMS8:
+		v := s.Value.([]int8)
+		for start < stop {
+			v[j] = v[start]
+			j++
+			start += step
+		}
+		s.Value = v[:j]
+	case SeqMS16:
+		v := s.Value.([]int16)
+		for start < stop {
+			v[j] = v[start]
+			j++
+			start += step
+		}
+		s.Value = v[:j]
+	case SeqMS32:
+		v := s.Value.([]int32)
+		for start < stop {
+			v[j] = v[start]
+			j++
+			start += step
+		}
+		s.Value = v[:j]
+	case SeqMS64:
+		v := s.Value.([]int64)
+		for start < stop {
+			v[j] = v[start]
+			j++
+			start += step
+		}
+		s.Value = v[:j]
+	case SeqMF32:
+		v := s.Value.([]float32)
+		for start < stop {
+			v[j] = v[start]
+			j++
+			start += step
+		}
+		s.Value = v[:j]
+	case SeqMF64:
+		v := s.Value.([]float64)
+		for start < stop {
+			v[j] = v[start]
+			j++
+			start += step
+		}
+		s.Value = v[:j]
+	case SeqUntyped:
+		panic("use of untyped sequence")
+	default:
+		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+	}
+}
+
+func (s *Sequence) sliceBackward(start, stop, step int) {
+	i, j := start, 0
+	switch s.Kind {
+	case SeqMU8:
+		v := s.Value.([]byte)
+		for i > j && i > stop {
+			v[j], v[i] = v[i], v[j]
+			i += step
+			j++
+		}
+		for i > stop {
+			v[j] = v[start+i*step]
+			i += step
+			j++
+		}
+		s.Value = v[:j]
+	case SeqMU16:
+		v := s.Value.([]uint16)
+		for i > j && i > stop {
+			v[j], v[i] = v[i], v[j]
+			i += step
+			j++
+		}
+		for i > stop {
+			v[j] = v[start+i*step]
+			i += step
+			j++
+		}
+		s.Value = v[:j]
+	case SeqMU32:
+		v := s.Value.([]uint32)
+		for i > j && i > stop {
+			v[j], v[i] = v[i], v[j]
+			i += step
+			j++
+		}
+		for i > stop {
+			v[j] = v[start+i*step]
+			i += step
+			j++
+		}
+		s.Value = v[:j]
+	case SeqMU64:
+		v := s.Value.([]uint64)
+		for i > j && i > stop {
+			v[j], v[i] = v[i], v[j]
+			i += step
+			j++
+		}
+		for i > stop {
+			v[j] = v[start+i*step]
+			i += step
+			j++
+		}
+		s.Value = v[:j]
+	case SeqMS8:
+		v := s.Value.([]int8)
+		for i > j && i > stop {
+			v[j], v[i] = v[i], v[j]
+			i += step
+			j++
+		}
+		for i > stop {
+			v[j] = v[start+i*step]
+			i += step
+			j++
+		}
+		s.Value = v[:j]
+	case SeqMS16:
+		v := s.Value.([]int16)
+		for i > j && i > stop {
+			v[j], v[i] = v[i], v[j]
+			i += step
+			j++
+		}
+		for i > stop {
+			v[j] = v[start+i*step]
+			i += step
+			j++
+		}
+		s.Value = v[:j]
+	case SeqMS32:
+		v := s.Value.([]int32)
+		for i > j && i > stop {
+			v[j], v[i] = v[i], v[j]
+			i += step
+			j++
+		}
+		for i > stop {
+			v[j] = v[start+i*step]
+			i += step
+			j++
+		}
+		s.Value = v[:j]
+	case SeqMS64:
+		v := s.Value.([]int64)
+		for i > j && i > stop {
+			v[j], v[i] = v[i], v[j]
+			i += step
+			j++
+		}
+		for i > stop {
+			v[j] = v[start+i*step]
+			i += step
+			j++
+		}
+		s.Value = v[:j]
+	case SeqMF32:
+		v := s.Value.([]float32)
+		for i > j && i > stop {
+			v[j], v[i] = v[i], v[j]
+			i += step
+			j++
+		}
+		for i > stop {
+			v[j] = v[start+i*step]
+			i += step
+			j++
+		}
+		s.Value = v[:j]
+	case SeqMF64:
+		v := s.Value.([]float64)
+		for i > j && i > stop {
+			v[j], v[i] = v[i], v[j]
+			i += step
+			j++
+		}
+		for i > stop {
+			v[j] = v[start+i*step]
+			i += step
+			j++
+		}
+		s.Value = v[:j]
+	case SeqUntyped:
+		panic("use of untyped sequence")
+	default:
+		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+	}
+}
+
 func (vm *VM) initSequence() {
 	var exemplar *Sequence
 	// We can't use vm.NewString until we create the proto after this.
 	slots := Slots{
 		// sequence-immutable.go:
+		"afterSeq":       vm.NewTypedCFunction(SequenceAfterSeq, exemplar),
 		"at":             vm.NewTypedCFunction(SequenceAt, exemplar),
 		"cloneAppendSeq": vm.NewTypedCFunction(SequenceCloneAppendSeq, exemplar),
 		"compare":        vm.NewTypedCFunction(SequenceCompare, exemplar),
@@ -583,16 +860,16 @@ func (vm *VM) initSequence() {
 		"asUTF32":        vm.NewTypedCFunction(SequenceAsUTF32, exemplar),
 
 		// sequence-math.go:
-		"**=": vm.NewTypedCFunction(SequenceStarStarEq, exemplar),
-		"*=":  vm.NewTypedCFunction(SequenceStarEq, exemplar),
-		"+=":  vm.NewTypedCFunction(SequencePlusEq, exemplar),
-		"-=":  vm.NewTypedCFunction(SequenceMinusEq, exemplar),
-		"/=":  vm.NewTypedCFunction(SequenceSlashEq, exemplar),
-		"Max": vm.NewTypedCFunction(SequencePairwiseMax, exemplar),
-		"Min": vm.NewTypedCFunction(SequencePairwiseMin, exemplar),
-		"abs": vm.NewTypedCFunction(SequenceAbs, exemplar),
+		"**=":  vm.NewTypedCFunction(SequenceStarStarEq, exemplar),
+		"*=":   vm.NewTypedCFunction(SequenceStarEq, exemplar),
+		"+=":   vm.NewTypedCFunction(SequencePlusEq, exemplar),
+		"-=":   vm.NewTypedCFunction(SequenceMinusEq, exemplar),
+		"/=":   vm.NewTypedCFunction(SequenceSlashEq, exemplar),
+		"Max":  vm.NewTypedCFunction(SequencePairwiseMax, exemplar),
+		"Min":  vm.NewTypedCFunction(SequencePairwiseMin, exemplar),
+		"abs":  vm.NewTypedCFunction(SequenceAbs, exemplar),
 		"acos": vm.NewTypedCFunction(SequenceAcos, exemplar),
-		"cos": vm.NewTypedCFunction(SequenceCos, exemplar),
+		"cos":  vm.NewTypedCFunction(SequenceCos, exemplar),
 	}
 	slots["addEquals"] = slots["+="]
 	ms := &Sequence{

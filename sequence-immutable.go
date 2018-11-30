@@ -2,6 +2,7 @@ package iolang
 
 import (
 	"fmt"
+	"reflect"
 )
 
 // SequenceAt is a Sequence method.
@@ -142,4 +143,26 @@ func SequenceCloneAppendSeq(vm *VM, target, locals Interface, msg *Message) Inte
 	v.Append(other)
 	v.Kind = -v.Kind
 	return v
+}
+
+// SequenceAfterSeq is a Sequence method.
+//
+// afterSeq returns the portion of the sequence which follows the first
+// instance of the argument sequence.
+func SequenceAfterSeq(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	other, stop := msg.SequenceArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	p := s.Find(other)
+	if p < 0 {
+		return vm.Nil
+	}
+	p += other.Len()
+	l := s.Len() - p
+	sv := reflect.ValueOf(s.Value)
+	v := reflect.MakeSlice(sv.Type(), l, l)
+	reflect.Copy(v, sv.Slice(p, sv.Len()))
+	return vm.NewSequence(v.Interface(), s.IsMutable(), s.Code)
 }
