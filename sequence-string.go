@@ -2,6 +2,7 @@ package iolang
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/binary"
 	"fmt"
 	"math"
@@ -346,4 +347,32 @@ func SequenceAppendPathSeq(vm *VM, target, locals Interface, msg *Message) Inter
 	}
 	s.Append(other)
 	return target
+}
+
+// SequenceAsBase64 is a Sequence method.
+//
+// asBase64 creates a base-64 representation of the bit data of the sequence,
+// in accordance with RFC 4648.
+func SequenceAsBase64(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	line := 0
+	if msg.ArgCount() > 0 {
+		n, stop := msg.NumberArgAt(vm, locals, 0)
+		if stop != nil {
+			return stop
+		}
+		line = int(n.Value)
+	}
+	e := base64.StdEncoding.EncodeToString(s.Bytes())
+	if line > 0 {
+		b := strings.Builder{}
+		for len(e) > line {
+			b.WriteString(e[:line])
+			b.WriteByte('\n')
+			e = e[line:]
+		}
+		b.WriteString(e)
+		e = b.String()
+	}
+	return vm.NewString(e + "\n")
 }

@@ -853,6 +853,7 @@ func (vm *VM) initSequence() {
 
 		// sequence-string.go:
 		"appendPathSeq":  vm.NewTypedCFunction(SequenceAppendPathSeq, exemplar),
+		"asBase64":       vm.NewTypedCFunction(SequenceAsBase64, exemplar),
 		"asUTF16":        vm.NewTypedCFunction(SequenceAsUTF16, exemplar),
 		"asUTF32":        vm.NewTypedCFunction(SequenceAsUTF32, exemplar),
 		"asUTF8":         vm.NewTypedCFunction(SequenceAsUTF8, exemplar),
