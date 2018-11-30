@@ -585,6 +585,9 @@ func (vm *VM) initSequence() {
 		// sequence-math.go:
 		"**=": vm.NewTypedCFunction(SequenceStarStarEq, exemplar),
 		"*=":  vm.NewTypedCFunction(SequenceStarEq, exemplar),
+		"+=":  vm.NewTypedCFunction(SequencePlusEq, exemplar),
+		"-=":  vm.NewTypedCFunction(SequenceMinusEq, exemplar),
+		"/=":  vm.NewTypedCFunction(SequenceSlashEq, exemplar),
 		"cos": vm.NewTypedCFunction(SequenceCos, exemplar),
 	}
 	ms := &Sequence{

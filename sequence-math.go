@@ -247,6 +247,72 @@ func SequenceStarEq(vm *VM, target, locals Interface, msg *Message) Interface {
 	return target
 }
 
+// SequencePlusEq is a Sequence method.
+//
+// += sets each element of the receiver to its value plus the respective
+// element of the argument.
+func SequencePlusEq(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckNumeric("+=", true); err != nil {
+		return vm.IoError(err)
+	}
+	t, n, stop := msg.SeqOrNumArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	if t != nil {
+		s.MapBinary(func(x, y float64) float64 { return x + y }, t, 0)
+	} else {
+		y := n.Value
+		s.MapUnary(func(x float64) float64 { return x + y })
+	}
+	return target
+}
+
+// SequenceMinusEq is a Sequence method.
+//
+// -= sets each element of the receiver to its value minus the respective
+// element of the argument.
+func SequenceMinusEq(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckNumeric("-=", true); err != nil {
+		return vm.IoError(err)
+	}
+	t, n, stop := msg.SeqOrNumArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	if t != nil {
+		s.MapBinary(func(x, y float64) float64 { return x - y }, t, 0)
+	} else {
+		y := n.Value
+		s.MapUnary(func(x float64) float64 { return x - y })
+	}
+	return target
+}
+
+// SequenceSlashEq is a Sequence method.
+//
+// /= sets each element of the receiver to its value plus the respective
+// element of the argument.
+func SequenceSlashEq(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckNumeric("/=", true); err != nil {
+		return vm.IoError(err)
+	}
+	t, n, stop := msg.SeqOrNumArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	if t != nil {
+		s.MapBinary(func(x, y float64) float64 { return x / y }, t, 1)
+	} else {
+		y := n.Value
+		s.MapUnary(func(x float64) float64 { return x / y })
+	}
+	return target
+}
+
 // SequenceCos is a Sequence method.
 //
 // cos sets each element of the receiver to its cosine.
