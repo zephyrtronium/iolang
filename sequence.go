@@ -862,16 +862,19 @@ func (vm *VM) initSequence() {
 		"validEncodings": vm.NewCFunction(SequenceValidEncodings),
 
 		// sequence-math.go:
-		"**=":  vm.NewTypedCFunction(SequenceStarStarEq, exemplar),
-		"*=":   vm.NewTypedCFunction(SequenceStarEq, exemplar),
-		"+=":   vm.NewTypedCFunction(SequencePlusEq, exemplar),
-		"-=":   vm.NewTypedCFunction(SequenceMinusEq, exemplar),
-		"/=":   vm.NewTypedCFunction(SequenceSlashEq, exemplar),
-		"Max":  vm.NewTypedCFunction(SequencePairwiseMax, exemplar),
-		"Min":  vm.NewTypedCFunction(SequencePairwiseMin, exemplar),
-		"abs":  vm.NewTypedCFunction(SequenceAbs, exemplar),
-		"acos": vm.NewTypedCFunction(SequenceAcos, exemplar),
-		"cos":  vm.NewTypedCFunction(SequenceCos, exemplar),
+		"**=":                     vm.NewTypedCFunction(SequenceStarStarEq, exemplar),
+		"*=":                      vm.NewTypedCFunction(SequenceStarEq, exemplar),
+		"+=":                      vm.NewTypedCFunction(SequencePlusEq, exemplar),
+		"-=":                      vm.NewTypedCFunction(SequenceMinusEq, exemplar),
+		"/=":                      vm.NewTypedCFunction(SequenceSlashEq, exemplar),
+		"Max":                     vm.NewTypedCFunction(SequencePairwiseMax, exemplar),
+		"Min":                     vm.NewTypedCFunction(SequencePairwiseMin, exemplar),
+		"abs":                     vm.NewTypedCFunction(SequenceAbs, exemplar),
+		"acos":                    vm.NewTypedCFunction(SequenceAcos, exemplar),
+		"asBinaryNumber":          vm.NewTypedCFunction(SequenceAsBinaryNumber, exemplar),
+		"asBinarySignedInteger":   vm.NewTypedCFunction(SequenceAsBinarySignedInteger, exemplar),
+		"asBinaryUnsignedInteger": vm.NewTypedCFunction(SequenceAsBinaryUnsignedInteger, exemplar),
+		"cos":                     vm.NewTypedCFunction(SequenceCos, exemplar),
 	}
 	slots["addEquals"] = slots["+="]
 	ms := &Sequence{

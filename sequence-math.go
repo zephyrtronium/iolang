@@ -1,6 +1,7 @@
 package iolang
 
 import (
+	"encoding/binary"
 	"fmt"
 	"math"
 )
@@ -369,6 +370,60 @@ func SequenceAcos(vm *VM, target, locals Interface, msg *Message) Interface {
 	}
 	s.MapUnary(math.Acos)
 	return s
+}
+
+// SequenceAsBinaryNumber is a Sequence method.
+//
+// asBinaryNumber reinterprets the first eight bytes of the sequence as an
+// IEEE-754 binary64 floating-point value and returns the appropriate Number.
+func SequenceAsBinaryNumber(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	v := s.Bytes()
+	if len(v) < 8 {
+		return vm.RaiseExceptionf("need 8 bytes in sequence, have only %d", len(v))
+	}
+	x := binary.LittleEndian.Uint64(v)
+	return vm.NewNumber(math.Float64frombits(x))
+}
+
+// SequenceAsBinarySignedInteger is a Sequence method.
+//
+// asBinarySignedInteger reinterprets the bytes of the sequence as a signed
+// integer. The byte size of the sequence must be 1, 2, 4, or 8.
+func SequenceAsBinarySignedInteger(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	v := s.Bytes()
+	switch len(v) {
+	case 1:
+		return vm.NewNumber(float64(int8(v[0])))
+	case 2:
+		return vm.NewNumber(float64(int16(binary.LittleEndian.Uint16(v))))
+	case 4:
+		return vm.NewNumber(float64(int32(binary.LittleEndian.Uint32(v))))
+	case 8:
+		return vm.NewNumber(float64(int64(binary.LittleEndian.Uint64(v))))
+	}
+	return vm.RaiseException("asBinarySignedInteger receiver must be Sequence of 1, 2, 4, or 8 bytes")
+}
+
+// SequenceAsBinaryUnsignedInteger is a Sequence method.
+//
+// asBinaryUnsignedInteger reinterprets the bytes of the sequence as an
+// unsigned integer. the byte size of the sequence must be 1, 2, 4, or 8.
+func SequenceAsBinaryUnsignedInteger(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	v := s.Bytes()
+	switch len(v) {
+	case 1:
+		return vm.NewNumber(float64(v[0]))
+	case 2:
+		return vm.NewNumber(float64(binary.LittleEndian.Uint16(v)))
+	case 4:
+		return vm.NewNumber(float64(binary.LittleEndian.Uint32(v)))
+	case 8:
+		return vm.NewNumber(float64(binary.LittleEndian.Uint64(v)))
+	}
+	return vm.RaiseException("asBinaryUnsignedInteger receiver must be Sequence of 1, 2, 4, or 8 bytes")
 }
 
 // SequenceCos is a Sequence method.
