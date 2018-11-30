@@ -73,6 +73,9 @@ func (s *Sequence) String() string {
 // NumberString returns a string containing the values of the sequence
 // interpreted numerically.
 func (s *Sequence) NumberString() string {
+	if s.Len() == 0 {
+		return ""
+	}
 	b := strings.Builder{}
 	switch s.Kind {
 	case SeqMU8, SeqIU8:
@@ -165,6 +168,58 @@ func (s *Sequence) Bytes() []byte {
 	b := new(bytes.Buffer)
 	binary.Write(b, binary.LittleEndian, s.Value)
 	return b.Bytes()
+}
+
+// SequenceFromBytes makes a Sequence with the given type having the same bit
+// pattern as the given bytes. If the length of b is not a multiple of the item
+// size for the given kind, the extra bytes are ignored. The sequence's
+// encoding will be number unless the kind is uint8, uint16, or int32, in which
+// cases the encoding will be utf8, utf16, or utf32, respectively.
+func (vm *VM) SequenceFromBytes(b []byte, kind SeqKind) *Sequence {
+	if kind == SeqMU8 || kind == SeqIU8 {
+		return vm.NewSequence(b, kind > 0, "utf8")
+	}
+	if kind == SeqMF32 || kind == SeqIF32 {
+		v := make([]float32, 0, len(b)/4)
+		for len(b) >= 4 {
+			c := binary.LittleEndian.Uint32(b)
+			v = append(v, math.Float32frombits(c))
+			b = b[4:]
+		}
+		return vm.NewSequence(v, kind > 0, "number")
+	}
+	if kind == SeqMF64 || kind == SeqIF64 {
+		v := make([]float64, 0, len(b)/8)
+		for len(b) >= 8 {
+			c := binary.LittleEndian.Uint64(b)
+			v = append(v, math.Float64frombits(c))
+			b = b[8:]
+		}
+		return vm.NewSequence(v, kind > 0, "number")
+	}
+	var v interface{}
+	switch kind {
+	case SeqMU16, SeqIU16:
+		v = make([]uint16, len(b)/2)
+	case SeqMU32, SeqIU32:
+		v = make([]uint32, len(b)/4)
+	case SeqMU64, SeqIU64:
+		v = make([]uint64, len(b)/8)
+	case SeqMS8, SeqIS8:
+		v = make([]int8, len(b))
+	case SeqMS16, SeqIS16:
+		v = make([]int16, len(b)/2)
+	case SeqMS32, SeqIS32:
+		v = make([]int32, len(b)/4)
+	case SeqMS64, SeqIS64:
+		v = make([]int64, len(b)/8)
+	case SeqUntyped:
+		panic("cannot create untyped sequence")
+	default:
+		panic(fmt.Sprintf("unknown sequence kind %#v", kind))
+	}
+	binary.Read(bytes.NewReader(b), binary.LittleEndian, v)
+	return vm.NewSequence(v, kind > 0, kind.Encoding())
 }
 
 // CheckEncoding checks whether the given encoding name is a valid encoding

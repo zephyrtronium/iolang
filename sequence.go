@@ -46,6 +46,31 @@ const (
 	SeqMF64, SeqIF64
 )
 
+var seqItemSizes = [...]int{0, 1, 2, 4, 8, 1, 2, 4, 8, 4, 8}
+
+// ItemSize returns the size in bytes of each element of the sequence.
+func (kind SeqKind) ItemSize() int {
+	if kind >= 0 {
+		return seqItemSizes[kind]
+	}
+	return seqItemSizes[kind]
+}
+
+// Encoding returns the suggested default encoding for the sequence kind. This
+// is utf8 for uint8 kinds, utf16 for uint16, utf32 for int32, and number for
+// all other kinds.
+func (kind SeqKind) Encoding() string {
+	switch kind {
+	case SeqMU8, SeqIU8:
+		return "utf8"
+	case SeqMU16, SeqIU16:
+		return "utf16"
+	case SeqMS32, SeqIS32:
+		return "utf32"
+	}
+	return "number"
+}
+
 // NewSequence creates a new Sequence with the given value and with the given
 // encoding. The value must be a slice of a basic fixed-size data type, and it
 // is copied. Panics if the encoding is not supported.
@@ -186,14 +211,9 @@ func (s *Sequence) Len() int {
 	}
 }
 
-var seqItemSizes = [...]int{0, 1, 2, 4, 8, 1, 2, 4, 8, 4, 8}
-
-// ItemSize returns the size in bytes of each element of the sequence.
+// ItemSize is a proxy to s.Kind.ItemSize().
 func (s *Sequence) ItemSize() int {
-	if s.Kind >= 0 {
-		return seqItemSizes[s.Kind]
-	}
-	return seqItemSizes[-s.Kind]
+	return s.Kind.ItemSize()
 }
 
 // At returns the value of an item in the sequence as a float64. If the index
@@ -547,9 +567,11 @@ func (vm *VM) initSequence() {
 		"size":           vm.NewTypedCFunction(SequenceSize, exemplar),
 
 		// sequence-mutable.go:
-		"append":    vm.NewTypedCFunction(SequenceAppend, exemplar),
-		"appendSeq": vm.NewTypedCFunction(SequenceAppendSeq, exemplar),
-		"asMutable": vm.NewTypedCFunction(SequenceAsMutable, exemplar),
+		"append":            vm.NewTypedCFunction(SequenceAppend, exemplar),
+		"appendSeq":         vm.NewTypedCFunction(SequenceAppendSeq, exemplar),
+		"asMutable":         vm.NewTypedCFunction(SequenceAsMutable, exemplar),
+		"convertToItemType": vm.NewTypedCFunction(SequenceConvertToItemType, exemplar),
+		"setItemType":       vm.NewTypedCFunction(SequenceSetItemType, exemplar),
 
 		// sequence-string.go:
 		"encoding":       vm.NewTypedCFunction(SequenceEncoding, exemplar),

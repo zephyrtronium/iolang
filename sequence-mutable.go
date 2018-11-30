@@ -2,6 +2,7 @@ package iolang
 
 import (
 	"fmt"
+	"strings"
 )
 
 // CheckMutable returns an error if the sequence is not mutable, or nil
@@ -128,5 +129,95 @@ func SequenceAppendSeq(vm *VM, target, locals Interface, msg *Message) Interface
 		return stop
 	}
 	s.Append(other)
+	return target
+}
+
+// SequenceSetItemType is a Sequence method.
+//
+// setItemType effectively reinterprets the bit pattern of the sequence data in
+// the given type, which may be uint8, uint16, uint32, uint64, int8, int16,
+// int32, int64, float32, or float64.
+func SequenceSetItemType(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckMutable("setItemType"); err != nil {
+		return vm.IoError(err)
+	}
+	n, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	var kind SeqKind
+	switch strings.ToLower(n.String()) {
+	case "uint8":
+		kind = SeqMU8
+	case "uint16":
+		kind = SeqMU16
+	case "uint32":
+		kind = SeqMU32
+	case "uint64":
+		kind = SeqMU64
+	case "int8":
+		kind = SeqMS8
+	case "int16":
+		kind = SeqMS16
+	case "int32":
+		kind = SeqMS32
+	case "int64":
+		kind = SeqMS64
+	case "float32":
+		kind = SeqMF32
+	case "float64":
+		kind = SeqMF64
+	default:
+		return vm.RaiseException("invalid item type name")
+	}
+	ns := vm.SequenceFromBytes(s.Bytes(), kind)
+	s.Value = ns.Value
+	s.Kind = ns.Kind
+	s.Code = ns.Code
+	return target
+}
+
+// SequenceConvertToItemType is a Sequence method.
+//
+// convertToItemType changes the item type of the sequence.
+func SequenceConvertToItemType(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckMutable("convertToItemType"); err != nil {
+		return vm.IoError(err)
+	}
+	n, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	var kind SeqKind
+	switch strings.ToLower(n.String()) {
+	case "uint8":
+		kind = SeqMU8
+	case "uint16":
+		kind = SeqMU16
+	case "uint32":
+		kind = SeqMU32
+	case "uint64":
+		kind = SeqMU64
+	case "int8":
+		kind = SeqMS8
+	case "int16":
+		kind = SeqMS16
+	case "int32":
+		kind = SeqMS32
+	case "int64":
+		kind = SeqMS64
+	case "float32":
+		kind = SeqMF32
+	case "float64":
+		kind = SeqMF64
+	default:
+		return vm.RaiseException("invalid item type name")
+	}
+	ns := s.Convert(vm, kind)
+	s.Value = ns.Value
+	s.Kind = ns.Kind
+	s.Code = ns.Code
 	return target
 }
