@@ -217,3 +217,46 @@ func SequenceConvertToItemType(vm *VM, target, locals Interface, msg *Message) I
 	s.Code = ns.Code
 	return target
 }
+
+// SequenceCopy is a Sequence method.
+//
+// copy sets the receiver to be a copy of the given sequence.
+func SequenceCopy(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckMutable("convertToItemType"); err != nil {
+		return vm.IoError(err)
+	}
+	other, stop := msg.SequenceArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	switch other.Kind {
+	case SeqMU8, SeqIU8:
+		s.Value = append([]byte{}, other.Value.([]uint8)...)
+	case SeqMU16, SeqIU16:
+		s.Value = append([]uint16{}, other.Value.([]uint16)...)
+	case SeqMU32, SeqIU32:
+		s.Value = append([]uint32{}, other.Value.([]uint32)...)
+	case SeqMU64, SeqIU64:
+		s.Value = append([]uint64{}, other.Value.([]uint64)...)
+	case SeqMS8, SeqIS8:
+		s.Value = append([]int8{}, other.Value.([]int8)...)
+	case SeqMS16, SeqIS16:
+		s.Value = append([]int16{}, other.Value.([]int16)...)
+	case SeqMS32, SeqIS32:
+		s.Value = append([]int32{}, other.Value.([]int32)...)
+	case SeqMS64, SeqIS64:
+		s.Value = append([]int64{}, other.Value.([]int64)...)
+	case SeqMF32, SeqIF32:
+		s.Value = append([]float32{}, other.Value.([]float32)...)
+	case SeqMF64, SeqIF64:
+		s.Value = append([]float64{}, other.Value.([]float64)...)
+	case SeqUntyped:
+		panic("use of untyped sequence")
+	default:
+		panic(fmt.Sprintf("unknown sequence kind %#v", other.Kind))
+	}
+	s.Kind = other.Kind
+	s.Code = other.Code
+	return target
+}
