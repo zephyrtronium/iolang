@@ -293,7 +293,7 @@ func SequenceMinusEq(vm *VM, target, locals Interface, msg *Message) Interface {
 
 // SequenceSlashEq is a Sequence method.
 //
-// /= sets each element of the receiver to its value plus the respective
+// /= sets each element of the receiver to its value divided by the respective
 // element of the argument.
 func SequenceSlashEq(vm *VM, target, locals Interface, msg *Message) Interface {
 	s := target.(*Sequence)
@@ -310,6 +310,40 @@ func SequenceSlashEq(vm *VM, target, locals Interface, msg *Message) Interface {
 		y := n.Value
 		s.MapUnary(func(x float64) float64 { return x / y })
 	}
+	return target
+}
+
+// SequencePairwiseMax is a Sequence method.
+//
+// Max sets each element of the receiver to the greater of the receiver element
+// and the respective argument element.
+func SequencePairwiseMax(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckNumeric("Max", true); err != nil {
+		return vm.IoError(err)
+	}
+	t, stop := msg.SequenceArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	s.MapBinary(math.Max, t, math.Inf(-1))
+	return target
+}
+
+// SequencePairwiseMin is a Sequence method.
+//
+// Min sets each element of the receiver to the lesser of the receiver element
+// and the respective argument element.
+func SequencePairwiseMin(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckNumeric("Min", true); err != nil {
+		return vm.IoError(err)
+	}
+	t, stop := msg.SequenceArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	s.MapBinary(math.Min, t, math.Inf(0))
 	return target
 }
 

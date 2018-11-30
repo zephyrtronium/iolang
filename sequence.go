@@ -588,6 +588,8 @@ func (vm *VM) initSequence() {
 		"+=":  vm.NewTypedCFunction(SequencePlusEq, exemplar),
 		"-=":  vm.NewTypedCFunction(SequenceMinusEq, exemplar),
 		"/=":  vm.NewTypedCFunction(SequenceSlashEq, exemplar),
+		"Max": vm.NewTypedCFunction(SequencePairwiseMax, exemplar),
+		"Min": vm.NewTypedCFunction(SequencePairwiseMin, exemplar),
 		"cos": vm.NewTypedCFunction(SequenceCos, exemplar),
 	}
 	ms := &Sequence{
