@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -313,4 +314,36 @@ func SequenceAsUTF32(vm *VM, target, locals Interface, msg *Message) Interface {
 	}
 	v := s.String()
 	return vm.NewSequence([]rune(v), s.IsMutable(), "utf32")
+}
+
+// SequenceAppendPathSeq is a Sequence method.
+//
+// appendPathSeq appends a path element to the sequence, removing extra path
+// separators between.
+func SequenceAppendPathSeq(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckMutable("appendPathSeq"); err != nil {
+		return vm.IoError(err)
+	}
+	other, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	sl, ok := s.At(s.Len() - 1)
+	if !ok {
+		return vm.NewSequence(other.Value, true, other.Code)
+	}
+	of, ok := other.At(0)
+	if !ok {
+		return s
+	}
+	sis := rune(sl) == filepath.Separator || rune(sl) == '/'
+	ois := rune(of) == filepath.Separator || rune(of) == '/'
+	if sis && ois {
+		s.Slice(0, s.Len()-1, 1)
+	} else if !sis && !ois {
+		s.Append(vm.NewString(string(filepath.Separator)))
+	}
+	s.Append(other)
+	return target
 }

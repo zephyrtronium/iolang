@@ -852,6 +852,7 @@ func (vm *VM) initSequence() {
 		"setItemType":       vm.NewTypedCFunction(SequenceSetItemType, exemplar),
 
 		// sequence-string.go:
+		"appendPathSeq":  vm.NewTypedCFunction(SequenceAppendPathSeq, exemplar),
 		"asUTF16":        vm.NewTypedCFunction(SequenceAsUTF16, exemplar),
 		"asUTF32":        vm.NewTypedCFunction(SequenceAsUTF32, exemplar),
 		"asUTF8":         vm.NewTypedCFunction(SequenceAsUTF8, exemplar),
