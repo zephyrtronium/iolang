@@ -590,8 +590,11 @@ func (vm *VM) initSequence() {
 		"/=":  vm.NewTypedCFunction(SequenceSlashEq, exemplar),
 		"Max": vm.NewTypedCFunction(SequencePairwiseMax, exemplar),
 		"Min": vm.NewTypedCFunction(SequencePairwiseMin, exemplar),
+		"abs": vm.NewTypedCFunction(SequenceAbs, exemplar),
+		"acos": vm.NewTypedCFunction(SequenceAcos, exemplar),
 		"cos": vm.NewTypedCFunction(SequenceCos, exemplar),
 	}
+	slots["addEquals"] = slots["+="]
 	ms := &Sequence{
 		Object: *vm.ObjectWith(slots),
 		Value:  []byte(nil),

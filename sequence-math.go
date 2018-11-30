@@ -347,6 +347,30 @@ func SequencePairwiseMin(vm *VM, target, locals Interface, msg *Message) Interfa
 	return target
 }
 
+// SequenceAbs is a Sequence method.
+//
+// abs sets each element of the receiver to its absolute value.
+func SequenceAbs(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckNumeric("abs", true); err != nil {
+		return vm.IoError(err)
+	}
+	s.MapUnary(math.Abs)
+	return s
+}
+
+// SequenceAcos is a Sequence method.
+//
+// acos sets each element of the receiver to its arc-cosine.
+func SequenceAcos(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckNumeric("acos", true); err != nil {
+		return vm.IoError(err)
+	}
+	s.MapUnary(math.Acos)
+	return s
+}
+
 // SequenceCos is a Sequence method.
 //
 // cos sets each element of the receiver to its cosine.
