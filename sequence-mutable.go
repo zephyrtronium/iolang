@@ -100,11 +100,7 @@ func SequenceAppend(vm *VM, target, locals Interface, msg *Message) Interface {
 		}
 		s.Value = m
 	case SeqMF64:
-		m := s.Value.([]float64)
-		for _, x := range v {
-			m = append(m, x)
-		}
-		s.Value = m
+		s.Value = append(s.Value.([]float64), v...)
 	case SeqUntyped:
 		panic("use of untyped sequence")
 	default:
