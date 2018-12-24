@@ -251,9 +251,154 @@ List do(
 	first := method(self at(0))
 	last  := method(self at(self size - 1))
 
-	copy := method(l, empty; appendSeq(l); self)
+	copy := method(l, self empty appendSeq(l))
 	sort := method(l := List clone copy(self); l sortInPlace)
 	reverse := method(l := List clone copy(self); l reverseInPlace)
+
+	reduce := method(
+		argc := call argCount
+		if(argc == 0, Exception raise("List reduce must be called with 1 to 4 arguments"))
+		if(argc == 2 or argc == 4,
+			l := self
+			acc := call sender doMessage(call argAt(argc - 1))
+		,
+			l := slice(1)
+			acc := at(0)
+		)
+
+		if(argc <= 2,
+			args := list(nil)
+			m := call argAt(0) name
+			l foreach(x, acc = acc performWithArgList(m, args atPut(0, x)))
+		,
+			accName := call argAt(0) name
+			xName := call argAt(1) name
+			m := call argAt(2)
+			ctxt := Locals clone prependProto(call sender)
+			if(call sender hasLocalSlot("self"),
+				ctxt setSlot("self", call sender self)
+			)
+			l foreach(x,
+				ctxt setSlot(accName, acc)
+				ctxt setSlot(xName, x)
+				acc = ctxt doMessage(m)
+			)
+		)
+		acc
+	)
+	reverseReduce := method(
+		argc := call argCount
+		if(argc == 0, Exception raise("List reverseReduce must be called with 1 to 4 arguments"))
+		if(argc == 2 or argc == 4,
+			l := self
+			acc := call sender doMessage(call argAt(argc - 1))
+		,
+			l := slice(0, -1)
+			acc := self at(self size - 1)
+		)
+
+		if(argc <= 2,
+			args := list(nil)
+			m := call argAt(0) name
+			l reverseForeach(x, acc = acc performWithArgList(m, args atPut(0, x)))
+		,
+			accName := call argAt(0) name
+			xName := call argAt(1) name
+			m := call argAt(2)
+			ctxt := Locals clone prependProto(call sender)
+			if(call sender hasLocalSlot("self"),
+				ctxt setSlot("self", call sender self)
+			)
+			l reverseForeach(x,
+				ctxt setSlot(accName, acc)
+				ctxt setSlot(xName, x)
+				acc = ctxt doMessage(m)
+			)
+		)
+		acc
+	)
+
+	selectInPlace := method(
+		ctxt := Locals clone prependProto(call sender)
+		if(call sender hasLocalSlot("self"),
+			ctxt setSlot("self", call sender self)
+		)
+		argc := call argCount
+		if(argc == 0, Exception raise("List selectInPlace requires 1 to 3 arguments"))
+		d := 0
+		if(argc == 1) then (
+			m := call argAt(0)
+			self size repeat(k,
+				if(self at(k - d) doMessage(m, ctxt) not,
+					self removeAt(k - d)
+					d = d + 1
+				)
+			)
+		) elseif(argc == 2) then (
+			vn := call argAt(0) name
+			m := call argAt(1)
+			self size repeat(k,
+				v := self at(k - d)
+				ctxt setSlot(vn, v)
+				if(ctxt doMessage(m) not,
+					self removeAt(k - d)
+					d = d + 1
+				)
+			)
+		) else (
+			kn := call argAt(0) name
+			vn := call argAt(1) name
+			m := call argAt(2)
+			self size repeat(k,
+				v := self at(k - d)
+				ctxt setSlot(kn, k)
+				ctxt setSlot(vn, v)
+				if(ctxt doMessage(m) not,
+					self removeAt(k - d)
+					d = d + 1
+				)
+			)
+		)
+		self
+	)
+	select := method(
+		ctxt := Locals clone prependProto(call sender)
+		if(call sender hasLocalSlot("self"),
+			ctxt setSlot("self", call sender self)
+		)
+		argc := call argCount
+		if(argc == 0, Exception raise("List select requires 1 to 3 arguments"))
+		l := List clone preallocateToSize(size)
+		if(argc == 1) then (
+			m := call argAt(0)
+			foreach(v,
+				if(v doMessage(m, ctxt),
+					l append(v)
+				)
+			)
+		) elseif(argc == 2) then (
+			vn := call argAt(0) name
+			m := call argAt(1)
+			foreach(v,
+				ctxt setSlot(vn, v)
+				if(ctxt doMessage(m),
+					l append(v)
+				)
+			)
+		) else (
+			kn := call argAt(0) name
+			vn := call argAt(1) name
+			m := call argAt(2)
+			foreach(k, v,
+				ctxt setSlot(kn, k)
+				ctxt setSlot(vn, v)
+				if(ctxt doMessage(m),
+					l append(v)
+				)
+			)
+		)
+		l
+	)
 )
 Directory do(
 	size := method(self items size)
