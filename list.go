@@ -73,6 +73,7 @@ func (vm *VM) initList() {
 		"type":                vm.NewString("List"),
 		"with":                vm.NewCFunction(ListWith),
 	}
+	slots["empty"] = slots["removeAll"]
 	SetSlot(vm.Core, "List", &List{Object: *vm.ObjectWith(slots)})
 	SetSlot(vm.BaseObject, "list", slots["with"])
 }
@@ -405,7 +406,7 @@ func ListPreallocateToSize(vm *VM, target, locals Interface, msg *Message) Inter
 	}
 	n := int(r.Value)
 	l := target.(*List)
-	if n < cap(l.Value) {
+	if n > cap(l.Value) {
 		v := make([]Interface, len(l.Value), n)
 		copy(v, l.Value)
 		l.Value = v
@@ -498,6 +499,9 @@ func ListRemoveAt(vm *VM, target, locals Interface, msg *Message) Interface {
 		return stop
 	}
 	k := int(n.Value)
+	if k < 0 || k >= len(l.Value) {
+		return vm.RaiseException("index out of bounds")
+	}
 	copy(l.Value[k:], l.Value[k+1:])
 	l.Value = l.Value[:len(l.Value)-1]
 	return target
