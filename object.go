@@ -701,13 +701,14 @@ func ObjectDoMessage(vm *VM, target, locals Interface, msg *Message) Interface {
 	if !ok {
 		return vm.RaiseException("argument 0 to doMessage must be Message, not " + vm.TypeName(r))
 	}
+	ctxt := target
 	if msg.ArgCount() > 1 {
-		target, ok = CheckStop(msg.EvalArgAt(vm, locals, 1), LoopStops)
+		ctxt, ok = CheckStop(msg.EvalArgAt(vm, locals, 1), LoopStops)
 		if !ok {
-			return target
+			return ctxt
 		}
 	}
-	r, _ = CheckStop(vm.DoMessage(m, target), ReturnStop)
+	r, _ = CheckStop(m.Send(vm, target, ctxt), ReturnStop)
 	return r
 }
 
