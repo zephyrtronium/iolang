@@ -252,8 +252,8 @@ List do(
 	last  := method(self at(self size - 1))
 
 	copy := method(l, self empty appendSeq(l))
-	sort := method(l := List clone copy(self); l sortInPlace)
-	reverse := method(l := List clone copy(self); l reverseInPlace)
+	sort := method(List clone copy(self) sortInPlace)
+	reverse := method(List clone copy(self) reverseInPlace)
 
 	reduce := method(
 		argc := call argCount
@@ -398,6 +398,79 @@ List do(
 			)
 		)
 		l
+	)
+
+	detect := method(
+		ctxt := Locals clone prependProto(call sender)
+		if(call sender hasLocalSlot("self"),
+			ctxt setSlot("self", call sender self)
+		)
+		argc := call argCount
+		if(argc == 0, Exception raise("List detect requires 1 to 3 arguments"))
+		if(argc == 1) then (
+			m := call argAt(0)
+			foreach(v,
+				if(getSlot("v") doMessage(m, ctxt),
+					return getSlot("v")
+				)
+			)
+		) elseif(argc == 2) then (
+			vn := call argAt(0) name
+			m := call argAt(1)
+			foreach(v,
+				ctxt setSlot(vn, getSlot("v"))
+				if(ctxt doMessage(m),
+					return getSlot("v")
+				)
+			)
+		) else (
+			kn := call argAt(0) name
+			vn := call argAt(1) name
+			m := call argAt(2)
+			foreach(k, v,
+				ctxt setSlot(kn, k)
+				ctxt setSlot(vn, getSlot("v"))
+				if(ctxt doMessage(m),
+					return getSlot("v")
+				)
+			)
+		)
+		nil
+	)
+
+	mapInPlace := method(
+		ctxt := Locals clone prependProto(call sender)
+		if(call sender hasLocalSlot("self"),
+			ctxt setSlot("self", call sender self)
+		)
+		argc := call argCount
+		if(argc == 0, Exception raise("List mapInPlace requires 1 to 3 arguments"))
+		if(argc == 1) then (
+			m := call argAt(0)
+			self foreach(k, v,
+				self atPut(k, getSlot("v") doMessage(m, ctxt))
+			)
+		) elseif(argc == 2) then (
+			vn := call argAt(0) name
+			m := call argAt(1)
+			self foreach(k, v,
+				ctxt setSlot(vn, getSlot("v"))
+				self atPut(k, ctxt doMessage(m))
+			)
+		) else (
+			kn := call argAt(0) name
+			vn := call argAt(1) name
+			m := call argAt(2)
+			self foreach(k, v,
+				ctxt setSlot(kn, k)
+				ctxt setSlot(vn, getSlot("v"))
+				self atPut(k, ctxt doMessage(m))
+			)
+		)
+		self
+	)
+	map := method(
+		List clone copy(self) doMessage(call message clone setName("mapInPlace"))
 	)
 )
 Directory do(
