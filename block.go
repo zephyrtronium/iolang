@@ -96,9 +96,11 @@ func (vm *VM) initBlock() {
 
 func (vm *VM) initLocals() {
 	slots := Slots{
-		"forward": vm.NewCFunction(LocalsForward),
+		"forward":    vm.NewCFunction(LocalsForward),
+		"updateSlot": vm.NewCFunction(LocalsUpdateSlot),
 	}
-	SetSlot(vm.Core, "Locals", vm.ObjectWith(slots))
+	// Locals have no protos, so that messages forward to self.
+	SetSlot(vm.Core, "Locals", &Object{Slots: slots, Protos: []Interface{}})
 }
 
 // ObjectBlock is an Object method.
@@ -318,4 +320,33 @@ func LocalsForward(vm *VM, target, locals Interface, msg *Message) Interface {
 		return msg.Send(vm, self, locals)
 	}
 	return vm.Nil
+}
+
+// LocalsUpdateSlot is a Locals method.
+//
+// updateSlot changes the value of an existing slot.
+func LocalsUpdateSlot(vm *VM, target, locals Interface, msg *Message) Interface {
+	name, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != nil {
+		return name
+	}
+	slot := name.String()
+	_, proto := GetSlot(target, slot)
+	if proto != nil {
+		// The slot exists on the locals object.
+		v, ok := CheckStop(msg.EvalArgAt(vm, locals, 1), LoopStops)
+		if !ok {
+			return v
+		}
+		SetSlot(target, slot, v)
+		return v
+	}
+	// If the slot doesn't exist on the locals, forward to self, which is the
+	// block scope or method receiver.
+	self, proto := GetSlot(target, "self")
+	if proto != nil {
+		v, _ := CheckStop(msg.Send(vm, self, locals), LoopStops)
+		return v
+	}
+	return vm.RaiseExceptionf("no slot named %s in %s", slot, vm.TypeName(target))
 }
