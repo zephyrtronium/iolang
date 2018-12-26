@@ -226,15 +226,18 @@ func (m *Message) Send(vm *VM, target, locals Interface) (result Interface) {
 			target = result
 		} else {
 			if !m.IsTerminator() {
+				var ok bool
 				if newtarget, proto := GetSlot(target, m.Text); proto != nil {
 					// We have the slot.
-					var ok bool
 					result, ok = CheckStop(newtarget.Activate(vm, target, locals, m), NoStop)
 					if !ok {
 						return result
 					}
 				} else if forward, fp := GetSlot(target, "forward"); fp != nil {
-					result = forward.Activate(vm, target, locals, m)
+					result, ok = CheckStop(forward.Activate(vm, target, locals, m), NoStop)
+					if !ok {
+						return result
+					}
 				} else {
 					return vm.RaiseExceptionf("%s does not respond to %s", vm.TypeName(target), m.Text)
 				}
