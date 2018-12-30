@@ -502,9 +502,10 @@ func ListRemoveAt(vm *VM, target, locals Interface, msg *Message) Interface {
 	if k < 0 || k >= len(l.Value) {
 		return vm.RaiseException("index out of bounds")
 	}
+	v := l.Value[k]
 	copy(l.Value[k:], l.Value[k+1:])
 	l.Value = l.Value[:len(l.Value)-1]
-	return target
+	return v
 }
 
 // ListReverseInPlace is a List method.
