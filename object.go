@@ -102,6 +102,7 @@ func (vm *VM) initObject() {
 		"evalArgAndReturnNil":  vm.NewCFunction(ObjectEvalArgAndReturnNil),
 		"evalArgAndReturnSelf": vm.NewCFunction(ObjectEvalArgAndReturnSelf),
 		"for":                  vm.NewCFunction(ObjectFor),
+		"foreachSlot":          vm.NewCFunction(ObjectForeachSlot),
 		"getLocalSlot":         vm.NewCFunction(ObjectGetLocalSlot),
 		"getSlot":              vm.NewCFunction(ObjectGetSlot),
 		"hasLocalSlot":         vm.NewCFunction(ObjectHasLocalSlot),
@@ -742,6 +743,36 @@ func ObjectDoString(vm *VM, target, locals Interface, msg *Message) Interface {
 	return r
 }
 
+// ObjectForeachSlot is a Object method.
+//
+// foreachSlot performs a loop on each slot of an object.
+func ObjectForeachSlot(vm *VM, target, locals Interface, msg *Message) (result Interface) {
+	kn, vn, hkn, _, ev := ForeachArgs(msg)
+	if !hkn {
+		return vm.RaiseException("foreach requires 2 or 3 args")
+	}
+	for k, v := range target.SP().Slots {
+		SetSlot(locals, vn, v)
+		if hkn {
+			SetSlot(locals, kn, vm.NewString(k))
+		}
+		result = ev.Eval(vm, locals)
+		if rr, ok := CheckStop(result, NoStop); !ok {
+			switch s := rr.(Stop); s.Status {
+			case ContinueStop:
+				result = s.Result
+			case BreakStop:
+				return s.Result
+			case ReturnStop, ExceptionStop:
+				return rr
+			default:
+				panic(fmt.Sprintf("iolang: invalid Stop: %#v", rr))
+			}
+		}
+	}
+	return result
+}
+
 // ObjectIsIdenticalTo is an Object method.
 //
 // isIdenticalTo returns whether the object is the same as the argument.
@@ -780,7 +811,8 @@ func ObjectPerform(vm *VM, target, locals Interface, msg *Message) Interface {
 		for i, arg := range m.Args {
 			m.Args[i] = arg.DeepCopy()
 		}
-		return CheckStop(vm.Perform(target, locals, m), ReturnStop)
+		r, _ := CheckStop(vm.Perform(target, locals, m), ReturnStop)
+		return r
 	case *Message:
 		// Message argument, which provides both the name and the args.
 		if msg.ArgCount() > 1 {
