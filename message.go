@@ -224,32 +224,15 @@ func (m *Message) Send(vm *VM, target, locals Interface) (result Interface) {
 			// It is the parser's responsibility to set memos for literals.
 			result = m.Memo
 			target = result
-		} else {
-			if !m.IsTerminator() {
-				var ok bool
-				if newtarget, proto := GetSlot(target, m.Text); proto != nil {
-					// We have the slot.
-					result, ok = CheckStop(newtarget.Activate(vm, target, locals, m), NoStop)
-					if !ok {
-						return result
-					}
-				} else if forward, fp := GetSlot(target, "forward"); fp != nil {
-					result, ok = CheckStop(forward.Activate(vm, target, locals, m), NoStop)
-					if !ok {
-						return result
-					}
-				} else {
-					return vm.RaiseExceptionf("%s does not respond to %s", vm.TypeName(target), m.Text)
-				}
-				if result == nil {
-					// No message should evaluate to something that is not an
-					// Io object, so we want to convert nil to vm.Nil.
-					result = vm.Nil
-				}
-				target = result
-			} else {
-				target = firstTarget
+		} else if !m.IsTerminator() {
+			var ok bool
+			result, ok = CheckStop(vm.Perform(target, locals, m), NoStop)
+			if !ok {
+				return result
 			}
+			target = result
+		} else {
+			target = firstTarget
 		}
 		m = m.Next
 	}
@@ -257,6 +240,25 @@ func (m *Message) Send(vm *VM, target, locals Interface) (result Interface) {
 		result = vm.Nil
 	}
 	return result
+}
+
+// Perform executes a single message. The result may be a Stop.
+func (vm *VM) Perform(target, locals Interface, msg *Message) Interface {
+	if v, proto := GetSlot(target, msg.Name()); proto != nil {
+		x := v.Activate(vm, target, locals, msg)
+		if x != nil {
+			return x
+		}
+		return vm.Nil
+	}
+	if forward, fp := GetSlot(target, "forward"); fp != nil {
+		x := forward.Activate(vm, target, locals, msg)
+		if x != nil {
+			return x
+		}
+		return vm.Nil
+	}
+	return vm.RaiseExceptionf("%s does not respond to %s", vm.TypeName(target), msg.Name())
 }
 
 // InsertAfter links another message to follow this one.

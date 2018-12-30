@@ -248,10 +248,11 @@ Number do(
 	permutations := method(r, self factorial / ((self - r) factorial))
 )
 List do(
-	first := method(self at(0))
-	last  := method(self at(self size - 1))
+	first := method(at(0))
+	last  := method(at(size - 1))
 
-	copy := method(l, self empty appendSeq(l))
+	copy := method(l, empty appendSeq(l))
+	itemCopy := method(List clone copy(self))
 	sort := method(List clone copy(self) sortInPlace)
 	reverse := method(List clone copy(self) reverseInPlace)
 
@@ -328,20 +329,20 @@ List do(
 		d := 0
 		if(argc == 1) then (
 			m := call argAt(0)
-			self size repeat(k,
-				if(self at(k - d) doMessage(m, ctxt) not,
-					self removeAt(k - d)
+			size repeat(k,
+				if(at(k - d) doMessage(m, ctxt) not,
+					removeAt(k - d)
 					d = d + 1
 				)
 			)
 		) elseif(argc == 2) then (
 			vn := call argAt(0) name
 			m := call argAt(1)
-			self size repeat(k,
-				v := self at(k - d)
+			size repeat(k,
+				v := at(k - d)
 				ctxt setSlot(vn, v)
 				if(ctxt doMessage(m) not,
-					self removeAt(k - d)
+					removeAt(k - d)
 					d = d + 1
 				)
 			)
@@ -349,12 +350,12 @@ List do(
 			kn := call argAt(0) name
 			vn := call argAt(1) name
 			m := call argAt(2)
-			self size repeat(k,
-				v := self at(k - d)
+			size repeat(k,
+				v := at(k - d)
 				ctxt setSlot(kn, k)
 				ctxt setSlot(vn, v)
 				if(ctxt doMessage(m) not,
-					self removeAt(k - d)
+					removeAt(k - d)
 					d = d + 1
 				)
 			)
@@ -447,24 +448,24 @@ List do(
 		if(argc == 0, Exception raise("List mapInPlace requires 1 to 3 arguments"))
 		if(argc == 1) then (
 			m := call argAt(0)
-			self foreach(k, v,
-				self atPut(k, getSlot("v") doMessage(m, ctxt))
+			foreach(k, v,
+				atPut(k, getSlot("v") doMessage(m, ctxt))
 			)
 		) elseif(argc == 2) then (
 			vn := call argAt(0) name
 			m := call argAt(1)
-			self foreach(k, v,
+			foreach(k, v,
 				ctxt setSlot(vn, getSlot("v"))
-				self atPut(k, ctxt doMessage(m))
+				atPut(k, ctxt doMessage(m))
 			)
 		) else (
 			kn := call argAt(0) name
 			vn := call argAt(1) name
 			m := call argAt(2)
-			self foreach(k, v,
+			foreach(k, v,
 				ctxt setSlot(kn, k)
 				ctxt setSlot(vn, getSlot("v"))
-				self atPut(k, ctxt doMessage(m))
+				atPut(k, ctxt doMessage(m))
 			)
 		)
 		self

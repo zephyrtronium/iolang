@@ -95,11 +95,14 @@ func (vm *VM) initBlock() {
 }
 
 func (vm *VM) initLocals() {
-	slots := Slots{
-		"forward":    vm.NewCFunction(LocalsForward),
-		"updateSlot": vm.NewCFunction(LocalsUpdateSlot),
+	// Locals have no protos, so that messages forward to self. Instead, they
+	// have copies of each built-in Object slot.
+	slots := make(Slots, len(vm.BaseObject.Slots)+1)
+	for k, v := range vm.BaseObject.Slots {
+		slots[k] = v
 	}
-	// Locals have no protos, so that messages forward to self.
+	slots["forward"] = vm.NewCFunction(LocalsForward)
+	slots["updateSlot"] = vm.NewCFunction(LocalsUpdateSlot)
 	SetSlot(vm.Core, "Locals", &Object{Slots: slots, Protos: []Interface{}})
 }
 
@@ -317,7 +320,7 @@ func LocalsForward(vm *VM, target, locals Interface, msg *Message) Interface {
 	self, ok := lc.Slots["self"]
 	lc.L.Unlock()
 	if ok && self != target {
-		return msg.Send(vm, self, locals)
+		return vm.Perform(self, locals, msg)
 	}
 	return vm.Nil
 }

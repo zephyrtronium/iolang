@@ -88,12 +88,12 @@ func (vm *VM) initObject() {
 		"ancestorWithSlot":     vm.NewCFunction(ObjectAncestorWithSlot),
 		"appendProto":          vm.NewCFunction(ObjectAppendProto),
 		"asString":             vm.NewCFunction(ObjectAsString),
-		"break":                vm.NewCFunction(ObjectBreak),
 		"block":                vm.NewCFunction(ObjectBlock),
+		"break":                vm.NewCFunction(ObjectBreak),
 		"clone":                vm.NewCFunction(ObjectClone),
 		"cloneWithoutInit":     vm.NewCFunction(ObjectCloneWithoutInit),
-		"contextWithSlot":      vm.NewCFunction(ObjectContextWithSlot),
 		"compare":              vm.NewCFunction(ObjectCompare),
+		"contextWithSlot":      vm.NewCFunction(ObjectContextWithSlot),
 		"continue":             vm.NewCFunction(ObjectContinue),
 		"do":                   vm.NewCFunction(ObjectDo),
 		"doFile":               vm.NewCFunction(ObjectDoFile),
@@ -113,8 +113,8 @@ func (vm *VM) initObject() {
 		"loop":                 vm.NewCFunction(ObjectLoop),
 		"message":              vm.NewCFunction(ObjectMessage),
 		"method":               vm.NewCFunction(ObjectMethod),
-		"or":                   vm.True,
 		"not":                  vm.Nil,
+		"or":                   vm.True,
 		"perform":              vm.NewCFunction(ObjectPerform),
 		"performWithArgList":   vm.NewCFunction(ObjectPerformWithArgList),
 		"prependProto":         vm.NewCFunction(ObjectPrependProto),
@@ -140,13 +140,13 @@ func (vm *VM) initObject() {
 		"updateSlot":           vm.NewCFunction(ObjectUpdateSlot),
 		"while":                vm.NewCFunction(ObjectWhile),
 	}
-	vm.BaseObject.Slots = slots
-	SetSlot(vm.Core, "Object", vm.BaseObject)
-
-	slots["returnIfNonNil"] = slots["return"]
 	slots["evalArg"] = slots[""]
 	slots["ifNonNil"] = slots["evalArgAndReturnSelf"]
 	slots["ifNonNilEval"] = slots["evalArg"]
+	slots["returnIfNonNil"] = slots["return"]
+	slots["self"] = slots["thisContext"]
+	vm.BaseObject.Slots = slots
+	SetSlot(vm.Core, "Object", vm.BaseObject)
 }
 
 // ObjectWith creates a new object with the given slots and with the VM's
@@ -165,7 +165,7 @@ func GetSlot(o Interface, slot string) (value, proto Interface) {
 	if o == nil {
 		return nil, nil
 	}
-	return getSlotRecurse(o, slot, make(map[*Object]struct{}, len(o.SP().Protos)+1))
+	return getSlotRecurse(o, slot, map[*Object]struct{}{})
 }
 
 func getSlotRecurse(o Interface, slot string, checked map[*Object]struct{}) (Interface, Interface) {
@@ -223,7 +223,7 @@ func (vm *VM) SimpleActivate(o, self, locals Interface, text string, args ...Int
 	for i, arg := range args {
 		a[i] = vm.CachedMessage(arg)
 	}
-	result, _ := CheckStop(o.Activate(vm, self, locals, &Message{Text: text, Args: a}), ExceptionStop)
+	result, _ := CheckStop(o.Activate(vm, self, locals, &Message{Object: *vm.CoreInstance("Message"), Text: text, Args: a}), ExceptionStop)
 	return result
 }
 

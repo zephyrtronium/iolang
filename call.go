@@ -70,7 +70,11 @@ func CallArgAt(vm *VM, target, locals Interface, msg *Message) Interface {
 	if stop != nil {
 		return stop
 	}
-	return m.ArgAt(int(v.Value))
+	r := m.ArgAt(int(v.Value))
+	if r != nil {
+		return r
+	}
+	return vm.Nil
 }
 
 // CallArgCount is a Call method.
