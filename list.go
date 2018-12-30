@@ -74,6 +74,8 @@ func (vm *VM) initList() {
 		"with":                vm.NewCFunction(ListWith),
 	}
 	slots["empty"] = slots["removeAll"]
+	slots["exSlice"] = slots["slice"]
+	slots["push"] = slots["append"]
 	SetSlot(vm.Core, "List", &List{Object: *vm.ObjectWith(slots)})
 	SetSlot(vm.BaseObject, "list", slots["with"])
 }
@@ -375,7 +377,7 @@ func ListContainsIdenticalTo(vm *VM, target, locals Interface, msg *Message) Int
 // ListIndexOf is a List method.
 //
 // indexOf returns the first index from the left of an item equal to the
-// argument. If there is no such item in the list, -1 is returned.
+// argument. If there is no such item in the list, nil is returned.
 func ListIndexOf(vm *VM, target, locals Interface, msg *Message) Interface {
 	r, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
 	if !ok {
@@ -390,7 +392,7 @@ func ListIndexOf(vm *VM, target, locals Interface, msg *Message) Interface {
 			return vm.NewNumber(float64(i))
 		}
 	}
-	return vm.NewNumber(-1)
+	return vm.Nil
 }
 
 // ListPreallocateToSize is a List method.

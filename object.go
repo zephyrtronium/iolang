@@ -141,6 +141,8 @@ func (vm *VM) initObject() {
 		"while":                vm.NewCFunction(ObjectWhile),
 	}
 	slots["evalArg"] = slots[""]
+	slots["ifNil"] = slots["thisContext"]
+	slots["ifNilEval"] = slots["thisContext"]
 	slots["ifNonNil"] = slots["evalArgAndReturnSelf"]
 	slots["ifNonNilEval"] = slots["evalArg"]
 	slots["returnIfNonNil"] = slots["return"]

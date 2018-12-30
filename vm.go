@@ -223,6 +223,7 @@ Object do(
 
 	asBoolean := true
 )
+
 Sequence do(
 	setSlot("..", method(v, self asString cloneAppendSeq(v asString)))
 	setSlot("*", method(v, Sequence clone copy(self) *= v))
@@ -231,30 +232,51 @@ Sequence do(
 	setSlot("-", method(v, Sequence clone copy(self) -= v))
 	setSlot("/", method(v, Sequence clone copy(self) /= v))
 )
+
 Exception do(
 	catch := method(proto, if(self isKindOf(proto), call evalArgAt(1); nil, self))
 )
+
 false do(
 	setSlot("or",  method(v, v isTrue))
 	asBoolean := false
 )
+
 nil do(
 	setSlot("or",  method(v, v isTrue))
 	catch := nil
 	asBoolean := nil
 )
+
 Number do(
 	combinations := method(r, self factorial / ((self - r) factorial) / (r factorial))
 	permutations := method(r, self factorial / ((self - r) factorial))
 )
+
 List do(
 	first := method(at(0))
-	last  := method(at(size - 1))
+	second := method(at(1))
+	third := method(at(2))
+	last := method(at(size - 1))
+	rest := method(slice(1))
+	isEmpty := method(size == 0)
+	isNotEmpty := method(size > 0)
 
 	copy := method(l, empty appendSeq(l))
 	itemCopy := method(List clone copy(self))
 	sort := method(List clone copy(self) sortInPlace)
+	sortBy := method(b, List clone copy(self) sortInPlaceBy(getSlot("b")))
 	reverse := method(List clone copy(self) reverseInPlace)
+
+	unique := method(
+		l := List clone
+		foreach(v, l appendIfAbsent(v))
+	)
+	uniqueCount := method(unique map(v, list(v, select(== item) size)))
+
+	intersect := method(l, l select(v, contains(v)))
+	difference := method(l, select(v, l contains(v) not))
+	union := method(l, itemCopy appendSeq(l difference(self)))
 
 	reduce := method(
 		argc := call argCount
@@ -473,16 +495,128 @@ List do(
 	map := method(
 		List clone copy(self) doMessage(call message clone setName("mapInPlace"))
 	)
+
+	groupBy := method(
+		ctxt := Locals clone prependProto(call sender)
+		if(call sender hasLocalSlot("self"),
+			ctxt setSlot("self", call sender self)
+		)
+		argc := call argCount
+		if(argc == 0, Exception raise("List groupBy requires 1 to 3 arguments"))
+		r := Map clone
+		if(argc == 1) then (
+			m := call argAt(0)
+			foreach(v,
+				r atIfAbsentPut(getSlot("v") doMessage(m, ctxt) asString, List clone) append(getSlot("v"))
+			)
+		) elseif(argc == 2) then (
+			vn := call argAt(0) name
+			m := call argAt(1)
+			foreach(v,
+				ctxt setSlot(vn, getSlot("v"))
+				r atIfAbsentPut(ctxt doMessage(m) asString, List clone) append(getSlot("v"))
+			)
+		) else (
+			kn := call argAt(0) name
+			vn := call argAt(1) name
+			m := call argAt(2)
+			foreach(k, v,
+				ctxt setSlot(kn, k)
+				ctxt setSlot(vn, getSlot("v"))
+				r atIfAbsentPut(ctxt doMessage(m) asString, List clone) append(getSlot("v"))
+			)
+		)
+		r
+	)
+
+	sum := method(reduce(+))
+	average := method(sum / size)
+
+	removeLast := pop := method(if(isNotEmpty, removeAt(size - 1), nil))
+	removeFirst := method(if(isNotEmpty, removeAt(0), nil))
+	removeSeq := method(s, s foreach(v, self remove(getSlot("v"))))
+
+	join := method(sep,
+		r := Sequence clone
+		sep ifNonNil(
+			n := size - 1
+			foreach(k, v,
+				r appendSeq(v)
+				if(k < n, r appendSeq(sep))
+			)
+		) ifNil(
+			foreach(v, r appendSeq(v))
+		)
+		r
+	)
+
+	insertBefore := method(v, before,
+		k := indexOf(before)
+		if(k, atInsert(k, v), append(v))
+	)
+	insertAfter := method(v, after,
+		k := indexOf(after)
+		if(k, atInsert(k + 1, v), append(v))
+	)
+	insertAt := method(v, k, atInsert(k, v))
+
+	min := method(
+		m := call argAt(0)
+		r := first
+		m ifNil(
+			foreach(v, if(v < r, r := v))
+		) ifNonNil(
+			foreach(v,
+				x := getSlot("r") doMessage(m, call sender)
+				y := getSlot("v") doMessage(m, call sender)
+				if(y < x, r := y)
+			)
+		)
+		r
+	)
+	max := method(
+		m := call argAt(0)
+		r := first
+		m ifNil(
+			foreach(v, if(v > r, r := v))
+		) ifNonNil(
+			foreach(v,
+				x := getSlot("r") doMessage(m, call sender)
+				y := getSlot("v") doMessage(m, call sender)
+				if(y > x, r := y)
+			)
+		)
+		r
+	)
+
+	asMessage := method(
+		m := Message clone
+		foreach(v, m setArguments(m arguments append(Message clone setCachedResult(getSlot("v")))))
+	)
+
+	asSimpleString := method(
+		r := slice(0, 30) mapInPlace(asSimpleString) asString
+		if(r size > 40, r exSlice(0, 37) .. "...", r)
+	)
+
+	asMap := method(
+		m := Map clone
+		foreach(pair, m atPut(pair at(0), pair at(1)))
+	)
 )
+
 Directory do(
 	size := method(self items size)
 )
+
 Map do(
 	hasValue := method(value, self values contains(value))
 )
+
 Date do(
 	setSlot("+", method(dur, self clone += dur))
 )
+
 Duration do(
 	setSlot("+", method(other, self clone += other))
 	setSlot("-", method(other, self clone -= other))
