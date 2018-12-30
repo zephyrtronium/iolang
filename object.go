@@ -780,23 +780,13 @@ func ObjectPerform(vm *VM, target, locals Interface, msg *Message) Interface {
 		for i, arg := range m.Args {
 			m.Args[i] = arg.DeepCopy()
 		}
-		slot, proto := GetSlot(target, name)
-		if proto != nil {
-			r, _ = CheckStop(slot.Activate(vm, target, locals, m), ReturnStop)
-			return r
-		}
-		forward, fp := GetSlot(target, "forward")
-		if fp != nil {
-			r, _ = CheckStop(forward.Activate(vm, target, locals, m), ReturnStop)
-			return r
-		}
-		return vm.RaiseExceptionf("%s does not respond to %s", vm.TypeName(target), name)
+		return CheckStop(vm.Perform(target, locals, m), ReturnStop)
 	case *Message:
 		// Message argument, which provides both the name and the args.
 		if msg.ArgCount() > 1 {
 			return vm.RaiseException("perform takes a single argument when using a Message as an argument")
 		}
-		r, _ = CheckStop(a.Send(vm, target, locals), ReturnStop)
+		r, _ = CheckStop(vm.Perform(target, locals, a), ReturnStop)
 		return r
 	}
 	return vm.RaiseException("argument 0 to perform must be Sequence or Message, not " + vm.TypeName(r))
