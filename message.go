@@ -333,8 +333,8 @@ func (m *Message) stringRecurse(vm *VM, b *bytes.Buffer) {
 
 func (vm *VM) initMessage() {
 	var exemplar *Message
-	// TODO: label, lineNumber, setLabel, setLineNumber
 	slots := Slots{
+		"OperatorTable":              vm.Operators,
 		"appendArg":                  vm.NewTypedCFunction(MessageAppendArg, exemplar),
 		"appendCachedArg":            vm.NewTypedCFunction(MessageAppendCachedArg, exemplar),
 		"argAt":                      vm.NewTypedCFunction(MessageArgAt, exemplar),
