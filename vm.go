@@ -222,7 +222,25 @@ Object do(
 	setIsActivatable := method(v, getSlot("self") isActivatable := v; self)
 
 	asBoolean := true
+
+	addTrait := method(v,
+		if(call argCount == 0, Exception raise("Object addTrait requires one or two arguments"))
+		res := call evalArgAt(1) ifNilEval(Map clone)
+		getSlot("v") foreachSlot(k, v,
+			if(getSlot("self") hasLocalSlot(k),
+				if(k == "type", continue)
+				res at(k) ifNil(Exception raise("Slot " .. k .. " already exists"))
+				getSlot("self") setSlot(res at(k), getSlot("v"))
+			,
+				getSlot("self") setSlot(k, getSlot("v"))
+			)
+		)
+		getSlot("self")
+	)
 )
+
+false setSlot("or", method(v, v isTrue))
+nil setSlot("or", method(v, v isTrue))
 
 Sequence do(
 	setSlot("..", method(v, self asString cloneAppendSeq(v asString)))

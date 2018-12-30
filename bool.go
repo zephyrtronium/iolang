@@ -55,8 +55,8 @@ func (vm *VM) initNil() {
 		"elseif":         vm.Nil,
 		"ifNil":          object["evalArgAndReturnSelf"],
 		"ifNilEval":      object["evalArg"],
-		"ifNonNil":       vm.Nil, // TODO: Io calls "Object_thisContext()"
-		"ifNonNilEval":   vm.Nil, // TODO: same
+		"ifNonNil":       object["thisContext"],
+		"ifNonNilEval":   object["thisContext"],
 		"isNil":          vm.True,
 		"isTrue":         vm.False,
 		"not":            vm.True,
