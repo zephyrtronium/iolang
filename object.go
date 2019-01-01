@@ -343,11 +343,11 @@ func ObjectHasLocalSlot(vm *VM, target, locals Interface, msg *Message) Interfac
 func ObjectSlotNames(vm *VM, target, locals Interface, msg *Message) Interface {
 	o := target.SP()
 	o.L.Lock()
-	defer o.L.Unlock()
 	names := make([]Interface, 0, len(o.Slots))
 	for name := range o.Slots {
 		names = append(names, vm.NewString(name))
 	}
+	o.L.Unlock()
 	return vm.NewList(names...)
 }
 
@@ -357,11 +357,11 @@ func ObjectSlotNames(vm *VM, target, locals Interface, msg *Message) Interface {
 func ObjectSlotValues(vm *VM, target, locals Interface, msg *Message) Interface {
 	o := target.SP()
 	o.L.Lock()
-	defer o.L.Unlock()
 	vals := make([]Interface, 0, len(o.Slots))
 	for _, val := range o.Slots {
 		vals = append(vals, val)
 	}
+	o.L.Unlock()
 	return vm.NewList(vals...)
 }
 
@@ -371,9 +371,9 @@ func ObjectSlotValues(vm *VM, target, locals Interface, msg *Message) Interface 
 func ObjectProtos(vm *VM, target, locals Interface, msg *Message) Interface {
 	o := target.SP()
 	o.L.Lock()
-	defer o.L.Unlock()
 	v := make([]Interface, len(o.Protos))
 	copy(v, o.Protos)
+	o.L.Unlock()
 	return vm.NewList(v...)
 }
 
