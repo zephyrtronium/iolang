@@ -120,11 +120,13 @@ func SequenceAppendSeq(vm *VM, target, locals Interface, msg *Message) Interface
 	if err := s.CheckMutable("appendSeq"); err != nil {
 		return vm.IoError(err)
 	}
-	other, stop := msg.SequenceArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	for i := range msg.Args {
+		other, stop := msg.SequenceArgAt(vm, locals, i)
+		if stop != nil {
+			return stop
+		}
+		s.Append(other)
 	}
-	s.Append(other)
 	return target
 }
 
