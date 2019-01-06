@@ -147,7 +147,6 @@ func (vm *VM) initObject() {
 	slots["ifNonNil"] = slots["evalArgAndReturnSelf"]
 	slots["ifNonNilEval"] = slots["evalArg"]
 	slots["returnIfNonNil"] = slots["return"]
-	slots["self"] = slots["thisContext"]
 	vm.BaseObject.Slots = slots
 	SetSlot(vm.Core, "Object", vm.BaseObject)
 }
