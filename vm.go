@@ -672,4 +672,10 @@ Duration do(
 	setSlot("+", method(other, self clone += other))
 	setSlot("-", method(other, self clone -= other))
 )
+
+Block do(
+	asSimpleString := method(
+		if(scope, "block", "method") .. "(" .. argumentNames append("...") join(", ") .. ")"
+	)
+)
 `

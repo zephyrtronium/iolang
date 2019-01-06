@@ -62,8 +62,7 @@ func (f *CFunction) Activate(vm *VM, target, locals Interface, msg *Message) Int
 	return f.Function(vm, target, locals, msg)
 }
 
-// String returns the name of the object. This is invoked by the default
-// asString method in Io.
+// String returns the name of the object.
 func (f *CFunction) String() string {
 	return f.Name
 }
@@ -76,6 +75,8 @@ func (vm *VM) initCFunction() {
 	SetSlot(vm.Core, "CFunction", vm.ObjectWith(slots))
 	// Now we can create CFunctions.
 	slots["=="] = vm.NewTypedCFunction(CFunctionEqual, exemplar)
+	slots["asString"] = vm.NewTypedCFunction(CFunctionAsString, exemplar)
+	slots["asSimpleString"] = slots["asString"]
 	slots["id"] = vm.NewTypedCFunction(CFunctionID, exemplar)
 	slots["performOn"] = vm.NewTypedCFunction(CFunctionPerformOn, exemplar)
 	slots["typeName"] = vm.NewTypedCFunction(CFunctionTypeName, exemplar)
@@ -85,6 +86,13 @@ func (vm *VM) initCFunction() {
 func (vm *VM) initCFunction2() {
 	slots := vm.Core.Slots["CFunction"].SP().Slots
 	slots["type"] = vm.NewString("CFunction")
+}
+
+// CFunctionAsString is a CFunction method.
+//
+// asString returns a string representation of the object.
+func CFunctionAsString(vm *VM, target, locals Interface, msg *Message) Interface {
+	return vm.NewString(target.(*CFunction).Name)
 }
 
 // CFunctionEqual is a CFunction method.
