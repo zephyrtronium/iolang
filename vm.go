@@ -187,8 +187,8 @@ func (vm *VM) finalInit() {
 
 const finalInitCode = `
 Object do(
-	print := method(File standardOutput write(self asString); self)
-	println := method(File standardOutput write(self asString, "\n"); self)
+	print := method(File standardOutput write(getSlot("self") asString); getSlot("self"))
+	println := method(File standardOutput write(getSlot("self") asString, "\n"); getSlot("self"))
 	// Use setSlot directly to circumvent operator shuffling.
 	setSlot("and", method(v, v isTrue))
 	setSlot("-", method(v, v negate))
@@ -237,10 +237,39 @@ Object do(
 		)
 		getSlot("self")
 	)
-)
 
-false setSlot("or", method(v, v isTrue))
-nil setSlot("or", method(v, v isTrue))
+	slotDescriptionMap := method(
+		slots := getSlot("self") slotNames sortInPlace
+		descs := slots map(slot, getSlot("self") getSlot(slot) asSimpleString)
+		Map clone addKeysAndValues(slots, descs)
+	)
+	apropos := method(kw,
+		Core foreachSlot(slot, p,
+			descs := getSlot("p") slotDescriptionMap ?select(k, v, k asMutable lowercase containsSeq(kw))
+			if(descs and descs size > 0,
+				s := Sequence clone
+				descs keys sortInPlace foreach(k,
+					s appendSeq("  ", k alignLeft(16), " = ", descs at(k), "\n")
+				)
+				slot println
+				s println
+			)
+		)
+		nil
+	)
+	slotSummary := method(kw,
+		// We should use isKindOf(block), but that's actually much slower.
+		if(type == "Block", return asSimpleString)
+		s := Sequence clone appendSeq(" ", asSimpleString, ":\n")
+		descs := slotDescriptionMap
+		kw ifNonNil(descs = descs select(k, v, k asMutable lowercase containsSeq(kw)))
+		descs keys sortInPlace foreach(k,
+			s appendSeq("  ", k, " = ", descs at(k), "\n")
+		)
+		s
+	)
+	asSimpleString := method(getSlot("self") type .. "_" .. getSlot("self") uniqueId)
+)
 
 Sequence do(
 	setSlot("..", method(v, self asString cloneAppendSeq(v asString)))
@@ -315,7 +344,7 @@ List do(
 			accName := call argAt(0) name
 			xName := call argAt(1) name
 			m := call argAt(2)
-			ctxt := Locals clone prependProto(call sender)
+			ctxt := Object clone prependProto(call sender)
 			if(call sender hasLocalSlot("self"),
 				ctxt setSlot("self", call sender self)
 			)
@@ -346,7 +375,7 @@ List do(
 			accName := call argAt(0) name
 			xName := call argAt(1) name
 			m := call argAt(2)
-			ctxt := Locals clone prependProto(call sender)
+			ctxt := Object clone prependProto(call sender)
 			if(call sender hasLocalSlot("self"),
 				ctxt setSlot("self", call sender self)
 			)
@@ -360,7 +389,7 @@ List do(
 	)
 
 	selectInPlace := method(
-		ctxt := Locals clone prependProto(call sender)
+		ctxt := Object clone prependProto(call sender)
 		if(call sender hasLocalSlot("self"),
 			ctxt setSlot("self", call sender self)
 		)
@@ -403,7 +432,7 @@ List do(
 		self
 	)
 	select := method(
-		ctxt := Locals clone prependProto(call sender)
+		ctxt := Object clone prependProto(call sender)
 		if(call sender hasLocalSlot("self"),
 			ctxt setSlot("self", call sender self)
 		)
@@ -412,29 +441,29 @@ List do(
 		l := List clone preallocateToSize(size)
 		if(argc == 1) then (
 			m := call argAt(0)
-			foreach(v,
-				if(v doMessage(m, ctxt),
-					l append(v)
+			self foreach(v,
+				if(getSlot("v") doMessage(m, ctxt),
+					l append(getSlot("v"))
 				)
 			)
 		) elseif(argc == 2) then (
 			vn := call argAt(0) name
 			m := call argAt(1)
-			foreach(v,
-				ctxt setSlot(vn, v)
+			self foreach(v,
+				ctxt setSlot(vn, getSlot("v"))
 				if(ctxt doMessage(m),
-					l append(v)
+					l append(getSlot("v"))
 				)
 			)
 		) else (
 			kn := call argAt(0) name
 			vn := call argAt(1) name
 			m := call argAt(2)
-			foreach(k, v,
+			self foreach(k, v,
 				ctxt setSlot(kn, k)
-				ctxt setSlot(vn, v)
+				ctxt setSlot(vn, getSlot("v"))
 				if(ctxt doMessage(m),
-					l append(v)
+					l append(getSlot("v"))
 				)
 			)
 		)
@@ -442,7 +471,7 @@ List do(
 	)
 
 	detect := method(
-		ctxt := Locals clone prependProto(call sender)
+		ctxt := Object clone prependProto(call sender)
 		if(call sender hasLocalSlot("self"),
 			ctxt setSlot("self", call sender self)
 		)
@@ -450,7 +479,7 @@ List do(
 		if(argc == 0, Exception raise("List detect requires 1 to 3 arguments"))
 		if(argc == 1) then (
 			m := call argAt(0)
-			foreach(v,
+			self foreach(v,
 				if(getSlot("v") doMessage(m, ctxt),
 					return getSlot("v")
 				)
@@ -458,7 +487,7 @@ List do(
 		) elseif(argc == 2) then (
 			vn := call argAt(0) name
 			m := call argAt(1)
-			foreach(v,
+			self foreach(v,
 				ctxt setSlot(vn, getSlot("v"))
 				if(ctxt doMessage(m),
 					return getSlot("v")
@@ -468,7 +497,7 @@ List do(
 			kn := call argAt(0) name
 			vn := call argAt(1) name
 			m := call argAt(2)
-			foreach(k, v,
+			self foreach(k, v,
 				ctxt setSlot(kn, k)
 				ctxt setSlot(vn, getSlot("v"))
 				if(ctxt doMessage(m),
@@ -480,7 +509,7 @@ List do(
 	)
 
 	mapInPlace := method(
-		ctxt := Locals clone prependProto(call sender)
+		ctxt := Object clone prependProto(call sender)
 		if(call sender hasLocalSlot("self"),
 			ctxt setSlot("self", call sender self)
 		)
@@ -488,13 +517,13 @@ List do(
 		if(argc == 0, Exception raise("List mapInPlace requires 1 to 3 arguments"))
 		if(argc == 1) then (
 			m := call argAt(0)
-			foreach(k, v,
+			self foreach(k, v,
 				atPut(k, getSlot("v") doMessage(m, ctxt))
 			)
 		) elseif(argc == 2) then (
 			vn := call argAt(0) name
 			m := call argAt(1)
-			foreach(k, v,
+			self foreach(k, v,
 				ctxt setSlot(vn, getSlot("v"))
 				atPut(k, ctxt doMessage(m))
 			)
@@ -502,7 +531,7 @@ List do(
 			kn := call argAt(0) name
 			vn := call argAt(1) name
 			m := call argAt(2)
-			foreach(k, v,
+			self foreach(k, v,
 				ctxt setSlot(kn, k)
 				ctxt setSlot(vn, getSlot("v"))
 				atPut(k, ctxt doMessage(m))
@@ -511,11 +540,11 @@ List do(
 		self
 	)
 	map := method(
-		List clone copy(self) doMessage(call message clone setName("mapInPlace"))
+		List clone copy(self) doMessage(call message clone setName("mapInPlace"), call sender)
 	)
 
 	groupBy := method(
-		ctxt := Locals clone prependProto(call sender)
+		ctxt := Object clone prependProto(call sender)
 		if(call sender hasLocalSlot("self"),
 			ctxt setSlot("self", call sender self)
 		)
@@ -524,13 +553,13 @@ List do(
 		r := Map clone
 		if(argc == 1) then (
 			m := call argAt(0)
-			foreach(v,
+			self foreach(v,
 				r atIfAbsentPut(getSlot("v") doMessage(m, ctxt) asString, List clone) append(getSlot("v"))
 			)
 		) elseif(argc == 2) then (
 			vn := call argAt(0) name
 			m := call argAt(1)
-			foreach(v,
+			self foreach(v,
 				ctxt setSlot(vn, getSlot("v"))
 				r atIfAbsentPut(ctxt doMessage(m) asString, List clone) append(getSlot("v"))
 			)
@@ -538,7 +567,7 @@ List do(
 			kn := call argAt(0) name
 			vn := call argAt(1) name
 			m := call argAt(2)
-			foreach(k, v,
+			self foreach(k, v,
 				ctxt setSlot(kn, k)
 				ctxt setSlot(vn, getSlot("v"))
 				r atIfAbsentPut(ctxt doMessage(m) asString, List clone) append(getSlot("v"))
@@ -629,6 +658,10 @@ Directory do(
 
 Map do(
 	hasValue := method(value, self values contains(value))
+	addKeysAndValues := method(keys, values,
+		keys foreach(i, key, self atPut(key, values at(i)))
+		self
+	)
 )
 
 Date do(
