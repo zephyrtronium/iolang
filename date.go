@@ -22,7 +22,7 @@ func (vm *VM) NewDate(date time.Time) *Date {
 }
 
 // Activate returns the date.
-func (d *Date) Activate(vm *VM, target, locals Interface, msg *Message) Interface {
+func (d *Date) Activate(vm *VM, target, locals, context Interface, msg *Message) Interface {
 	return d
 }
 

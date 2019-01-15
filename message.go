@@ -30,7 +30,7 @@ type Message struct {
 }
 
 // Activate returns the message.
-func (m *Message) Activate(vm *VM, target, locals Interface, msg *Message) Interface {
+func (m *Message) Activate(vm *VM, target, locals, context Interface, msg *Message) Interface {
 	return m
 }
 
@@ -193,7 +193,7 @@ func (m *Message) ListArgAt(vm *VM, locals Interface, n int) (*List, Interface) 
 func (m *Message) AsStringArgAt(vm *VM, locals Interface, n int) (*Sequence, Interface) {
 	v := m.EvalArgAt(vm, locals, n)
 	if asString, proto := GetSlot(v, "asString"); proto != nil {
-		r, ok := CheckStop(asString.Activate(vm, locals, locals, vm.IdentMessage("asString")), LoopStops)
+		r, ok := CheckStop(asString.Activate(vm, locals, locals, proto, vm.IdentMessage("asString")), LoopStops)
 		if !ok {
 			return nil, r
 		}
@@ -245,14 +245,14 @@ func (m *Message) Send(vm *VM, target, locals Interface) (result Interface) {
 // Perform executes a single message. The result may be a Stop.
 func (vm *VM) Perform(target, locals Interface, msg *Message) Interface {
 	if v, proto := GetSlot(target, msg.Name()); proto != nil {
-		x := v.Activate(vm, target, locals, msg)
+		x := v.Activate(vm, target, locals, proto, msg)
 		if x != nil {
 			return x
 		}
 		return vm.Nil
 	}
 	if forward, fp := GetSlot(target, "forward"); fp != nil {
-		x := forward.Activate(vm, target, locals, msg)
+		x := forward.Activate(vm, target, locals, fp, msg)
 		if x != nil {
 			return x
 		}

@@ -26,7 +26,7 @@ func (vm *VM) NewNumber(value float64) *Number {
 }
 
 // Activate returns the number.
-func (n *Number) Activate(vm *VM, target, locals Interface, msg *Message) Interface {
+func (n *Number) Activate(vm *VM, target, locals, context Interface, msg *Message) Interface {
 	return n
 }
 

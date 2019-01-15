@@ -22,7 +22,7 @@ func (vm *VM) NewDuration(d time.Duration) *Duration {
 }
 
 // Activate returns the duration.
-func (d *Duration) Activate(vm *VM, target, locals Interface, msg *Message) Interface {
+func (d *Duration) Activate(vm *VM, target, locals, context Interface, msg *Message) Interface {
 	return d
 }
 

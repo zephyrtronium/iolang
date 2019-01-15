@@ -16,7 +16,7 @@ type Interface interface {
 	// Get slots and protos.
 	SP() *Object
 	// Produce a result. For most objects, this returns self.
-	Activate(vm *VM, target, locals Interface, msg *Message) Interface
+	Activate(vm *VM, target, locals, context Interface, msg *Message) Interface
 	// Create an object with empty slots and this object as its only proto.
 	Clone() Interface
 
@@ -47,7 +47,7 @@ func (o *Object) SP() *Object {
 // Activate activates the object. If the isActivatable slot is true, and the
 // activate slot exists, then this activates that slot; otherwise, it returns
 // the object.
-func (o *Object) Activate(vm *VM, target, locals Interface, msg *Message) Interface {
+func (o *Object) Activate(vm *VM, target, locals, context Interface, msg *Message) Interface {
 	ok, proto := GetSlot(o, "isActivatable")
 	// We can't use vm.AsBool even though it's one of the few situations where
 	// we'd want to, because it will attempt to activate the isTrue slot, which
@@ -58,7 +58,7 @@ func (o *Object) Activate(vm *VM, target, locals Interface, msg *Message) Interf
 	}
 	act, proto := GetSlot(o, "activate")
 	if proto != nil {
-		return act.Activate(vm, target, locals, msg)
+		return act.Activate(vm, target, locals, context, msg)
 	}
 	return o
 }
@@ -225,7 +225,7 @@ func (vm *VM) SimpleActivate(o, self, locals Interface, text string, args ...Int
 	for i, arg := range args {
 		a[i] = vm.CachedMessage(arg)
 	}
-	result, _ := CheckStop(o.Activate(vm, self, locals, &Message{Object: *vm.CoreInstance("Message"), Text: text, Args: a}), ExceptionStop)
+	result, _ := CheckStop(o.Activate(vm, self, locals, self, &Message{Object: *vm.CoreInstance("Message"), Text: text, Args: a}), ExceptionStop)
 	return result
 }
 
@@ -236,7 +236,7 @@ func (vm *VM) SimpleActivate(o, self, locals Interface, text string, args ...Int
 func ObjectClone(vm *VM, target, locals Interface, msg *Message) Interface {
 	clone := target.Clone()
 	if init, proto := GetSlot(target, "init"); proto != nil {
-		r, ok := CheckStop(init.Activate(vm, clone, locals, vm.IdentMessage("init")), LoopStops)
+		r, ok := CheckStop(init.Activate(vm, clone, locals, proto, vm.IdentMessage("init")), LoopStops)
 		if !ok {
 			return r
 		}
@@ -468,7 +468,7 @@ func (vm *VM) Compare(x, y Interface) Interface {
 		return vm.NewNumber(float64(ptrCompare(x, y)))
 	}
 	arg := &Message{Memo: y}
-	r, _ := CheckStop(cmp.Activate(vm, x, x, vm.IdentMessage("compare", arg)), LoopStops)
+	r, _ := CheckStop(cmp.Activate(vm, x, x, proto, vm.IdentMessage("compare", arg)), LoopStops)
 	return r
 }
 
@@ -843,12 +843,12 @@ func ObjectPerformWithArgList(vm *VM, target, locals Interface, msg *Message) In
 	}
 	slot, proto := GetSlot(target, name)
 	if proto != nil {
-		r, _ := CheckStop(slot.Activate(vm, target, locals, m), ReturnStop)
+		r, _ := CheckStop(slot.Activate(vm, target, locals, proto, m), ReturnStop)
 		return r
 	}
 	forward, fp := GetSlot(target, "forward")
 	if fp != nil {
-		r, _ := CheckStop(forward.Activate(vm, target, locals, m), ReturnStop)
+		r, _ := CheckStop(forward.Activate(vm, target, locals, fp, m), ReturnStop)
 		return r
 	}
 	return vm.RaiseExceptionf("%s does not respond to %s", vm.TypeName(target), name)

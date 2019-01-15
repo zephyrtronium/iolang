@@ -130,7 +130,7 @@ func (vm *VM) NewSequence(value interface{}, mutable bool, encoding string) *Seq
 }
 
 // Activate returns the sequence.
-func (s *Sequence) Activate(vm *VM, target, locals Interface, msg *Message) Interface {
+func (s *Sequence) Activate(vm *VM, target, locals, context Interface, msg *Message) Interface {
 	return s
 }
 

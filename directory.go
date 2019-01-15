@@ -21,7 +21,7 @@ func (vm *VM) NewDirectory(path string) *Directory {
 }
 
 // Activate returns the directory.
-func (d *Directory) Activate(vm *VM, target, locals Interface, msg *Message) Interface {
+func (d *Directory) Activate(vm *VM, target, locals, context Interface, msg *Message) Interface {
 	return d
 }
 

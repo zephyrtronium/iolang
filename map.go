@@ -23,7 +23,7 @@ func (vm *VM) NewMap(value map[string]Interface) *Map {
 }
 
 // Activate returns the map.
-func (m *Map) Activate(vm *VM, target, locals Interface, msg *Message) Interface {
+func (m *Map) Activate(vm *VM, target, locals, context Interface, msg *Message) Interface {
 	return m
 }
 

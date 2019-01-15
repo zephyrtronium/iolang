@@ -32,7 +32,6 @@ For a more in-depth introduction to Io, check out [the official guide](iolanguag
 	+ Core Coroutine
 		* Call coroutine
 	+ Core Scheduler
-- Figure out whether Calls really need slotContext, because it seems like it's always the same as Call sender.
 - Finish implementing CFunctions for existing primitive types:
 	+ Sequence
 	+ Exception

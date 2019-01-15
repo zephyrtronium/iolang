@@ -21,7 +21,7 @@ func (vm *VM) NewList(items ...Interface) *List {
 }
 
 // Activate returns the list.
-func (l *List) Activate(vm *VM, target, locals Interface, msg *Message) Interface {
+func (l *List) Activate(vm *VM, target, locals, context Interface, msg *Message) Interface {
 	return l
 }
 
@@ -732,7 +732,7 @@ func (l *listSorter) Less(i, j int) bool {
 		return l.vm.AsBool(r)
 	}
 	l.m.Args[0].Memo, l.m.Args[1].Memo = l.v[i], l.v[j]
-	r, ok := CheckStop(l.b.reallyActivate(l.vm, l.l, l.l, l.m), LoopStops)
+	r, ok := CheckStop(l.b.reallyActivate(l.vm, l.l, l.l, l.l, l.m), LoopStops)
 	if !ok {
 		l.err = r
 		return i < j

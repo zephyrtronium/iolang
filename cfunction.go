@@ -58,7 +58,7 @@ func (f *CFunction) Clone() Interface {
 }
 
 // Activate calls the wrapped function.
-func (f *CFunction) Activate(vm *VM, target, locals Interface, msg *Message) Interface {
+func (f *CFunction) Activate(vm *VM, target, locals, context Interface, msg *Message) Interface {
 	return f.Function(vm, target, locals, msg)
 }
 
@@ -146,7 +146,9 @@ func CFunctionPerformOn(vm *VM, target, locals Interface, msg *Message) Interfac
 			}
 		}
 	}
-	return f.Activate(vm, nt, nl, nm)
+	// The original implementation allows one to supply a slotContext, but it
+	// is never used.
+	return f.Activate(vm, nt, nl, nil, nm)
 }
 
 // CFunctionTypeName is a CFunction method.
