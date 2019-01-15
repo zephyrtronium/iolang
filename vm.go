@@ -269,6 +269,12 @@ Object do(
 		s
 	)
 	asSimpleString := method(getSlot("self") type .. "_" .. getSlot("self") uniqueId)
+
+	setSlot("?", method(
+			m := call argAt(0)
+			self getSlot(m name) ifNonNilEval(m doInContext(self, call sender))
+		) setPassStops(true)
+	)
 )
 
 Sequence do(
