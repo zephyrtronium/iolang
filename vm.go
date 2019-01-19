@@ -727,6 +727,10 @@ Block do(
 	asSimpleString := method(
 		if(scope, "block", "method") .. "(" .. argumentNames append("...") join(", ") .. ")"
 	)
+
+	callWithArgList := method(args,
+		getSlot("self") doMessage(argList asMessage setName("call"))
+	)
 )
 
 Core getLocalSlot("CFunction") ifNil(Exception raise) do(

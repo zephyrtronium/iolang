@@ -45,6 +45,7 @@ For a more in-depth introduction to Io, check out [the official guide](iolanguag
 		* All asJson methods.
 		* Object newSlot, lazySlot
 		* Exception showStack
+		* Block Formatter, asString
 - Write tests, both in Go and in Io.
 - Importer, and implement Addons, ideally supporting Go's `-buildmode=plugin`.
 - Possibly turn Stop into a real object.
