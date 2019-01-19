@@ -83,6 +83,7 @@ func (vm *VM) initCFunction() {
 	slots["asString"] = vm.NewTypedCFunction(CFunctionAsString, exemplar)
 	slots["asSimpleString"] = slots["asString"]
 	slots["id"] = vm.NewTypedCFunction(CFunctionID, exemplar)
+	slots["name"] = slots["asString"]
 	slots["performOn"] = vm.NewTypedCFunction(CFunctionPerformOn, exemplar)
 	slots["typeName"] = vm.NewTypedCFunction(CFunctionTypeName, exemplar)
 	slots["uniqueName"] = vm.NewTypedCFunction(CFunctionUniqueName, exemplar)
