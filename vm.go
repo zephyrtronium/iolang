@@ -342,6 +342,7 @@ false do(
 nil do(
 	setSlot("or",  method(v, v isTrue))
 	catch := nil
+	pass := nil
 	asBoolean := nil
 )
 
