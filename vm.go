@@ -87,7 +87,6 @@ func NewVM(args ...string) *VM {
 	vm.initSystem()
 	vm.initArgs(args)
 	vm.initMap()
-	vm.initCFunction2() // CFunction needs sequences
 	vm.initCollector()
 
 	vm.finalInit()
@@ -728,5 +727,9 @@ Block do(
 	asSimpleString := method(
 		if(scope, "block", "method") .. "(" .. argumentNames append("...") join(", ") .. ")"
 	)
+)
+
+Core getLocalSlot("CFunction") ifNil(Exception raise) do(
+	type := "CFunction"
 )
 `

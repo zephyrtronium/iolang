@@ -68,11 +68,16 @@ func (f *CFunction) String() string {
 }
 
 func (vm *VM) initCFunction() {
-	// NOTE: We can't use vm.NewString yet because initSequence has to wait
-	// until after this. Use initCFunction2 instead.
-	var exemplar *CFunction
+	// We can't use NewCFunction yet because the proto doesn't exist. We also
+	// want Core CFunction to be a CFunction, but one that won't panic if it's
+	// used. Therefore, our exemplar that is normally just used for its
+	// reflected type can also be a fake-ish thisContext for the Core slot.
 	slots := Slots{}
-	SetSlot(vm.Core, "CFunction", vm.ObjectWith(slots))
+	exemplar := &CFunction{
+		Object:   Object{Slots: slots, Protos: []Interface{vm.BaseObject}},
+		Function: ObjectThisContext,
+	}
+	SetSlot(vm.Core, "CFunction", exemplar)
 	// Now we can create CFunctions.
 	slots["=="] = vm.NewTypedCFunction(CFunctionEqual, exemplar)
 	slots["asString"] = vm.NewTypedCFunction(CFunctionAsString, exemplar)
@@ -81,11 +86,6 @@ func (vm *VM) initCFunction() {
 	slots["performOn"] = vm.NewTypedCFunction(CFunctionPerformOn, exemplar)
 	slots["typeName"] = vm.NewTypedCFunction(CFunctionTypeName, exemplar)
 	slots["uniqueName"] = vm.NewTypedCFunction(CFunctionUniqueName, exemplar)
-}
-
-func (vm *VM) initCFunction2() {
-	slots := vm.Core.Slots["CFunction"].SP().Slots
-	slots["type"] = vm.NewString("CFunction")
 }
 
 // CFunctionAsString is a CFunction method.
