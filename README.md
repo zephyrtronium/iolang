@@ -43,6 +43,7 @@ For a more in-depth introduction to Io, check out [the official guide](iolanguag
 	+ Lots to do for most Core types.
 		* List ListCursor, cursor, sortByKey, sortKey.
 		* All asJson methods.
+		* Object newSlot, lazySlot
 - Write tests, both in Go and in Io.
 - Importer, and implement Addons, ideally supporting Go's `-buildmode=plugin`.
 - Possibly turn Stop into a real object.

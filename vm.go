@@ -275,6 +275,43 @@ Object do(
 			self getSlot(m name) ifNonNilEval(m doInContext(self, call sender))
 		) setPassStops(true)
 	)
+
+	super := method(
+		sc := call sender call slotContext ifNil(Exception raise("Object super called outside a block"))
+		m := call argAt(0) ifNil(Exception raise("Object super requires an argument"))
+		name := m name
+		a := sc ancestorWithSlot(name) ifNilEval(sc ancestorWithSlot(name = "forward"))
+		if(a isIdenticalTo(sc), Exception raise("super slot " .. name .. " not found"))
+		b := a getSlot(name)
+		if(getSlot("b") isActivatable == false, b, getSlot("b") performOn(call sender call target, call sender, m, a))
+	)
+	resend := method(
+		sc := call sender call slotContext ifNil(Exception raise("Object super called outside a block"))
+		m := call argAt(0) ifNil(Exception raise("Object super requires an argument"))
+		name := m name
+		a := sc ancestorWithSlot(name) ifNilEval(sc ancestorWithSlot(name = "forward"))
+		if(a isIdenticalTo(sc), Exception raise("super slot " .. name .. " not found"))
+		b := a getSlot(name)
+		getSlot("b") ifNonNilEval(getSlot("b") performOn(call sender getSlot("self"), call sender call sender, m, a))
+	)
+
+	in := method(l, l contains(self))
+
+	switch := method(
+		m := for(case, 0, call argCount - 2, 2,
+			// We can't return here because this method passes stops.
+			if(call evalArgAt(case) == self, break(call argAt(case + 1)))
+		)
+		if(m not,
+			if(call argCount isOdd,
+				call evalArgAt(call argCount - 1)
+			,
+				nil
+			)
+		,
+			doMessage(m)
+		)
+	) setPassStops(true)
 )
 
 Sequence do(
