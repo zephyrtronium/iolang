@@ -39,7 +39,6 @@ For a more in-depth introduction to Io, check out [the official guide](iolanguag
 	+ Number
 	+ Date - fromString requires a robust implementation.
 - Write initialization code/Io methods for all types.
-	+ Create Error type.
 	+ Lots to do for most Core types.
 		* List ListCursor, cursor, sortByKey, sortKey.
 		* All asJson methods.

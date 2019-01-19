@@ -107,6 +107,7 @@ func (vm *VM) initObject() {
 		"getSlot":              vm.NewCFunction(ObjectGetSlot),
 		"hasLocalSlot":         vm.NewCFunction(ObjectHasLocalSlot),
 		"if":                   vm.NewCFunction(ObjectIf),
+		"isError":              vm.False,
 		"isIdenticalTo":        vm.NewCFunction(ObjectIsIdenticalTo),
 		"isNil":                vm.False,
 		"isTrue":               vm.True,
@@ -142,10 +143,13 @@ func (vm *VM) initObject() {
 		"while":                vm.NewCFunction(ObjectWhile),
 	}
 	slots["evalArg"] = slots[""]
+	slots["ifError"] = slots["thisContext"]
 	slots["ifNil"] = slots["thisContext"]
 	slots["ifNilEval"] = slots["thisContext"]
 	slots["ifNonNil"] = slots["evalArgAndReturnSelf"]
 	slots["ifNonNilEval"] = slots["evalArg"]
+	slots["raiseIfError"] = slots["thisContext"]
+	slots["returnIfError"] = slots["thisContext"]
 	slots["returnIfNonNil"] = slots["return"]
 	slots["uniqueHexId"] = slots["uniqueId"]
 	vm.BaseObject.Slots = slots
