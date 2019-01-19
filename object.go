@@ -147,6 +147,7 @@ func (vm *VM) initObject() {
 	slots["ifNonNil"] = slots["evalArgAndReturnSelf"]
 	slots["ifNonNilEval"] = slots["evalArg"]
 	slots["returnIfNonNil"] = slots["return"]
+	slots["uniqueHexId"] = slots["uniqueId"]
 	vm.BaseObject.Slots = slots
 	SetSlot(vm.Core, "Object", vm.BaseObject)
 }
@@ -710,8 +711,7 @@ func ObjectDoMessage(vm *VM, target, locals Interface, msg *Message) Interface {
 			return ctxt
 		}
 	}
-	r, _ = CheckStop(m.Send(vm, target, ctxt), ReturnStop)
-	return r
+	return m.Send(vm, target, ctxt)
 }
 
 // ObjectDoString is an Object method.
@@ -738,8 +738,7 @@ func ObjectDoString(vm *VM, target, locals Interface, msg *Message) Interface {
 	if err := vm.OpShuffle(m); err != nil {
 		return err.Raise()
 	}
-	r, _ := CheckStop(m.Eval(vm, target), ReturnStop)
-	return r
+	return m.Eval(vm, target)
 }
 
 // ObjectForeachSlot is a Object method.

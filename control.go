@@ -241,11 +241,9 @@ func ObjectReturn(vm *VM, target, locals Interface, msg *Message) Interface {
 // if evaluates its first argument, then evaluates the second if the first was
 // true or the third if it was false.
 func ObjectIf(vm *VM, target, locals Interface, msg *Message) Interface {
-	c := msg.EvalArgAt(vm, locals, 0)
-	if cc, ok := CheckStop(c, NoStop); ok {
-		c = cc
-	} else {
-		return cc
+	c, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), NoStop)
+	if !ok {
+		return c
 	}
 	if vm.AsBool(c) {
 		if len(msg.Args) < 2 {
