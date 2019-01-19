@@ -312,6 +312,13 @@ Object do(
 			doMessage(m)
 		)
 	) setPassStops(true)
+
+	isLaunchScript := method(call message label == System launchScript)
+
+	// These won't work until we implement Path and Sequence pathComponent.
+	relativeDoFile := doRelativeFile := method(p,
+		self doFile(Path with(call message label pathComponent, p))
+	)
 )
 
 Sequence do(
