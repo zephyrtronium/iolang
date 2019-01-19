@@ -734,6 +734,12 @@ Date do(
 		call evalArgAt(0)
 		t secondsSinceNow
 	) setPassStops(true)
+
+	asAtomDate := method(clone convertToUTC asString("%Y-%m-%dT%H:%M:%SZ"))
+
+	// These won't work until Sequence alignLeft exists.
+	asNumberString := method(asNumber asString alignLeft(27, "0"))
+	timeStampString := method(Date clone now asNumberString)
 )
 
 Duration do(
