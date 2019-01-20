@@ -263,7 +263,7 @@ Object do(
 		descs := slotDescriptionMap
 		kw ifNonNil(descs = descs select(k, v, k asMutable lowercase containsSeq(kw)))
 		descs keys sortInPlace foreach(k,
-			s appendSeq("  ", k, " = ", descs at(k), "\n")
+			s appendSeq("  ", k alignLeft(16), " = ", descs at(k), "\n")
 		)
 		s
 	)
@@ -324,7 +324,7 @@ Call do(
 	description := method(
 		m := self message
 		s := self target type .. " " .. m name
-		s ?(alignLeft(36)) .. " " .. m label ?(lastPathComponent) .. " " .. m lineNumber
+		s alignLeft(36) .. " " .. m label ?(lastPathComponent) .. " " .. m lineNumber
 	)
 
 	delegateTo := method(target, ns,
@@ -345,6 +345,16 @@ Sequence do(
 	setSlot("+", method(v, Sequence clone copy(self) += v))
 	setSlot("-", method(v, Sequence clone copy(self) -= v))
 	setSlot("/", method(v, Sequence clone copy(self) /= v))
+
+	alignLeftInPlace := method(w, pad,
+		os := size
+		if(pad isNil or pad size == 0, pad = " ")
+		((w - size) / pad size) ceil repeat(appendSeq(pad))
+		setSize(w max(os))
+	)
+	alignLeft := method(w, pad, asMutable alignLeftInPlace(w, pad))
+	alignRight := method(w, pad, Sequence clone alignLeftInPlace(w - size, pad) appendSeq(self))
+	alignCenter := method(w, pad, alignRight(((size + w)/2) floor, pad) alignLeftInPlace(w, pad))
 
 	asFile := method(File with(self))
 )
@@ -940,7 +950,6 @@ Date do(
 
 	asAtomDate := method(clone convertToUTC asString("%Y-%m-%dT%H:%M:%SZ"))
 
-	// These won't work until Sequence alignLeft exists.
 	asNumberString := method(asNumber asString alignLeft(27, "0"))
 	timeStampString := method(Date clone now asNumberString)
 )
