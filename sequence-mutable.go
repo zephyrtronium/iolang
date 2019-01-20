@@ -226,7 +226,7 @@ func SequenceConvertToItemType(vm *VM, target, locals Interface, msg *Message) I
 // copy sets the receiver to be a copy of the given sequence.
 func SequenceCopy(vm *VM, target, locals Interface, msg *Message) Interface {
 	s := target.(*Sequence)
-	if err := s.CheckMutable("convertToItemType"); err != nil {
+	if err := s.CheckMutable("copy"); err != nil {
 		return vm.IoError(err)
 	}
 	other, stop := msg.SequenceArgAt(vm, locals, 0)
