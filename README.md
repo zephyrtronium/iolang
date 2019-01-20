@@ -34,16 +34,14 @@ For a more in-depth introduction to Io, check out [the official guide](iolanguag
 	+ Core Scheduler
 - Finish implementing CFunctions for existing primitive types:
 	+ Sequence
-	+ Exception
 	+ File - figure out how/whether to implement popen and reopen.
-	+ Number
 	+ Date - fromString requires a robust implementation.
 - Write initialization code/Io methods for all types.
 	+ Lots to do for most Core types.
 		* List ListCursor, cursor, sortByKey, sortKey.
 		* All asJson methods.
 		* Object newSlot, lazySlot
-		* Exception showStack
+		* Exception showStack, setters
 		* Block Formatter, asString
 		* File streamDestination, startStreaming
 - Write tests, both in Go and in Io.
