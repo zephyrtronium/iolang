@@ -2,6 +2,7 @@ package iolang
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 )
 
@@ -260,5 +261,31 @@ func SequenceCopy(vm *VM, target, locals Interface, msg *Message) Interface {
 	}
 	s.Kind = other.Kind
 	s.Code = other.Code
+	return target
+}
+
+// SequenceSetSize is a Sequence method.
+//
+// setSize sets the size of the sequence.
+func SequenceSetSize(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckMutable("setSize"); err != nil {
+		return vm.IoError(err)
+	}
+	nn, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	n := int(nn.Value)
+	if n < 0 {
+		return vm.RaiseException("size must be nonnegative")
+	}
+	l := s.Len()
+	if n < l {
+		s.Value = reflect.ValueOf(s.Value).Slice(0, n).Interface()
+	} else if n > l {
+		v := reflect.ValueOf(s.Value)
+		s.Value = reflect.AppendSlice(v, reflect.MakeSlice(v.Type(), n-l, n-l)).Interface()
+	}
 	return target
 }

@@ -850,6 +850,7 @@ func (vm *VM) initSequence() {
 		"convertToItemType": vm.NewTypedCFunction(SequenceConvertToItemType, exemplar),
 		"copy":              vm.NewTypedCFunction(SequenceCopy, exemplar),
 		"setItemType":       vm.NewTypedCFunction(SequenceSetItemType, exemplar),
+		"setSize":           vm.NewTypedCFunction(SequenceSetSize, exemplar),
 
 		// sequence-string.go:
 		"appendPathSeq":  vm.NewTypedCFunction(SequenceAppendPathSeq, exemplar),
