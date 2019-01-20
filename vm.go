@@ -925,4 +925,22 @@ Block do(
 Core getLocalSlot("CFunction") ifNil(Exception raise) do(
 	type := "CFunction"
 )
+
+Message do(
+	/*
+	asSimpleString := method(
+		// This won't work until Sequence replaceSeq exists.
+		s := self asString asMutable replaceSeq(" ;\n", "; ")
+		// And this won't work until Sequence exSlice exists.
+		if(s size > 40, s exSlice(0, 37) .. "...", s)
+	)
+	*/
+
+	union := method(
+		m := Message clone
+		l := list(self)
+		call message argAt(0) arguments foreach(arg, l append(arg))
+		m setArguments(l)
+	)
+)
 `
