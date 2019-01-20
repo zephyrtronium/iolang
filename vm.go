@@ -356,6 +356,8 @@ Sequence do(
 	alignRight := method(w, pad, Sequence clone alignLeftInPlace(w - size, pad) appendSeq(self))
 	alignCenter := method(w, pad, alignRight(((size + w)/2) floor, pad) alignLeftInPlace(w, pad))
 
+	asSimpleString := method("\"" .. self asString asMutable escape .. "\"")
+
 	asFile := method(File with(self))
 )
 

@@ -835,6 +835,7 @@ func (vm *VM) initSequence() {
 	slots := Slots{
 		// sequence-immutable.go:
 		"afterSeq":       vm.NewTypedCFunction(SequenceAfterSeq, exemplar),
+		"asSymbol":       vm.NewTypedCFunction(SequenceAsSymbol, exemplar),
 		"at":             vm.NewTypedCFunction(SequenceAt, exemplar),
 		"cloneAppendSeq": vm.NewTypedCFunction(SequenceCloneAppendSeq, exemplar),
 		"compare":        vm.NewTypedCFunction(SequenceCompare, exemplar),
@@ -858,6 +859,7 @@ func (vm *VM) initSequence() {
 		"asUTF32":        vm.NewTypedCFunction(SequenceAsUTF32, exemplar),
 		"asUTF8":         vm.NewTypedCFunction(SequenceAsUTF8, exemplar),
 		"encoding":       vm.NewTypedCFunction(SequenceEncoding, exemplar),
+		"escape":         vm.NewTypedCFunction(SequenceEscape, exemplar),
 		"setEncoding":    vm.NewTypedCFunction(SequenceSetEncoding, exemplar),
 		"validEncodings": vm.NewCFunction(SequenceValidEncodings),
 
@@ -874,6 +876,7 @@ func (vm *VM) initSequence() {
 		"cos":  vm.NewTypedCFunction(SequenceCos, exemplar),
 	}
 	slots["addEquals"] = slots["+="]
+	slots["asString"] = slots["asSymbol"]
 	ms := &Sequence{
 		Object: *vm.ObjectWith(slots),
 		Value:  []byte(nil),
