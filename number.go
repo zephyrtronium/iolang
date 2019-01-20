@@ -93,6 +93,7 @@ func (vm *VM) initNumber() {
 		"isUppercase":        vm.NewTypedCFunction(NumberIsUppercase, exemplar),
 		"log":                vm.NewTypedCFunction(NumberLog, exemplar),
 		"log10":              vm.NewTypedCFunction(NumberLog10, exemplar),
+		"log2":               vm.NewTypedCFunction(NumberLog2, exemplar),
 		"max":                vm.NewTypedCFunction(NumberMax, exemplar),
 		"min":                vm.NewTypedCFunction(NumberMin, exemplar),
 		"mod":                vm.NewTypedCFunction(NumberMod, exemplar),
@@ -589,6 +590,13 @@ func NumberIsUppercase(vm *VM, target, locals Interface, msg *Message) Interface
 //
 // log returns the natural logarithm of the target.
 func NumberLog(vm *VM, target, locals Interface, msg *Message) Interface {
+	if msg.ArgCount() > 0 {
+		b, stop := msg.NumberArgAt(vm, locals, 0)
+		if stop != nil {
+			return stop
+		}
+		return vm.NewNumber(math.Log(target.(*Number).Value) / math.Log(b.Value))
+	}
 	return vm.NewNumber(math.Log(target.(*Number).Value))
 }
 
