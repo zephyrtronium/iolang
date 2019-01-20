@@ -378,8 +378,37 @@ nil do(
 )
 
 Number do(
-	combinations := method(r, self factorial / ((self - r) factorial) / (r factorial))
-	permutations := method(r, self factorial / ((self - r) factorial))
+	combinations := method(k,
+		n := self + 1
+		k = k min(self - k)
+		v := 1
+		for(i, 1, k, v = v * (n - i) / i)
+		v
+	)
+	permutations := method(k,
+		v := 1
+		for(i, 0, k-1, v = v * (self - i))
+		v
+	)
+
+	toBaseWholeBytes := method(base,
+		s := self toBase(base)
+		cols := 256 log(base) ceil
+		w := (s size / cols) ceil * cols
+		// This won't work until Sequence alignRight exists.
+		s alignRight(w, "0")
+	)
+	/* *** Use these once toBaseWholeBytes works:
+	asHex := method(toBaseWholeBytes(16))
+	asBinary := method(toBaseWholeBytes(2))
+	asOctal := method(toBaseWholeBytes(8))
+	*/
+
+	// This won't work until Sequence sequenceSets exists. (それは何ですか)
+	isInASequenceSet := method(
+		Sequence sequenceSets foreach(set, if(in(set), return true))
+		false
+	)
 )
 
 List do(
