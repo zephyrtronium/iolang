@@ -320,6 +320,24 @@ Object do(
 	)
 )
 
+Call do(
+	description := method(
+		m := self message
+		s := self target type .. " " .. m name
+		s ?(alignLeft(36)) .. " " .. m label ?(lastPathComponent) .. " " .. m lineNumber
+	)
+
+	delegateTo := method(target, ns,
+		target doMessage(self message clone setNext, ns ifNilEval(self sender))
+	) setPassStops(true)
+	delegateToMethod := method(target, name,
+		target doMessage(self message clone setNext setName(name), self sender)
+	) setPassStops(true)
+
+	hasArgs := method(argCount > 0)
+	evalArgs := method(self message argsEvaluatedIn(self sender)) setPassStops(true)
+)
+
 Sequence do(
 	setSlot("..", method(v, self asString cloneAppendSeq(v asString)))
 	setSlot("*", method(v, Sequence clone copy(self) *= v))
