@@ -117,6 +117,13 @@ func (vm *VM) initLocals() {
 //   io> succ call(3)
 //   4
 func ObjectBlock(vm *VM, target, locals Interface, msg *Message) Interface {
+	if msg.ArgCount() == 0 {
+		return &Block{
+			Object:  *vm.CoreInstance("Block"),
+			Message: vm.CachedMessage(vm.Nil),
+			Self:    locals,
+		}
+	}
 	blk := Block{
 		Object:   *vm.CoreInstance("Block"),
 		Message:  msg.ArgAt(len(msg.Args) - 1),
