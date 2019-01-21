@@ -53,7 +53,7 @@ func (kind SeqKind) ItemSize() int {
 	if kind >= 0 {
 		return seqItemSizes[kind]
 	}
-	return seqItemSizes[kind]
+	return seqItemSizes[-kind]
 }
 
 // Encoding returns the suggested default encoding for the sequence kind. This
