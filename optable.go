@@ -15,7 +15,7 @@ type OpTable struct {
 }
 
 // Activate returns the OpTable.
-func (o *OpTable) Activate(vm *VM, target, locals Interface, msg *Message) Interface {
+func (o *OpTable) Activate(vm *VM, target, locals, context Interface, msg *Message) Interface {
 	return o
 }
 

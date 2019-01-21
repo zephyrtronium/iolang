@@ -32,17 +32,18 @@ For a more in-depth introduction to Io, check out [the official guide](iolanguag
 	+ Core Coroutine
 		* Call coroutine
 	+ Core Scheduler
-- Figure out whether Calls really need slotContext, because it seems like it's always the same as Call sender.
 - Finish implementing CFunctions for existing primitive types:
-	+ Object
 	+ Sequence
-	+ Exception
 	+ File - figure out how/whether to implement popen and reopen.
-	+ Number
 	+ Date - fromString requires a robust implementation.
 - Write initialization code/Io methods for all types.
-	+ Create Error type.
 	+ Lots to do for most Core types.
+		* List ListCursor, cursor, sortByKey, sortKey.
+		* All asJson methods.
+		* Object newSlot, lazySlot
+		* Exception showStack, setters
+		* Block Formatter, asString
+		* File streamDestination, startStreaming
 - Write tests, both in Go and in Io.
 - Importer, and implement Addons, ideally supporting Go's `-buildmode=plugin`.
 - Possibly turn Stop into a real object.

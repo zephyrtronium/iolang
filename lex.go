@@ -20,17 +20,18 @@ type token struct {
 type tokenKind int
 
 const (
-	badToken      tokenKind = iota
-	semiToken               // semicolon and newline
-	identToken              // identifier
-	openToken               // open bracket: (, [, {
-	closeToken              // close bracket: ), ], }
-	commaToken              // comma
-	numberToken             // number
-	hexToken                // hexadecimal number
-	stringToken             // "string"
-	triquoteToken           // """string"""
-	commentToken            // //, #, or /* */
+	badToken tokenKind = iota
+
+	semiToken     // semicolon and newline
+	identToken    // identifier
+	openToken     // open bracket: (, [, {
+	closeToken    // close bracket: ), ], }
+	commaToken    // comma
+	numberToken   // number
+	hexToken      // hexadecimal number
+	stringToken   // "string"
+	triquoteToken // """string"""
+	commentToken  // //, #, or /* */
 )
 
 // lexFn is a lexer state function. Each lexFn lexes a token, sends it on the
@@ -338,6 +339,7 @@ func lexMonoquote(src *bufio.Reader, tokens chan<- token, line, col int) (lexFn,
 	b := make([]byte, 1, 2)
 	src.Read(b)
 	ncol := col + 1
+	ps := false
 	for {
 		r, _, err := src.ReadRune()
 		if err != nil {
@@ -356,10 +358,11 @@ func lexMonoquote(src *bufio.Reader, tokens chan<- token, line, col int) (lexFn,
 		ncol++
 		b = append(b, string(r)...)
 		if r == '\\' {
-			continue
-		}
-		if r == '"' {
+			ps = !ps
+		} else if r == '"' && !ps {
 			return lexsend(err, tokens, token{Kind: stringToken, Value: string(b), Line: line, Col: col}), line, ncol
+		} else {
+			ps = false
 		}
 	}
 }

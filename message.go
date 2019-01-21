@@ -30,7 +30,7 @@ type Message struct {
 }
 
 // Activate returns the message.
-func (m *Message) Activate(vm *VM, target, locals Interface, msg *Message) Interface {
+func (m *Message) Activate(vm *VM, target, locals, context Interface, msg *Message) Interface {
 	return m
 }
 
@@ -193,7 +193,7 @@ func (m *Message) ListArgAt(vm *VM, locals Interface, n int) (*List, Interface) 
 func (m *Message) AsStringArgAt(vm *VM, locals Interface, n int) (*Sequence, Interface) {
 	v := m.EvalArgAt(vm, locals, n)
 	if asString, proto := GetSlot(v, "asString"); proto != nil {
-		r, ok := CheckStop(asString.Activate(vm, locals, locals, vm.IdentMessage("asString")), LoopStops)
+		r, ok := CheckStop(asString.Activate(vm, locals, locals, proto, vm.IdentMessage("asString")), LoopStops)
 		if !ok {
 			return nil, r
 		}
@@ -224,29 +224,15 @@ func (m *Message) Send(vm *VM, target, locals Interface) (result Interface) {
 			// It is the parser's responsibility to set memos for literals.
 			result = m.Memo
 			target = result
-		} else {
-			if !m.IsTerminator() {
-				if newtarget, proto := GetSlot(target, m.Text); proto != nil {
-					// We have the slot.
-					var ok bool
-					result, ok = CheckStop(newtarget.Activate(vm, target, locals, m), NoStop)
-					if !ok {
-						return result
-					}
-				} else if forward, fp := GetSlot(target, "forward"); fp != nil {
-					result = forward.Activate(vm, target, locals, m)
-				} else {
-					return vm.RaiseExceptionf("%s does not respond to %s", vm.TypeName(target), m.Text)
-				}
-				if result == nil {
-					// No message should evaluate to something that is not an
-					// Io object, so we want to convert nil to vm.Nil.
-					result = vm.Nil
-				}
-				target = result
-			} else {
-				target = firstTarget
+		} else if !m.IsTerminator() {
+			var ok bool
+			result, ok = CheckStop(vm.Perform(target, locals, m), NoStop)
+			if !ok {
+				return result
 			}
+			target = result
+		} else {
+			target = firstTarget
 		}
 		m = m.Next
 	}
@@ -254,6 +240,25 @@ func (m *Message) Send(vm *VM, target, locals Interface) (result Interface) {
 		result = vm.Nil
 	}
 	return result
+}
+
+// Perform executes a single message. The result may be a Stop.
+func (vm *VM) Perform(target, locals Interface, msg *Message) Interface {
+	if v, proto := GetSlot(target, msg.Name()); proto != nil {
+		x := v.Activate(vm, target, locals, proto, msg)
+		if x != nil {
+			return x
+		}
+		return vm.Nil
+	}
+	if forward, fp := GetSlot(target, "forward"); fp != nil {
+		x := forward.Activate(vm, target, locals, fp, msg)
+		if x != nil {
+			return x
+		}
+		return vm.Nil
+	}
+	return vm.RaiseExceptionf("%s does not respond to %s", vm.TypeName(target), msg.Name())
 }
 
 // InsertAfter links another message to follow this one.
@@ -328,8 +333,8 @@ func (m *Message) stringRecurse(vm *VM, b *bytes.Buffer) {
 
 func (vm *VM) initMessage() {
 	var exemplar *Message
-	// TODO: label, lineNumber, setLabel, setLineNumber
 	slots := Slots{
+		"OperatorTable":              vm.Operators,
 		"appendArg":                  vm.NewTypedCFunction(MessageAppendArg, exemplar),
 		"appendCachedArg":            vm.NewTypedCFunction(MessageAppendCachedArg, exemplar),
 		"argAt":                      vm.NewTypedCFunction(MessageArgAt, exemplar),

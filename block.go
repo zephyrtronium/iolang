@@ -18,21 +18,21 @@ type Block struct {
 
 // Activate performs the messages in this block if the block is activatable.
 // Otherwise, this block is returned.
-func (b *Block) Activate(vm *VM, target, locals Interface, msg *Message) Interface {
+func (b *Block) Activate(vm *VM, target, locals, context Interface, msg *Message) Interface {
 	// If this block isn't actually activatable, then it should be the result
 	// of activation.
 	if !b.Activatable {
 		return b
 	}
-	return b.reallyActivate(vm, target, locals, msg)
+	return b.reallyActivate(vm, target, locals, context, msg)
 }
 
-func (b *Block) reallyActivate(vm *VM, target, locals Interface, msg *Message) Interface {
+func (b *Block) reallyActivate(vm *VM, target, locals, context Interface, msg *Message) Interface {
 	scope := b.Self
 	if scope == nil {
 		scope = target
 	}
-	call := vm.NewCall(locals, b, msg, target)
+	call := vm.NewCall(locals, b, msg, target, context)
 	blkLocals := vm.NewLocals(scope, call)
 	for i, arg := range b.ArgNames {
 		if x := msg.EvalArgAt(vm, locals, i); x != nil {
@@ -95,10 +95,15 @@ func (vm *VM) initBlock() {
 }
 
 func (vm *VM) initLocals() {
-	slots := Slots{
-		"forward": vm.NewCFunction(LocalsForward),
+	// Locals have no protos, so that messages forward to self. Instead, they
+	// have copies of each built-in Object slot.
+	slots := make(Slots, len(vm.BaseObject.Slots)+1)
+	for k, v := range vm.BaseObject.Slots {
+		slots[k] = v
 	}
-	SetSlot(vm.Core, "Locals", vm.ObjectWith(slots))
+	slots["forward"] = vm.NewCFunction(LocalsForward)
+	slots["updateSlot"] = vm.NewCFunction(LocalsUpdateSlot)
+	SetSlot(vm.Core, "Locals", &Object{Slots: slots, Protos: []Interface{}})
 }
 
 // ObjectBlock is an Object method.
@@ -112,6 +117,13 @@ func (vm *VM) initLocals() {
 //   io> succ call(3)
 //   4
 func ObjectBlock(vm *VM, target, locals Interface, msg *Message) Interface {
+	if msg.ArgCount() == 0 {
+		return &Block{
+			Object:  *vm.CoreInstance("Block"),
+			Message: vm.CachedMessage(vm.Nil),
+			Self:    locals,
+		}
+	}
 	blk := Block{
 		Object:   *vm.CoreInstance("Block"),
 		Message:  msg.ArgAt(len(msg.Args) - 1),
@@ -179,7 +191,7 @@ func BlockAsString(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // call activates a block.
 func BlockCall(vm *VM, target, locals Interface, msg *Message) Interface {
-	return target.(*Block).reallyActivate(vm, target, locals, msg)
+	return target.(*Block).reallyActivate(vm, target, locals, locals, msg)
 }
 
 // BlockMessage is a Block method.
@@ -208,6 +220,7 @@ func BlockPerformOn(vm *VM, target, locals Interface, msg *Message) Interface {
 	}
 	nl := locals
 	nm := msg
+	nc := nt
 	if len(msg.Args) > 1 {
 		nl, ok = CheckStop(msg.EvalArgAt(vm, locals, 1), LoopStops)
 		if !ok {
@@ -216,14 +229,20 @@ func BlockPerformOn(vm *VM, target, locals Interface, msg *Message) Interface {
 		if len(msg.Args) > 2 {
 			r, ok := CheckStop(msg.EvalArgAt(vm, locals, 2), LoopStops)
 			if !ok {
-				return nm
+				return r
 			}
 			if nm, ok = r.(*Message); !ok {
 				return vm.RaiseException("argument 2 to performOn must evaluate to a Message")
 			}
+			if msg.ArgCount() > 3 {
+				nc, ok = CheckStop(msg.EvalArgAt(vm, locals, 3), LoopStops)
+				if !ok {
+					return nc
+				}
+			}
 		}
 	}
-	return blk.reallyActivate(vm, nt, nl, nm)
+	return blk.reallyActivate(vm, nt, nl, nc, nm)
 }
 
 // BlockScope is a Block method.
@@ -315,7 +334,36 @@ func LocalsForward(vm *VM, target, locals Interface, msg *Message) Interface {
 	self, ok := lc.Slots["self"]
 	lc.L.Unlock()
 	if ok && self != target {
-		return msg.Send(vm, self, locals)
+		return vm.Perform(self, locals, msg)
 	}
 	return vm.Nil
+}
+
+// LocalsUpdateSlot is a Locals method.
+//
+// updateSlot changes the value of an existing slot.
+func LocalsUpdateSlot(vm *VM, target, locals Interface, msg *Message) Interface {
+	name, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != nil {
+		return name
+	}
+	slot := name.String()
+	_, proto := GetSlot(target, slot)
+	if proto != nil {
+		// The slot exists on the locals object.
+		v, ok := CheckStop(msg.EvalArgAt(vm, locals, 1), LoopStops)
+		if !ok {
+			return v
+		}
+		SetSlot(target, slot, v)
+		return v
+	}
+	// If the slot doesn't exist on the locals, forward to self, which is the
+	// block scope or method receiver.
+	self, proto := GetSlot(target, "self")
+	if proto != nil {
+		v, _ := CheckStop(msg.Send(vm, self, locals), LoopStops)
+		return v
+	}
+	return vm.RaiseExceptionf("no slot named %s in %s", slot, vm.TypeName(target))
 }

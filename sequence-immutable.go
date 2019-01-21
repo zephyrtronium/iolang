@@ -166,3 +166,11 @@ func SequenceAfterSeq(vm *VM, target, locals Interface, msg *Message) Interface 
 	reflect.Copy(v, sv.Slice(p, sv.Len()))
 	return vm.NewSequence(v.Interface(), s.IsMutable(), s.Code)
 }
+
+// SequenceAsSymbol is a Sequence method.
+//
+// asSymbol creates an immutable copy of the sequence.
+func SequenceAsSymbol(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	return vm.NewSequence(s.Value, false, s.Code)
+}

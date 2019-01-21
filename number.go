@@ -1,8 +1,10 @@
 package iolang
 
 import (
+	"encoding/binary"
 	"math"
 	"strconv"
+	"strings"
 	"unicode"
 )
 
@@ -26,7 +28,7 @@ func (vm *VM) NewNumber(value float64) *Number {
 }
 
 // Activate returns the number.
-func (n *Number) Activate(vm *VM, target, locals Interface, msg *Message) Interface {
+func (n *Number) Activate(vm *VM, target, locals, context Interface, msg *Message) Interface {
 	return n
 }
 
@@ -53,13 +55,12 @@ func (vm *VM) initNumber() {
 		"/":                  vm.NewTypedCFunction(NumberDiv, exemplar),
 		"abs":                vm.NewTypedCFunction(NumberAbs, exemplar),
 		"acos":               vm.NewTypedCFunction(NumberAcos, exemplar),
-		"asBinary":           vm.NewTypedCFunction(NumberAsBinary, exemplar),
+		"asBuffer":           vm.NewTypedCFunction(NumberAsBuffer, exemplar),
 		"asCharacter":        vm.NewTypedCFunction(NumberAsCharacter, exemplar),
-		"asHex":              vm.NewTypedCFunction(NumberAsHex, exemplar),
 		"asLowercase":        vm.NewTypedCFunction(NumberAsLowercase, exemplar),
-		"asNumber":           vm.NewTypedCFunction(NumberAsNumber, exemplar),
-		"asOctal":            vm.NewTypedCFunction(NumberAsOctal, exemplar),
+		"asNumber":           vm.NewTypedCFunction(ObjectThisContext, exemplar), // hax
 		"asString":           vm.NewTypedCFunction(NumberAsString, exemplar),
+		"asUint32Buffer":     vm.NewTypedCFunction(NumberAsUint32Buffer, exemplar),
 		"asUppercase":        vm.NewTypedCFunction(NumberAsUppercase, exemplar),
 		"asin":               vm.NewTypedCFunction(NumberAsin, exemplar),
 		"at":                 vm.NewTypedCFunction(NumberAt, exemplar),
@@ -93,6 +94,7 @@ func (vm *VM) initNumber() {
 		"isUppercase":        vm.NewTypedCFunction(NumberIsUppercase, exemplar),
 		"log":                vm.NewTypedCFunction(NumberLog, exemplar),
 		"log10":              vm.NewTypedCFunction(NumberLog10, exemplar),
+		"log2":               vm.NewTypedCFunction(NumberLog2, exemplar),
 		"max":                vm.NewTypedCFunction(NumberMax, exemplar),
 		"min":                vm.NewTypedCFunction(NumberMin, exemplar),
 		"mod":                vm.NewTypedCFunction(NumberMod, exemplar),
@@ -108,6 +110,7 @@ func (vm *VM) initNumber() {
 		"squared":            vm.NewTypedCFunction(NumberSquared, exemplar),
 		"tan":                vm.NewTypedCFunction(NumberTan, exemplar),
 		"toBase":             vm.NewTypedCFunction(NumberToBase, exemplar),
+		"toBaseWholeBytes":   vm.NewTypedCFunction(NumberToBaseWholeBytes, exemplar),
 		"toggle":             vm.NewTypedCFunction(NumberToggle, exemplar),
 		"type":               vm.NewString("Number"),
 	}
@@ -150,7 +153,12 @@ func (vm *VM) initNumber() {
 	slots["floatMax"] = vm.NumberMemo[math.MaxFloat64]
 	slots["integerMin"] = vm.NumberMemo[math.MinInt64]
 	slots["integerMax"] = vm.NumberMemo[math.MaxInt64]
-	// TODO: long/unsigned limits, toBaseWholeBytes
+	slots["longMin"] = vm.NumberMemo[math.MinInt64]
+	slots["longMax"] = vm.NumberMemo[math.MaxInt64]
+	slots["shortMin"] = vm.NewNumber(-32768)
+	slots["shortMax"] = vm.NewNumber(32767)
+	slots["unsignedIntMax"] = vm.NewNumber(math.MaxUint64)
+	slots["unsignedLongMax"] = slots["unsignedIntMax"]
 	slots["constants"] = vm.ObjectWith(Slots{
 		// Io originally had only e, inf, nan, and pi.
 		"e":       vm.NewNumber(math.E),
@@ -198,13 +206,32 @@ func NumberAdd(vm *VM, target, locals Interface, msg *Message) Interface {
 	return vm.NewNumber(target.(*Number).Value + arg.Value)
 }
 
-// NumberAsBinary is a Number method.
+// NumberAsBuffer is a Number method.
 //
-// asBinary returns the binary string representation of the integer value of
-// the target.
-func NumberAsBinary(vm *VM, target, locals Interface, msg *Message) Interface {
-	// TODO: zero-fill to octets
-	return vm.NewString(strconv.FormatInt(int64(target.(*Number).Value), 2))
+// asBuffer creates a Latin-1 Sequence with bytes equal to the binary
+// representation of the target. An optional byte count for the size of the
+// buffer may be supplied, with a default of 8.
+func NumberAsBuffer(vm *VM, target, locals Interface, msg *Message) Interface {
+	n := 8
+	if msg.ArgCount() > 0 {
+		arg, stop := msg.NumberArgAt(vm, locals, 0)
+		if stop != nil {
+			return stop
+		}
+		n = int(arg.Value)
+		if n < 0 {
+			return vm.RaiseException("buffer size must be nonnegative")
+		}
+	}
+	x := target.(*Number).Value
+	var v []byte
+	if n >= 8 {
+		v = make([]byte, n)
+	} else {
+		v = []byte{7: 0}
+	}
+	binary.LittleEndian.PutUint64(v, math.Float64bits(x))
+	return vm.NewSequence(v[:n], true, "latin1")
 }
 
 // NumberAsCharacter is a Number method.
@@ -215,15 +242,6 @@ func NumberAsCharacter(vm *VM, target, locals Interface, msg *Message) Interface
 	return vm.NewString(string(rune(target.(*Number).Value)))
 }
 
-// NumberAsHex is a Number method.
-//
-// asHex returns the hexadecimal string representation of the integer value of
-// the target.
-func NumberAsHex(vm *VM, target, locals Interface, msg *Message) Interface {
-	// TODO: zero-fill to octets
-	return vm.NewString(strconv.FormatInt(int64(target.(*Number).Value), 16))
-}
-
 // NumberAsLowercase is a Number method.
 //
 // asLowercase returns the Number which is the Unicode codepoint corresponding
@@ -232,27 +250,22 @@ func NumberAsLowercase(vm *VM, target, locals Interface, msg *Message) Interface
 	return vm.NewNumber(float64(unicode.ToLower(rune(target.(*Number).Value))))
 }
 
-// NumberAsNumber is a Number method.
-//
-// asNumber on a Number returns the target.
-func NumberAsNumber(vm *VM, target, locals Interface, msg *Message) Interface {
-	return target.(*Number)
-}
-
-// NumberAsOctal is a Number method.
-//
-// asOctal returns the octal string representation of the integer value of the
-// target.
-func NumberAsOctal(vm *VM, target, locals Interface, msg *Message) Interface {
-	// TODO: zero-fill to nonets
-	return vm.NewString(strconv.FormatInt(int64(target.(*Number).Value), 8))
-}
-
 // NumberAsString is a Number method.
 //
 // asString returns the decimal string representation of the target.
 func NumberAsString(vm *VM, target, locals Interface, msg *Message) Interface {
 	return vm.NewString(target.(*Number).String())
+}
+
+// NumberAsUint32Buffer is a Number method.
+//
+// asUint32Buffer returns a 4-byte buffer representing the target's value
+// converted to a uint32.
+func NumberAsUint32Buffer(vm *VM, target, locals Interface, msg *Message) Interface {
+	x := uint32(target.(*Number).Value)
+	v := make([]byte, 4)
+	binary.LittleEndian.PutUint32(v, x)
+	return vm.NewSequence(v, true, "latin1")
 }
 
 // NumberAsUppercase is a Number method.
@@ -589,6 +602,13 @@ func NumberIsUppercase(vm *VM, target, locals Interface, msg *Message) Interface
 //
 // log returns the natural logarithm of the target.
 func NumberLog(vm *VM, target, locals Interface, msg *Message) Interface {
+	if msg.ArgCount() > 0 {
+		b, stop := msg.NumberArgAt(vm, locals, 0)
+		if stop != nil {
+			return stop
+		}
+		return vm.NewNumber(math.Log(target.(*Number).Value) / math.Log(b.Value))
+	}
 	return vm.NewNumber(math.Log(target.(*Number).Value))
 }
 
@@ -775,6 +795,32 @@ func NumberToBase(vm *VM, target, locals Interface, msg *Message) Interface {
 		return vm.RaiseExceptionf("conversion to base %d not supported", base)
 	}
 	return vm.NewString(strconv.FormatInt(int64(target.(*Number).Value), base))
+}
+
+var toBaseWholeBytesCols = [...]int8{
+	8, 6, 4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 2,
+	2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+}
+
+// NumberToBaseWholeBytes is a Number method.
+//
+// toBaseWholeBytes returns the string representation of the target in the
+// radix given in the argument, zero-padded on the left to a multiple of the
+// equivalent of eight bits. Bases less than 2 and greater than 36 are not
+// supported.
+func NumberToBaseWholeBytes(vm *VM, target, locals Interface, msg *Message) Interface {
+	arg, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	base := int(arg.Value)
+	if base < 2 || base > 36 {
+		return vm.RaiseExceptionf("conversion to base %d not supported", base)
+	}
+	cols := int(toBaseWholeBytesCols[base-2])
+	s := strconv.FormatInt(int64(target.(*Number).Value), base)
+	w := (len(s) + cols - 1) / cols
+	return vm.NewString(strings.Repeat("0", w*cols-len(s)) + s)
 }
 
 // NumberToggle is a Number method.

@@ -16,7 +16,7 @@ type Interface interface {
 	// Get slots and protos.
 	SP() *Object
 	// Produce a result. For most objects, this returns self.
-	Activate(vm *VM, target, locals Interface, msg *Message) Interface
+	Activate(vm *VM, target, locals, context Interface, msg *Message) Interface
 	// Create an object with empty slots and this object as its only proto.
 	Clone() Interface
 
@@ -47,7 +47,7 @@ func (o *Object) SP() *Object {
 // Activate activates the object. If the isActivatable slot is true, and the
 // activate slot exists, then this activates that slot; otherwise, it returns
 // the object.
-func (o *Object) Activate(vm *VM, target, locals Interface, msg *Message) Interface {
+func (o *Object) Activate(vm *VM, target, locals, context Interface, msg *Message) Interface {
 	ok, proto := GetSlot(o, "isActivatable")
 	// We can't use vm.AsBool even though it's one of the few situations where
 	// we'd want to, because it will attempt to activate the isTrue slot, which
@@ -58,7 +58,7 @@ func (o *Object) Activate(vm *VM, target, locals Interface, msg *Message) Interf
 	}
 	act, proto := GetSlot(o, "activate")
 	if proto != nil {
-		return act.Activate(vm, target, locals, msg)
+		return act.Activate(vm, target, locals, context, msg)
 	}
 	return o
 }
@@ -88,12 +88,12 @@ func (vm *VM) initObject() {
 		"ancestorWithSlot":     vm.NewCFunction(ObjectAncestorWithSlot),
 		"appendProto":          vm.NewCFunction(ObjectAppendProto),
 		"asString":             vm.NewCFunction(ObjectAsString),
-		"break":                vm.NewCFunction(ObjectBreak),
 		"block":                vm.NewCFunction(ObjectBlock),
+		"break":                vm.NewCFunction(ObjectBreak),
 		"clone":                vm.NewCFunction(ObjectClone),
 		"cloneWithoutInit":     vm.NewCFunction(ObjectCloneWithoutInit),
-		"contextWithSlot":      vm.NewCFunction(ObjectContextWithSlot),
 		"compare":              vm.NewCFunction(ObjectCompare),
+		"contextWithSlot":      vm.NewCFunction(ObjectContextWithSlot),
 		"continue":             vm.NewCFunction(ObjectContinue),
 		"do":                   vm.NewCFunction(ObjectDo),
 		"doFile":               vm.NewCFunction(ObjectDoFile),
@@ -102,10 +102,12 @@ func (vm *VM) initObject() {
 		"evalArgAndReturnNil":  vm.NewCFunction(ObjectEvalArgAndReturnNil),
 		"evalArgAndReturnSelf": vm.NewCFunction(ObjectEvalArgAndReturnSelf),
 		"for":                  vm.NewCFunction(ObjectFor),
+		"foreachSlot":          vm.NewCFunction(ObjectForeachSlot),
 		"getLocalSlot":         vm.NewCFunction(ObjectGetLocalSlot),
 		"getSlot":              vm.NewCFunction(ObjectGetSlot),
 		"hasLocalSlot":         vm.NewCFunction(ObjectHasLocalSlot),
 		"if":                   vm.NewCFunction(ObjectIf),
+		"isError":              vm.False,
 		"isIdenticalTo":        vm.NewCFunction(ObjectIsIdenticalTo),
 		"isNil":                vm.False,
 		"isTrue":               vm.True,
@@ -113,8 +115,8 @@ func (vm *VM) initObject() {
 		"loop":                 vm.NewCFunction(ObjectLoop),
 		"message":              vm.NewCFunction(ObjectMessage),
 		"method":               vm.NewCFunction(ObjectMethod),
-		"or":                   vm.True,
 		"not":                  vm.Nil,
+		"or":                   vm.True,
 		"perform":              vm.NewCFunction(ObjectPerform),
 		"performWithArgList":   vm.NewCFunction(ObjectPerformWithArgList),
 		"prependProto":         vm.NewCFunction(ObjectPrependProto),
@@ -140,13 +142,18 @@ func (vm *VM) initObject() {
 		"updateSlot":           vm.NewCFunction(ObjectUpdateSlot),
 		"while":                vm.NewCFunction(ObjectWhile),
 	}
-	vm.BaseObject.Slots = slots
-	SetSlot(vm.Core, "Object", vm.BaseObject)
-
-	slots["returnIfNonNil"] = slots["return"]
 	slots["evalArg"] = slots[""]
+	slots["ifError"] = slots["thisContext"]
+	slots["ifNil"] = slots["thisContext"]
+	slots["ifNilEval"] = slots["thisContext"]
 	slots["ifNonNil"] = slots["evalArgAndReturnSelf"]
 	slots["ifNonNilEval"] = slots["evalArg"]
+	slots["raiseIfError"] = slots["thisContext"]
+	slots["returnIfError"] = slots["thisContext"]
+	slots["returnIfNonNil"] = slots["return"]
+	slots["uniqueHexId"] = slots["uniqueId"]
+	vm.BaseObject.Slots = slots
+	SetSlot(vm.Core, "Object", vm.BaseObject)
 }
 
 // ObjectWith creates a new object with the given slots and with the VM's
@@ -165,7 +172,7 @@ func GetSlot(o Interface, slot string) (value, proto Interface) {
 	if o == nil {
 		return nil, nil
 	}
-	return getSlotRecurse(o, slot, make(map[*Object]struct{}, len(o.SP().Protos)+1))
+	return getSlotRecurse(o, slot, map[*Object]struct{}{})
 }
 
 func getSlotRecurse(o Interface, slot string, checked map[*Object]struct{}) (Interface, Interface) {
@@ -223,7 +230,7 @@ func (vm *VM) SimpleActivate(o, self, locals Interface, text string, args ...Int
 	for i, arg := range args {
 		a[i] = vm.CachedMessage(arg)
 	}
-	result, _ := CheckStop(o.Activate(vm, self, locals, &Message{Text: text, Args: a}), ExceptionStop)
+	result, _ := CheckStop(o.Activate(vm, self, locals, self, &Message{Object: *vm.CoreInstance("Message"), Text: text, Args: a}), ExceptionStop)
 	return result
 }
 
@@ -234,7 +241,7 @@ func (vm *VM) SimpleActivate(o, self, locals Interface, text string, args ...Int
 func ObjectClone(vm *VM, target, locals Interface, msg *Message) Interface {
 	clone := target.Clone()
 	if init, proto := GetSlot(target, "init"); proto != nil {
-		r, ok := CheckStop(init.Activate(vm, clone, locals, vm.IdentMessage("init")), LoopStops)
+		r, ok := CheckStop(init.Activate(vm, clone, locals, proto, vm.IdentMessage("init")), LoopStops)
 		if !ok {
 			return r
 		}
@@ -340,11 +347,11 @@ func ObjectHasLocalSlot(vm *VM, target, locals Interface, msg *Message) Interfac
 func ObjectSlotNames(vm *VM, target, locals Interface, msg *Message) Interface {
 	o := target.SP()
 	o.L.Lock()
-	defer o.L.Unlock()
 	names := make([]Interface, 0, len(o.Slots))
 	for name := range o.Slots {
 		names = append(names, vm.NewString(name))
 	}
+	o.L.Unlock()
 	return vm.NewList(names...)
 }
 
@@ -354,11 +361,11 @@ func ObjectSlotNames(vm *VM, target, locals Interface, msg *Message) Interface {
 func ObjectSlotValues(vm *VM, target, locals Interface, msg *Message) Interface {
 	o := target.SP()
 	o.L.Lock()
-	defer o.L.Unlock()
 	vals := make([]Interface, 0, len(o.Slots))
 	for _, val := range o.Slots {
 		vals = append(vals, val)
 	}
+	o.L.Unlock()
 	return vm.NewList(vals...)
 }
 
@@ -368,9 +375,9 @@ func ObjectSlotValues(vm *VM, target, locals Interface, msg *Message) Interface 
 func ObjectProtos(vm *VM, target, locals Interface, msg *Message) Interface {
 	o := target.SP()
 	o.L.Lock()
-	defer o.L.Unlock()
 	v := make([]Interface, len(o.Protos))
 	copy(v, o.Protos)
+	o.L.Unlock()
 	return vm.NewList(v...)
 }
 
@@ -466,7 +473,7 @@ func (vm *VM) Compare(x, y Interface) Interface {
 		return vm.NewNumber(float64(ptrCompare(x, y)))
 	}
 	arg := &Message{Memo: y}
-	r, _ := CheckStop(cmp.Activate(vm, x, x, vm.IdentMessage("compare", arg)), LoopStops)
+	r, _ := CheckStop(cmp.Activate(vm, x, x, proto, vm.IdentMessage("compare", arg)), LoopStops)
 	return r
 }
 
@@ -701,14 +708,14 @@ func ObjectDoMessage(vm *VM, target, locals Interface, msg *Message) Interface {
 	if !ok {
 		return vm.RaiseException("argument 0 to doMessage must be Message, not " + vm.TypeName(r))
 	}
+	ctxt := target
 	if msg.ArgCount() > 1 {
-		target, ok = CheckStop(msg.EvalArgAt(vm, locals, 1), LoopStops)
+		ctxt, ok = CheckStop(msg.EvalArgAt(vm, locals, 1), LoopStops)
 		if !ok {
-			return target
+			return ctxt
 		}
 	}
-	r, _ = CheckStop(vm.DoMessage(m, target), ReturnStop)
-	return r
+	return m.Send(vm, target, ctxt)
 }
 
 // ObjectDoString is an Object method.
@@ -735,8 +742,37 @@ func ObjectDoString(vm *VM, target, locals Interface, msg *Message) Interface {
 	if err := vm.OpShuffle(m); err != nil {
 		return err.Raise()
 	}
-	r, _ := CheckStop(m.Eval(vm, target), ReturnStop)
-	return r
+	return m.Eval(vm, target)
+}
+
+// ObjectForeachSlot is a Object method.
+//
+// foreachSlot performs a loop on each slot of an object.
+func ObjectForeachSlot(vm *VM, target, locals Interface, msg *Message) (result Interface) {
+	kn, vn, hkn, _, ev := ForeachArgs(msg)
+	if !hkn {
+		return vm.RaiseException("foreach requires 2 or 3 args")
+	}
+	for k, v := range target.SP().Slots {
+		SetSlot(locals, vn, v)
+		if hkn {
+			SetSlot(locals, kn, vm.NewString(k))
+		}
+		result = ev.Eval(vm, locals)
+		if rr, ok := CheckStop(result, NoStop); !ok {
+			switch s := rr.(Stop); s.Status {
+			case ContinueStop:
+				result = s.Result
+			case BreakStop:
+				return s.Result
+			case ReturnStop, ExceptionStop:
+				return rr
+			default:
+				panic(fmt.Sprintf("iolang: invalid Stop: %#v", rr))
+			}
+		}
+	}
+	return result
 }
 
 // ObjectIsIdenticalTo is an Object method.
@@ -777,23 +813,14 @@ func ObjectPerform(vm *VM, target, locals Interface, msg *Message) Interface {
 		for i, arg := range m.Args {
 			m.Args[i] = arg.DeepCopy()
 		}
-		slot, proto := GetSlot(target, name)
-		if proto != nil {
-			r, _ = CheckStop(slot.Activate(vm, target, locals, m), ReturnStop)
-			return r
-		}
-		forward, fp := GetSlot(target, "forward")
-		if fp != nil {
-			r, _ = CheckStop(forward.Activate(vm, target, locals, m), ReturnStop)
-			return r
-		}
-		return vm.RaiseExceptionf("%s does not respond to %s", vm.TypeName(target), name)
+		r, _ := CheckStop(vm.Perform(target, locals, m), ReturnStop)
+		return r
 	case *Message:
 		// Message argument, which provides both the name and the args.
 		if msg.ArgCount() > 1 {
 			return vm.RaiseException("perform takes a single argument when using a Message as an argument")
 		}
-		r, _ = CheckStop(a.Send(vm, target, locals), ReturnStop)
+		r, _ = CheckStop(vm.Perform(target, locals, a), ReturnStop)
 		return r
 	}
 	return vm.RaiseException("argument 0 to perform must be Sequence or Message, not " + vm.TypeName(r))
@@ -819,12 +846,12 @@ func ObjectPerformWithArgList(vm *VM, target, locals Interface, msg *Message) In
 	}
 	slot, proto := GetSlot(target, name)
 	if proto != nil {
-		r, _ := CheckStop(slot.Activate(vm, target, locals, m), ReturnStop)
+		r, _ := CheckStop(slot.Activate(vm, target, locals, proto, m), ReturnStop)
 		return r
 	}
 	forward, fp := GetSlot(target, "forward")
 	if fp != nil {
-		r, _ := CheckStop(forward.Activate(vm, target, locals, m), ReturnStop)
+		r, _ := CheckStop(forward.Activate(vm, target, locals, fp, m), ReturnStop)
 		return r
 	}
 	return vm.RaiseExceptionf("%s does not respond to %s", vm.TypeName(target), name)

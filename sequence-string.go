@@ -376,3 +376,75 @@ func SequenceAsBase64(vm *VM, target, locals Interface, msg *Message) Interface 
 	}
 	return vm.NewString(e + "\n")
 }
+
+// SequenceEscape is a Sequence method.
+//
+// escape replaces control and non-printable characters with backslash-escaped
+// equivalents.
+func SequenceEscape(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckMutable("escape"); err != nil {
+		return vm.IoError(err)
+	}
+	ss := []byte(strconv.Quote(s.String()))
+	ss = ss[1 : len(ss)-1]
+	switch s.Kind {
+	case SeqMU8:
+		s.Value = ss
+	case SeqMU16:
+		v := make([]uint16, len(ss))
+		for i, x := range ss {
+			v[i] = uint16(x)
+		}
+		s.Value = v
+	case SeqMU32:
+		v := make([]uint32, len(ss))
+		for i, x := range ss {
+			v[i] = uint32(x)
+		}
+		s.Value = v
+	case SeqMU64:
+		v := make([]uint64, len(ss))
+		for i, x := range ss {
+			v[i] = uint64(x)
+		}
+		s.Value = v
+	case SeqMS8:
+		v := make([]int8, len(ss))
+		for i, x := range ss {
+			v[i] = int8(x)
+		}
+		s.Value = v
+	case SeqMS16:
+		v := make([]int16, len(ss))
+		for i, x := range ss {
+			v[i] = int16(x)
+		}
+		s.Value = v
+	case SeqMS32:
+		v := make([]int32, len(ss))
+		for i, x := range ss {
+			v[i] = int32(x)
+		}
+		s.Value = v
+	case SeqMS64:
+		v := make([]int64, len(ss))
+		for i, x := range ss {
+			v[i] = int64(x)
+		}
+		s.Value = v
+	case SeqMF32:
+		v := make([]float32, len(ss))
+		for i, x := range ss {
+			v[i] = float32(x)
+		}
+		s.Value = v
+	case SeqMF64:
+		v := make([]float64, len(ss))
+		for i, x := range ss {
+			v[i] = float64(x)
+		}
+		s.Value = v
+	}
+	return target
+}

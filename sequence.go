@@ -130,7 +130,7 @@ func (vm *VM) NewSequence(value interface{}, mutable bool, encoding string) *Seq
 }
 
 // Activate returns the sequence.
-func (s *Sequence) Activate(vm *VM, target, locals Interface, msg *Message) Interface {
+func (s *Sequence) Activate(vm *VM, target, locals, context Interface, msg *Message) Interface {
 	return s
 }
 
@@ -835,6 +835,7 @@ func (vm *VM) initSequence() {
 	slots := Slots{
 		// sequence-immutable.go:
 		"afterSeq":       vm.NewTypedCFunction(SequenceAfterSeq, exemplar),
+		"asSymbol":       vm.NewTypedCFunction(SequenceAsSymbol, exemplar),
 		"at":             vm.NewTypedCFunction(SequenceAt, exemplar),
 		"cloneAppendSeq": vm.NewTypedCFunction(SequenceCloneAppendSeq, exemplar),
 		"compare":        vm.NewTypedCFunction(SequenceCompare, exemplar),
@@ -850,6 +851,7 @@ func (vm *VM) initSequence() {
 		"convertToItemType": vm.NewTypedCFunction(SequenceConvertToItemType, exemplar),
 		"copy":              vm.NewTypedCFunction(SequenceCopy, exemplar),
 		"setItemType":       vm.NewTypedCFunction(SequenceSetItemType, exemplar),
+		"setSize":           vm.NewTypedCFunction(SequenceSetSize, exemplar),
 
 		// sequence-string.go:
 		"appendPathSeq":  vm.NewTypedCFunction(SequenceAppendPathSeq, exemplar),
@@ -858,6 +860,7 @@ func (vm *VM) initSequence() {
 		"asUTF32":        vm.NewTypedCFunction(SequenceAsUTF32, exemplar),
 		"asUTF8":         vm.NewTypedCFunction(SequenceAsUTF8, exemplar),
 		"encoding":       vm.NewTypedCFunction(SequenceEncoding, exemplar),
+		"escape":         vm.NewTypedCFunction(SequenceEscape, exemplar),
 		"setEncoding":    vm.NewTypedCFunction(SequenceSetEncoding, exemplar),
 		"validEncodings": vm.NewCFunction(SequenceValidEncodings),
 
@@ -877,6 +880,7 @@ func (vm *VM) initSequence() {
 		"cos":                     vm.NewTypedCFunction(SequenceCos, exemplar),
 	}
 	slots["addEquals"] = slots["+="]
+	slots["asString"] = slots["asSymbol"]
 	ms := &Sequence{
 		Object: *vm.ObjectWith(slots),
 		Value:  []byte(nil),

@@ -16,7 +16,7 @@ type Stop struct {
 // from things like Message.Eval().
 
 func (Stop) SP() *Object { panic("iolang: a Stop is not an Object!") }
-func (Stop) Activate(vm *VM, target, locals Interface, msg *Message) Interface {
+func (Stop) Activate(vm *VM, target, locals, context Interface, msg *Message) Interface {
 	panic("iolang: a Stop is not an Object!")
 }
 func (Stop) Clone() Interface { panic("iolang: a Stop is not an Object!") }
@@ -241,11 +241,9 @@ func ObjectReturn(vm *VM, target, locals Interface, msg *Message) Interface {
 // if evaluates its first argument, then evaluates the second if the first was
 // true or the third if it was false.
 func ObjectIf(vm *VM, target, locals Interface, msg *Message) Interface {
-	c := msg.EvalArgAt(vm, locals, 0)
-	if cc, ok := CheckStop(c, NoStop); ok {
-		c = cc
-	} else {
-		return cc
+	c, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), NoStop)
+	if !ok {
+		return c
 	}
 	if vm.AsBool(c) {
 		if len(msg.Args) < 2 {

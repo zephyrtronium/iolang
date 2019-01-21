@@ -1,16 +1,22 @@
 package iolang
 
-// Call contains information on how a message was activated.
+// Call contains information on how a Block was activated.
 type Call struct {
 	Object
-	Sender    Interface
+	// Sender is the locals in the context of the activation.
+	Sender Interface
+	// Activated is the (Block) object which is being activated.
 	Activated Interface
-	Msg       *Message
-	Target    Interface
+	// Msg is the message received to activate the block.
+	Msg *Message
+	// Target is the object to which the message was sent.
+	Target Interface
+	// Context is the object which actually owned the activated slot.
+	Context Interface
 }
 
 // Activate returns the call.
-func (c *Call) Activate(vm *VM, target, locals Interface, msg *Message) Interface {
+func (c *Call) Activate(vm *VM, target, locals, context Interface, msg *Message) Interface {
 	return c
 }
 
@@ -28,27 +34,29 @@ func (c *Call) Clone() Interface {
 
 // NewCall creates a Call object sent from sender to the target's actor using
 // the message msg.
-func (vm *VM) NewCall(sender, actor Interface, msg *Message, target Interface) *Call {
+func (vm *VM) NewCall(sender, actor Interface, msg *Message, target, context Interface) *Call {
 	return &Call{
 		Object:    *vm.CoreInstance("Call"),
 		Sender:    sender,
 		Activated: actor,
 		Msg:       msg,
 		Target:    target,
+		Context:   context,
 	}
 }
 
 func (vm *VM) initCall() {
 	var exemplar *Call
 	slots := Slots{
-		"activated": vm.NewTypedCFunction(CallActivated, exemplar),
-		"argAt":     vm.NewTypedCFunction(CallArgAt, exemplar),
-		"argCount":  vm.NewTypedCFunction(CallArgCount, exemplar),
-		"evalArgAt": vm.NewTypedCFunction(CallEvalArgAt, exemplar),
-		"message":   vm.NewTypedCFunction(CallMessage, exemplar),
-		"sender":    vm.NewTypedCFunction(CallSender, exemplar),
-		"target":    vm.NewTypedCFunction(CallTarget, exemplar),
-		"type":      vm.NewString("Call"),
+		"activated":   vm.NewTypedCFunction(CallActivated, exemplar),
+		"argAt":       vm.NewTypedCFunction(CallArgAt, exemplar),
+		"argCount":    vm.NewTypedCFunction(CallArgCount, exemplar),
+		"evalArgAt":   vm.NewTypedCFunction(CallEvalArgAt, exemplar),
+		"message":     vm.NewTypedCFunction(CallMessage, exemplar),
+		"sender":      vm.NewTypedCFunction(CallSender, exemplar),
+		"slotContext": vm.NewTypedCFunction(CallSlotContext, exemplar),
+		"target":      vm.NewTypedCFunction(CallTarget, exemplar),
+		"type":        vm.NewString("Call"),
 	}
 	SetSlot(vm.Core, "Call", &Call{Object: *vm.ObjectWith(slots)})
 }
@@ -70,7 +78,11 @@ func CallArgAt(vm *VM, target, locals Interface, msg *Message) Interface {
 	if stop != nil {
 		return stop
 	}
-	return m.ArgAt(int(v.Value))
+	r := m.ArgAt(int(v.Value))
+	if r != nil {
+		return r
+	}
+	return vm.Nil
 }
 
 // CallArgCount is a Call method.
@@ -104,6 +116,13 @@ func CallMessage(vm *VM, target, locals Interface, msg *Message) Interface {
 // sender returns the object which sent the call.
 func CallSender(vm *VM, target, locals Interface, msg *Message) Interface {
 	return target.(*Call).Sender
+}
+
+// CallSlotContext is a Call method.
+//
+// slotContext returns the object on which the called slot was found.
+func CallSlotContext(vm *VM, target, locals Interface, msg *Message) Interface {
+	return target.(*Call).Context
 }
 
 // CallTarget is a Call method.

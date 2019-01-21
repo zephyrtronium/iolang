@@ -21,7 +21,7 @@ func (vm *VM) NewList(items ...Interface) *List {
 }
 
 // Activate returns the list.
-func (l *List) Activate(vm *VM, target, locals Interface, msg *Message) Interface {
+func (l *List) Activate(vm *VM, target, locals, context Interface, msg *Message) Interface {
 	return l
 }
 
@@ -73,6 +73,9 @@ func (vm *VM) initList() {
 		"type":                vm.NewString("List"),
 		"with":                vm.NewCFunction(ListWith),
 	}
+	slots["empty"] = slots["removeAll"]
+	slots["exSlice"] = slots["slice"]
+	slots["push"] = slots["append"]
 	SetSlot(vm.Core, "List", &List{Object: *vm.ObjectWith(slots)})
 	SetSlot(vm.BaseObject, "list", slots["with"])
 }
@@ -374,7 +377,7 @@ func ListContainsIdenticalTo(vm *VM, target, locals Interface, msg *Message) Int
 // ListIndexOf is a List method.
 //
 // indexOf returns the first index from the left of an item equal to the
-// argument. If there is no such item in the list, -1 is returned.
+// argument. If there is no such item in the list, nil is returned.
 func ListIndexOf(vm *VM, target, locals Interface, msg *Message) Interface {
 	r, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
 	if !ok {
@@ -389,7 +392,7 @@ func ListIndexOf(vm *VM, target, locals Interface, msg *Message) Interface {
 			return vm.NewNumber(float64(i))
 		}
 	}
-	return vm.NewNumber(-1)
+	return vm.Nil
 }
 
 // ListPreallocateToSize is a List method.
@@ -405,7 +408,7 @@ func ListPreallocateToSize(vm *VM, target, locals Interface, msg *Message) Inter
 	}
 	n := int(r.Value)
 	l := target.(*List)
-	if n < cap(l.Value) {
+	if n > cap(l.Value) {
 		v := make([]Interface, len(l.Value), n)
 		copy(v, l.Value)
 		l.Value = v
@@ -498,9 +501,13 @@ func ListRemoveAt(vm *VM, target, locals Interface, msg *Message) Interface {
 		return stop
 	}
 	k := int(n.Value)
+	if k < 0 || k >= len(l.Value) {
+		return vm.RaiseException("index out of bounds")
+	}
+	v := l.Value[k]
 	copy(l.Value[k:], l.Value[k+1:])
 	l.Value = l.Value[:len(l.Value)-1]
-	return target
+	return v
 }
 
 // ListReverseInPlace is a List method.
@@ -725,7 +732,7 @@ func (l *listSorter) Less(i, j int) bool {
 		return l.vm.AsBool(r)
 	}
 	l.m.Args[0].Memo, l.m.Args[1].Memo = l.v[i], l.v[j]
-	r, ok := CheckStop(l.b.reallyActivate(l.vm, l.l, l.l, l.m), LoopStops)
+	r, ok := CheckStop(l.b.reallyActivate(l.vm, l.l, l.l, l.l, l.m), LoopStops)
 	if !ok {
 		l.err = r
 		return i < j

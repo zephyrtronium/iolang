@@ -46,7 +46,7 @@ func (vm *VM) NewFileAt(path string) *File {
 }
 
 // Activate returns the file.
-func (f *File) Activate(vm *VM, target, locals Interface, msg *Message) Interface {
+func (f *File) Activate(vm *VM, target, locals, context Interface, msg *Message) Interface {
 	return f
 }
 

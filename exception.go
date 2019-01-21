@@ -8,7 +8,7 @@ type Exception struct {
 }
 
 // Activate returns the exception.
-func (e *Exception) Activate(vm *VM, target, locals Interface, msg *Message) Interface {
+func (e *Exception) Activate(vm *VM, target, locals, context Interface, msg *Message) Interface {
 	return e
 }
 
