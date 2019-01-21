@@ -382,7 +382,7 @@ Core Error := Object clone do(
 	raiseIfError := method(Exception raise(message))
 
 	with := method(msg,
-		err := clone
+		err := self clone
 		err message := msg
 		err location := call message label .. ":" .. call message lineNumber
 		err
