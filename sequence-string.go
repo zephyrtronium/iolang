@@ -7,13 +7,16 @@ import (
 	"fmt"
 	"math"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
+	unichr "unicode"
 
 	"golang.org/x/text/encoding/charmap"
 	"golang.org/x/text/encoding/unicode"
 	"golang.org/x/text/encoding/unicode/utf32"
 	"unicode/utf16"
+	"unicode/utf8"
 )
 
 // NewString creates a new Sequence object representing the given string in
@@ -172,6 +175,105 @@ func (s *Sequence) Bytes() []byte {
 	return b.Bytes()
 }
 
+// BytesN returns a slice of up to n bytes with the same bit pattern as the
+// corresponding portion of the sequence. The result is always a copy.
+func (s *Sequence) BytesN(n int) []byte {
+	// We could create a LimitedWriter type to use binary.Write, but that
+	// function creates the entire slice to write first, which defeats the
+	// purpose of having this be a separate method.
+	b := make([]byte, 0, (n+7)/8*8)
+	switch s.Kind {
+	case SeqMU8, SeqIU8:
+		v := s.Value.([]byte)
+		b = append(b, v...)
+	case SeqMU16, SeqIU16:
+		v := s.Value.([]uint16)
+		for _, c := range v {
+			b = append(b, byte(c), byte(c>>8))
+			if len(b) >= n {
+				break
+			}
+		}
+	case SeqMU32, SeqIU32:
+		v := s.Value.([]uint32)
+		for _, c := range v {
+			b = append(b, byte(c), byte(c>>8), byte(c>>16), byte(c>>24))
+			if len(b) >= n {
+				break
+			}
+		}
+	case SeqMU64, SeqIU64:
+		v := s.Value.([]uint64)
+		for _, c := range v {
+			b = append(b, byte(c), byte(c>>8), byte(c>>16), byte(c>>24),
+				byte(c>>32), byte(c>>40), byte(c>>48), byte(c>>56))
+			if len(b) >= n {
+				break
+			}
+		}
+	case SeqMS8, SeqIS8:
+		v := s.Value.([]int8)
+		for _, c := range v {
+			b = append(b, byte(c))
+			if len(b) >= n {
+				break
+			}
+		}
+	case SeqMS16, SeqIS16:
+		v := s.Value.([]int16)
+		for _, x := range v {
+			c := uint16(x)
+			b = append(b, byte(c), byte(c>>8))
+			if len(b) >= n {
+				break
+			}
+		}
+	case SeqMS32, SeqIS32:
+		v := s.Value.([]int32)
+		for _, x := range v {
+			c := uint32(x)
+			b = append(b, byte(c), byte(c>>8), byte(c>>16), byte(c>>24))
+			if len(b) >= n {
+				break
+			}
+		}
+	case SeqMS64, SeqIS64:
+		v := s.Value.([]int64)
+		for _, x := range v {
+			c := uint64(x)
+			b = append(b, byte(c), byte(c>>8), byte(c>>16), byte(c>>24),
+				byte(c>>32), byte(c>>40), byte(c>>48), byte(c>>56))
+			if len(b) >= n {
+				break
+			}
+		}
+	case SeqMF32, SeqIF32:
+		v := s.Value.([]float32)
+		for _, x := range v {
+			c := math.Float32bits(x)
+			b = append(b, byte(c), byte(c>>8), byte(c>>16), byte(c>>24))
+			if len(b) >= n {
+				break
+			}
+		}
+	case SeqMF64, SeqIF64:
+		v := s.Value.([]float64)
+		for _, x := range v {
+			c := math.Float64bits(x)
+			b = append(b, byte(c), byte(c>>8), byte(c>>16), byte(c>>24),
+				byte(c>>32), byte(c>>40), byte(c>>48), byte(c>>56))
+			if len(b) >= n {
+				break
+			}
+		}
+	case SeqUntyped:
+		panic("use of untyped sequence")
+	default:
+		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+	}
+	return b
+}
+
 // SequenceFromBytes makes a Sequence with the given type having the same bit
 // pattern as the given bytes. If the length of b is not a multiple of the item
 // size for the given kind, the extra bytes are ignored. The sequence's
@@ -222,6 +324,54 @@ func (vm *VM) SequenceFromBytes(b []byte, kind SeqKind) *Sequence {
 	}
 	binary.Read(bytes.NewReader(b), binary.LittleEndian, v)
 	return vm.NewSequence(v, kind > 0, kind.Encoding())
+}
+
+// FirstRune decodes the first rune from the sequence and returns its size in
+// bytes. If the sequence is empty, the result is (-1, 0).
+func (s *Sequence) FirstRune() (rune, int) {
+	b := s.BytesN(4)
+	if len(b) == 0 {
+		return -1, 0
+	}
+	switch s.Code {
+	case "number":
+		r, _ := s.At(0)
+		return rune(r), utf8.RuneLen(rune(r))
+	case "utf8":
+		return utf8.DecodeRune(b)
+	case "ascii", "latin1":
+		return charmap.Windows1252.DecodeByte(b[0]), 1
+	case "utf16":
+		d := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewDecoder()
+		// Decoding to UTF-8 will replace an invalid UTF-16 sequence with
+		// U+FFFD, which will then decode successfully. This isn't exactly what
+		// we want, but it's too much effort to support what should be an
+		// uncommon case.
+		var err error
+		b, err = d.Bytes(b)
+		if err != nil {
+			return -1, 0
+		}
+		r, _ := utf8.DecodeRune(b)
+		if r < 0x010000 {
+			return r, 2
+		}
+		return r, 4
+	case "utf32":
+		d := utf32.UTF32(utf32.LittleEndian, utf32.IgnoreBOM).NewDecoder()
+		// It would be slightly easier to detect invalid UTF-32, since we could
+		// just decode four bytes and use utf8.ValidRune, but this should be an
+		// even rarer case than UTF-16.
+		var err error
+		b, err = d.Bytes(b)
+		if err != nil {
+			return -1, 0
+		}
+		r, _ := utf8.DecodeRune(b)
+		return r, 4
+	}
+	// TODO: We can really support any encoding in x/text/encoding.
+	panic(fmt.Sprintf("unsupported sequence encoding %q", s.Code))
 }
 
 // CheckEncoding checks whether the given encoding name is a valid encoding
@@ -375,6 +525,81 @@ func SequenceAsBase64(vm *VM, target, locals Interface, msg *Message) Interface 
 		e = b.String()
 	}
 	return vm.NewString(e + "\n")
+}
+
+// SequenceCapitalize is a Sequence method.
+//
+// capitalize replaces the first rune in the sequence with the capitalized
+// equivalent. This does not use special (Turkish) casing.
+func SequenceCapitalize(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckMutable("capitalize"); err != nil {
+		return vm.IoError(err)
+	}
+	fr, bn := s.FirstRune()
+	if fr < 0 {
+		return target
+	}
+	r := unichr.ToUpper(fr)
+	if r == fr {
+		return target
+	}
+	is := s.ItemSize()
+	nn := (utf8.RuneLen(r) + is - 1) / is * is
+	b := []byte(string(r)) // UTF-8
+	switch s.Code {
+	case "number":
+		v := reflect.ValueOf(s.Value).Index(0)
+		v.Set(reflect.ValueOf(r).Convert(v.Type()))
+	case "utf8":
+		if nn == bn {
+			// Straight replacement.
+			v := reflect.ValueOf(s.Value)
+			x := reflect.MakeSlice(v.Type(), nn/is, nn/is)
+			binary.Read(bytes.NewReader(b), binary.LittleEndian, x.Interface())
+			// FIXME: This will overwrite if the number of bytes in the rune
+			// isn't a multiple of the item size. Please, just use uint8.
+			reflect.Copy(v, x)
+		} else {
+			// Mismatch in encoded sizes. This happens for thirty runes encoded
+			// in UTF-8, two of which change from 2 bytes to 1, seventeen from
+			// 2 to 3, and eleven from 3 to 2. This is an obnoxious case, so
+			// we're going to be obnoxious in handling it.
+			v := s.Bytes()
+			v = append(b, v[bn:]...)
+			for len(v)%is != 0 {
+				v = append(v, 0)
+			}
+			x := vm.SequenceFromBytes(v, s.Kind)
+			s.Value = x.Value
+		}
+	case "ascii", "latin1":
+		c, _ := charmap.Windows1252.EncodeRune(r)
+		v := reflect.ValueOf(s.Value).Index(0)
+		// FIXME: This will overwrite if the type isn't 8-bit.
+		v.Set(reflect.ValueOf(c).Convert(v.Type()))
+	case "utf16":
+		e := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewEncoder()
+		b, _ = e.Bytes(b)
+		v := reflect.ValueOf(s.Value)
+		x := reflect.MakeSlice(v.Type(), len(b)/is, len(b)/is)
+		binary.Read(bytes.NewReader(b), binary.LittleEndian, x.Interface())
+		// FIXME: This will overwrite if the rune is a single code unit and the
+		// sequence kind is 32, or if the sequence kind is 64-bit.
+		reflect.Copy(v, x)
+	case "utf32":
+		e := utf32.UTF32(utf32.LittleEndian, utf32.IgnoreBOM).NewEncoder()
+		b, _ = e.Bytes(b)
+		v := reflect.ValueOf(s.Value)
+		x := reflect.MakeSlice(v.Type(), len(b)/is, len(b)/is)
+		binary.Read(bytes.NewReader(b), binary.LittleEndian, x.Interface())
+		// FIXME: This will overwrite if the sequence kind is 64-bit.
+		reflect.Copy(v, x)
+	default:
+		// TODO: We can really support any encoding in x/text/encoding.
+		panic(fmt.Sprintf("unsupported sequence encoding %q", s.Code))
+	}
+	return target
 }
 
 // SequenceEscape is a Sequence method.

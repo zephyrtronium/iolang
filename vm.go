@@ -358,6 +358,8 @@ Sequence do(
 
 	asSimpleString := method("\"" .. self asString asMutable escape .. "\"")
 
+	asCapitalized := method(asMutable capitalize)
+
 	asFile := method(File with(self))
 )
 

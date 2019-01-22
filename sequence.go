@@ -859,6 +859,7 @@ func (vm *VM) initSequence() {
 		"asUTF16":        vm.NewTypedCFunction(SequenceAsUTF16, exemplar),
 		"asUTF32":        vm.NewTypedCFunction(SequenceAsUTF32, exemplar),
 		"asUTF8":         vm.NewTypedCFunction(SequenceAsUTF8, exemplar),
+		"capitalize":     vm.NewTypedCFunction(SequenceCapitalize, exemplar),
 		"encoding":       vm.NewTypedCFunction(SequenceEncoding, exemplar),
 		"escape":         vm.NewTypedCFunction(SequenceEscape, exemplar),
 		"setEncoding":    vm.NewTypedCFunction(SequenceSetEncoding, exemplar),
@@ -880,6 +881,7 @@ func (vm *VM) initSequence() {
 		"cos":                     vm.NewTypedCFunction(SequenceCos, exemplar),
 	}
 	slots["addEquals"] = slots["+="]
+	slots["asBuffer"] = slots["asMutable"]
 	slots["asString"] = slots["asSymbol"]
 	ms := &Sequence{
 		Object: *vm.ObjectWith(slots),
