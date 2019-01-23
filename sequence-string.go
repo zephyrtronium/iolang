@@ -277,6 +277,27 @@ func SequenceValidEncodings(vm *VM, target, locals Interface, msg *Message) Inte
 	return vm.NewList(encs...)
 }
 
+// SequenceAsLatin1 is a Sequence method.
+//
+// asLatin1 creates a Sequence encoding the receiver in Latin-1 (Windows-1252).
+// Unrepresentable characters will be encoded as a byte with the value 0x1A.
+func SequenceAsLatin1(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if (s.Code == "ascii" || s.Code == "latin1") && (s.Kind == SeqMU8 || s.Kind == SeqIU8) {
+		return vm.NewSequence(s.Value, s.IsMutable(), "latin1")
+	}
+	v := s.String()
+	// Using the Windows-1252 encoder's Bytes method fails entirely if an
+	// invalid rune is encountered, so we have to do the whole thing to ensure
+	// we get our replacement bytes.
+	r := make([]byte, 0, len(v))
+	for _, c := range v {
+		ec, _ := charmap.Windows1252.EncodeRune(c)
+		r = append(r, ec)
+	}
+	return vm.NewSequence(r, s.IsMutable(), "latin1")
+}
+
 // SequenceAsUTF8 is a Sequence method.
 //
 // asUTF8 creates a Sequence encoding the receiver in UTF-8.
