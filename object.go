@@ -87,6 +87,7 @@ func (vm *VM) initObject() {
 		">=":                   vm.NewCFunction(ObjectGreaterOrEqual),
 		"ancestorWithSlot":     vm.NewCFunction(ObjectAncestorWithSlot),
 		"appendProto":          vm.NewCFunction(ObjectAppendProto),
+		"asGoRepr":             vm.NewCFunction(ObjectAsGoRepr),
 		"asString":             vm.NewCFunction(ObjectAsString),
 		"block":                vm.NewCFunction(ObjectBlock),
 		"break":                vm.NewCFunction(ObjectBreak),
@@ -461,6 +462,14 @@ func ObjectAsString(vm *VM, target, locals Interface, msg *Message) Interface {
 		return vm.NewString(stringer.String())
 	}
 	return vm.NewString(fmt.Sprintf("%T_%p", target, target))
+}
+
+// ObjectAsGoRepr is an Object method.
+//
+// asGoRepr returns a string containing a Go-syntax representation of the
+// object.
+func ObjectAsGoRepr(vm *VM, target, locals Interface, msg *Message) Interface {
+	return vm.NewString(fmt.Sprintf("%#v", target))
 }
 
 // Compare uses the compare method of x to compare to y. The result should be a
