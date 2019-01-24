@@ -426,6 +426,18 @@ func SequenceAsBinaryUnsignedInteger(vm *VM, target, locals Interface, msg *Mess
 	return vm.RaiseException("asBinaryUnsignedInteger receiver must be Sequence of 1, 2, 4, or 8 bytes")
 }
 
+// SequenceAsin is a Sequence method.
+//
+// asin sets each element of the receiver to its arcsine.
+func SequenceAsin(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckNumeric("asin", true); err != nil {
+		return vm.IoError(err)
+	}
+	s.MapUnary(math.Asin)
+	return s
+}
+
 // SequenceCos is a Sequence method.
 //
 // cos sets each element of the receiver to its cosine.

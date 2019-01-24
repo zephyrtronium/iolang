@@ -879,6 +879,7 @@ func (vm *VM) initSequence() {
 		"asBinaryNumber":          vm.NewTypedCFunction(SequenceAsBinaryNumber, exemplar),
 		"asBinarySignedInteger":   vm.NewTypedCFunction(SequenceAsBinarySignedInteger, exemplar),
 		"asBinaryUnsignedInteger": vm.NewTypedCFunction(SequenceAsBinaryUnsignedInteger, exemplar),
+		"asin":                    vm.NewTypedCFunction(SequenceAsin, exemplar),
 		"cos":                     vm.NewTypedCFunction(SequenceCos, exemplar),
 	}
 	slots["addEquals"] = slots["+="]
