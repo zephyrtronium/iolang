@@ -40,7 +40,7 @@ For a more in-depth introduction to Io, check out [the official guide](iolanguag
 	+ Lots to do for most Core types.
 		* List ListCursor, cursor, sortByKey, sortKey.
 		* All asJson methods.
-		* Object newSlot, lazySlot
+		* Object lazySlot
 		* Exception showStack, setters
 		* Block Formatter, asString
 		* File streamDestination, startStreaming
