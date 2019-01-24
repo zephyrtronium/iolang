@@ -94,14 +94,15 @@ func CallArgCount(vm *VM, target, locals Interface, msg *Message) Interface {
 
 // CallEvalArgAt is a Call method.
 //
-// evalArgAt evaluates the nth argument to the call.
+// evalArgAt evaluates the nth argument to the call in the context of the
+// sender.
 func CallEvalArgAt(vm *VM, target, locals Interface, msg *Message) Interface {
-	m := target.(*Call).Msg
+	c := target.(*Call)
 	v, stop := msg.NumberArgAt(vm, locals, 0)
 	if stop != nil {
 		return stop
 	}
-	return m.EvalArgAt(vm, locals, int(v.Value))
+	return c.Msg.EvalArgAt(vm, c.Sender, int(v.Value))
 }
 
 // CallMessage is a Call method.
