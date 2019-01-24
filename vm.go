@@ -216,6 +216,12 @@ Object do(
 		setSlot(slot, value)
 		value type := slot
 	)
+	newSlot := method(slot, value,
+		getSlot("self") setSlot(slot, getSlot("value"))
+		getSlot("self") setSlot("set" .. slot asCapitalized,
+			doString("method(" .. slot .. " = call evalArgAt(0); self)"))
+		getSlot("value")
+	)
 
 	isActivatable := false
 	setIsActivatable := method(v, getSlot("self") isActivatable := v; self)
