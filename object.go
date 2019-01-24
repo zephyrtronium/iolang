@@ -284,13 +284,14 @@ func ObjectUpdateSlot(vm *VM, target, locals Interface, msg *Message) Interface 
 	if stop != nil {
 		return stop
 	}
+	s := slot.String()
 	v, ok := CheckStop(msg.EvalArgAt(vm, locals, 1), LoopStops)
 	if ok {
-		_, proto := GetSlot(target, slot.String())
+		_, proto := GetSlot(target, s)
 		if proto == nil {
-			return vm.RaiseExceptionf("slot %s not found", slot.String())
+			return vm.RaiseExceptionf("slot %s not found", s)
 		}
-		SetSlot(proto, slot.String(), v)
+		SetSlot(target, s, v)
 	}
 	return v
 }
