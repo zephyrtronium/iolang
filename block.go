@@ -35,16 +35,11 @@ func (b *Block) reallyActivate(vm *VM, target, locals, context Interface, msg *M
 	call := vm.NewCall(locals, b, msg, target, context)
 	blkLocals := vm.NewLocals(scope, call)
 	for i, arg := range b.ArgNames {
-		if x := msg.EvalArgAt(vm, locals, i); x != nil {
-			if r, ok := CheckStop(x, LoopStops); ok {
-				x = r
-			} else {
-				return r
-			}
-			SetSlot(blkLocals, arg, x)
-		} else {
-			SetSlot(blkLocals, arg, vm.Nil)
+		x, ok := CheckStop(msg.EvalArgAt(vm, locals, i), LoopStops)
+		if !ok {
+			return x
 		}
+		SetSlot(blkLocals, arg, x)
 	}
 	upto := ReturnStop
 	if b.PassStops {
@@ -362,7 +357,7 @@ func LocalsUpdateSlot(vm *VM, target, locals Interface, msg *Message) Interface 
 	// block scope or method receiver.
 	self, proto := GetSlot(target, "self")
 	if proto != nil {
-		v, _ := CheckStop(msg.Send(vm, self, locals), LoopStops)
+		v, _ := CheckStop(vm.Perform(self, locals, msg), LoopStops)
 		return v
 	}
 	return vm.RaiseExceptionf("no slot named %s in %s", slot, vm.TypeName(target))
