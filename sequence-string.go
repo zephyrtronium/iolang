@@ -548,6 +548,93 @@ func SequenceAsBase64(vm *VM, target, locals Interface, msg *Message) Interface 
 	return vm.NewString(e + "\n")
 }
 
+// SequenceAsFixedSizeType is a Sequence method.
+//
+// asFixedSizeType creates a copy of the sequence encoded in the first of
+// UTF-8, UTF-16, or UTF-32 that will encode each rune in a single word.
+// Number encoding is copied directly. Latin-1/ASCII is copied to a uint8
+// sequence, but is not attempted as a destination encoding. If an erroneous
+// encoding is encountered, the result will be numeric.
+func SequenceAsFixedSizeType(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	code := "utf8"
+	switch s.Code {
+	case "number":
+		return vm.NewSequence(s.Value, s.IsMutable(), "number")
+	case "utf8":
+		b := s.Bytes()
+		i := 0
+		for i < len(b) {
+			r, n := utf8.DecodeRune(b[i:])
+			if n > 1 {
+				if r > 0xffff || 0xd800 <= r && r < 0xe000 {
+					code = "utf32"
+					break
+				} else {
+					code = "utf16"
+				}
+			}
+			if r < 0 {
+				code = "number"
+				break
+			}
+			i += n
+		}
+	case "ascii", "latin1":
+		return vm.NewSequence(s.Bytes(), s.IsMutable(), s.Code)
+	case "utf16":
+		d := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewDecoder()
+		b, err := d.Bytes(s.Bytes()) // bytes :)
+		if err != nil {
+			code = "number"
+			break
+		}
+		i := 0
+		for i < len(b) {
+			r, n := utf8.DecodeRune(b[i:])
+			if r > 0xffff || 0xd800 <= r && r < 0xe000 {
+				code = "utf32"
+				break
+			} else if r > 0x7f {
+				code = "utf16"
+			}
+			i += n
+		}
+	case "utf32":
+		d := utf32.UTF32(utf32.LittleEndian, utf32.IgnoreBOM).NewDecoder()
+		b, err := d.Bytes(s.Bytes()) // bytes :)
+		if err != nil {
+			code = "number"
+			break
+		}
+		i := 0
+		for i < len(b) {
+			r, n := utf8.DecodeRune(b[i:])
+			if r > 0xffff || 0xd800 <= r && r < 0xe000 {
+				code = "utf32"
+				break
+			} else if r > 0x7f {
+				code = "utf16"
+			}
+			i += n
+		}
+	default:
+		// TODO: We can really support any encoding in x/text/encoding.
+		panic(fmt.Sprintf("unsupported sequence encoding %q", s.Code))
+	}
+	switch code {
+	case "utf8":
+		return SequenceAsUTF8(vm, target, locals, msg)
+	case "utf16":
+		return SequenceAsUTF16(vm, target, locals, msg)
+	case "utf32":
+		return SequenceAsUTF32(vm, target, locals, msg)
+	case "number":
+		return vm.NewSequence(s.Value, s.IsMutable(), "number")
+	}
+	panic("unreachable")
+}
+
 // SequenceCapitalize is a Sequence method.
 //
 // capitalize replaces the first rune in the sequence with the capitalized
