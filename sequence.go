@@ -864,6 +864,7 @@ func (vm *VM) initSequence() {
 		"encoding":       vm.NewTypedCFunction(SequenceEncoding, exemplar),
 		"escape":         vm.NewTypedCFunction(SequenceEscape, exemplar),
 		"setEncoding":    vm.NewTypedCFunction(SequenceSetEncoding, exemplar),
+		"uppercase":      vm.NewTypedCFunction(SequenceUppercase, exemplar),
 		"validEncodings": vm.NewCFunction(SequenceValidEncodings),
 
 		// sequence-math.go:
