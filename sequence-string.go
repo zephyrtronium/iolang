@@ -695,6 +695,63 @@ func SequenceEscape(vm *VM, target, locals Interface, msg *Message) Interface {
 	return target
 }
 
+// SequenceLowercase is a Sequence method.
+//
+// lowercase converts the values in the sequence to their capitalized
+// equivalents. This does not use special (Turkish) casing.
+func SequenceLowercase(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckMutable("lowercase"); err != nil {
+		return vm.IoError(err)
+	}
+	sv := strings.ToLower(s.String())
+	switch s.Code {
+	case "number":
+		t := reflect.TypeOf(s.Value).Elem()
+		v := reflect.MakeSlice(t, 0, s.Len())
+		for _, r := range sv {
+			v = reflect.Append(v, reflect.ValueOf(r).Convert(t))
+		}
+		s.Value = v.Interface()
+	case "utf8":
+		if s.Kind == SeqMU8 {
+			s.Value = []byte(sv)
+		} else {
+			n := (len(sv) + s.ItemSize() - 1) / s.ItemSize()
+			v := reflect.MakeSlice(reflect.TypeOf(s.Value), n, n)
+			binary.Read(strings.NewReader(sv), binary.LittleEndian, v.Interface())
+			s.Value = v.Interface()
+		}
+	case "ascii", "latin1":
+		// This can't err because the original was also Latin-1.
+		b, _ := charmap.Windows1252.NewEncoder().Bytes([]byte(sv))
+		if s.Kind == SeqMU8 {
+			s.Value = b
+		} else {
+			n := (len(b) + s.ItemSize() - 1) / s.ItemSize()
+			v := reflect.MakeSlice(reflect.TypeOf(s.Value), n, n)
+			binary.Read(bytes.NewReader(b), binary.LittleEndian, v.Interface())
+			s.Value = v.Interface()
+		}
+	case "utf16":
+		b, _ := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewEncoder().Bytes([]byte(sv))
+		n := (len(b) + s.ItemSize() - 1) / s.ItemSize()
+		v := reflect.MakeSlice(reflect.TypeOf(s.Value), n, n)
+		binary.Read(bytes.NewReader(b), binary.LittleEndian, v.Interface())
+		s.Value = v.Interface()
+	case "utf32":
+		b, _ := utf32.UTF32(utf32.LittleEndian, utf32.IgnoreBOM).NewEncoder().Bytes([]byte(sv))
+		n := (len(b) + s.ItemSize() - 1) / s.ItemSize()
+		v := reflect.MakeSlice(reflect.TypeOf(s.Value), n, n)
+		binary.Read(bytes.NewReader(b), binary.LittleEndian, v.Interface())
+		s.Value = v.Interface()
+	default:
+		// TODO: We can really support any encoding in x/text/encoding.
+		panic(fmt.Sprintf("unsupported sequence encoding %q", s.Code))
+	}
+	return target
+}
+
 // SequenceUppercase is a Sequence method.
 //
 // uppercase converts the values in the sequence to their capitalized
