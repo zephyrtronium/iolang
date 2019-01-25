@@ -364,9 +364,9 @@ Sequence do(
 
 	asSimpleString := method("\"" .. self asString asMutable escape .. "\"")
 
-	asCapitalized := method(asMutable capitalize)
-	asLowercase := method(asMutable lowercase)
-	asUppercase := method(asMutable uppercase)
+	asCapitalized := method(if(isMutable, capitalize, asMutable capitalize asSymbol))
+	asLowercase := method(asMutable lowercase asSymbol)
+	asUppercase := method(asMutable uppercase asSymbol)
 
 	asFile := method(File with(self))
 )
