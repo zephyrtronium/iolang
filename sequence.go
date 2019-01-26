@@ -860,6 +860,7 @@ func (vm *VM) initSequence() {
 		"asFixedSizeType": vm.NewTypedCFunction(SequenceAsFixedSizeType, exemplar),
 		"asIoPath":        vm.NewTypedCFunction(SequenceAsIoPath, exemplar),
 		"asLatin1":        vm.NewTypedCFunction(SequenceAsLatin1, exemplar),
+		"asMessage":       vm.NewTypedCFunction(SequenceAsMessage, exemplar),
 		"asOSPath":        vm.NewTypedCFunction(SequenceAsOSPath, exemplar),
 		"asUTF16":         vm.NewTypedCFunction(SequenceAsUTF16, exemplar),
 		"asUTF32":         vm.NewTypedCFunction(SequenceAsUTF32, exemplar),

@@ -643,6 +643,29 @@ func SequenceAsIoPath(vm *VM, target, locals Interface, msg *Message) Interface 
 	return vm.NewString(filepath.ToSlash(s.String()))
 }
 
+// SequenceAsMessage is a Sequence method.
+//
+// asMessage compiles the sequence to a Message.
+func SequenceAsMessage(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	label := "[asMessage]"
+	if msg.ArgCount() > 0 {
+		r, stop := msg.StringArgAt(vm, locals, 0)
+		if stop != nil {
+			return stop
+		}
+		label = r.String()
+	}
+	m, err := vm.Parse(strings.NewReader(s.String()), label)
+	if err != nil {
+		return vm.IoError(err)
+	}
+	if err := vm.OpShuffle(m); err != nil {
+		return err
+	}
+	return m
+}
+
 // SequenceAsOSPath is a Sequence method.
 //
 // asOSPath creates a sequence converting the receiver to the host operating
