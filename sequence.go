@@ -570,7 +570,7 @@ func (s *Sequence) Find(other *Sequence) int {
 	if ol == 0 {
 		return 0
 	}
-	checks := s.Len() - ol
+	checks := s.Len() - ol + 1
 	for i := 0; i < checks; i++ {
 		if s.findMatch(other, i, ol) {
 			return i
