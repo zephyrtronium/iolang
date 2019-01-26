@@ -366,6 +366,26 @@ func SequenceAsSymbol(vm *VM, target, locals Interface, msg *Message) Interface 
 	return vm.NewSequence(s.Value, false, s.Code)
 }
 
+// SequenceBeforeSeq is a Sequence method.
+//
+// beforeSeq returns the portion of the sequence which precedes the first
+// instance of the argument sequence.
+func SequenceBeforeSeq(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	other, stop := msg.SequenceArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	p := s.Find(other)
+	if p < 0 {
+		return target
+	}
+	sv := reflect.ValueOf(s.Value)
+	v := reflect.MakeSlice(sv.Type(), p, p)
+	reflect.Copy(v, sv.Slice(0, p))
+	return vm.NewSequence(v.Interface(), s.IsMutable(), s.Code)
+}
+
 // SequenceWithStruct is a Sequence method.
 //
 // withStruct creates a packed binary sequence representing the values in the
