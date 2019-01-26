@@ -836,6 +836,7 @@ func (vm *VM) initSequence() {
 		// sequence-immutable.go:
 		"afterSeq":       vm.NewTypedCFunction(SequenceAfterSeq, exemplar),
 		"asList":         vm.NewTypedCFunction(SequenceAsList, exemplar),
+		"asStruct":       vm.NewTypedCFunction(SequenceAsStruct, exemplar),
 		"asSymbol":       vm.NewTypedCFunction(SequenceAsSymbol, exemplar),
 		"at":             vm.NewTypedCFunction(SequenceAt, exemplar),
 		"cloneAppendSeq": vm.NewTypedCFunction(SequenceCloneAppendSeq, exemplar),
@@ -844,6 +845,7 @@ func (vm *VM) initSequence() {
 		"itemSize":       vm.NewTypedCFunction(SequenceItemSize, exemplar),
 		"itemType":       vm.NewTypedCFunction(SequenceItemType, exemplar),
 		"size":           vm.NewTypedCFunction(SequenceSize, exemplar),
+		"withStruct":     vm.NewCFunction(SequenceWithStruct),
 
 		// sequence-mutable.go:
 		"append":            vm.NewTypedCFunction(SequenceAppend, exemplar),
@@ -861,6 +863,7 @@ func (vm *VM) initSequence() {
 		"asIoPath":        vm.NewTypedCFunction(SequenceAsIoPath, exemplar),
 		"asLatin1":        vm.NewTypedCFunction(SequenceAsLatin1, exemplar),
 		"asMessage":       vm.NewTypedCFunction(SequenceAsMessage, exemplar),
+		"asNumber":        vm.NewTypedCFunction(SequenceAsNumber, exemplar),
 		"asOSPath":        vm.NewTypedCFunction(SequenceAsOSPath, exemplar),
 		"asUTF16":         vm.NewTypedCFunction(SequenceAsUTF16, exemplar),
 		"asUTF32":         vm.NewTypedCFunction(SequenceAsUTF32, exemplar),

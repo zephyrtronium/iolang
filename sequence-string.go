@@ -666,6 +666,23 @@ func SequenceAsMessage(vm *VM, target, locals Interface, msg *Message) Interface
 	return m
 }
 
+// SequenceAsNumber is a Sequence method.
+//
+// asNumber parses the sequence as a numeric representation.
+func SequenceAsNumber(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	b := strings.TrimSpace(s.String())
+	x, err := strconv.ParseFloat(b, 64)
+	if err != nil {
+		y, err := strconv.ParseInt(b, 0, 64)
+		if err != nil {
+			return vm.IoError(err)
+		}
+		x = float64(y)
+	}
+	return vm.NewNumber(x)
+}
+
 // SequenceAsOSPath is a Sequence method.
 //
 // asOSPath creates a sequence converting the receiver to the host operating

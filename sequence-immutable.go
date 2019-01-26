@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"math"
 	"reflect"
+	"strings"
 )
 
 // SequenceAt is a Sequence method.
@@ -264,10 +266,148 @@ func SequenceAsList(vm *VM, target, locals Interface, msg *Message) Interface {
 	}
 }
 
+// SequenceAsStruct is a Sequence method.
+//
+// asStruct reinterprets a sequence as a packed binary structure described by
+// the argument list, with list elements alternating between types and slot
+// names.
+func SequenceAsStruct(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	b := s.Bytes()
+	l, stop := msg.ListArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	slots := make(Slots, len(l.Value)/2)
+	for i := 0; i < len(l.Value)/2; i++ {
+		typ, ok := l.Value[2*i].(*Sequence)
+		if !ok {
+			return vm.RaiseExceptionf("types must be strings, not %s", vm.TypeName(l.Value[2*i]))
+		}
+		nam, ok := l.Value[2*i+1].(*Sequence)
+		if !ok {
+			return vm.RaiseExceptionf("names must be strings, not %s", vm.TypeName(l.Value[2*i+1]))
+		}
+		var v float64
+		switch typs := typ.String(); strings.ToLower(typs) {
+		case "uint8":
+			if len(b) < 1 {
+				return vm.RaiseExceptionf("struct field %d out of bounds", i)
+			}
+			v = float64(b[0])
+			b = b[1:]
+		case "uint16":
+			if len(b) < 2 {
+				return vm.RaiseExceptionf("struct field %d out of bounds", i)
+			}
+			v = float64(binary.LittleEndian.Uint16(b))
+			b = b[2:]
+		case "uint32":
+			if len(b) < 4 {
+				return vm.RaiseExceptionf("struct field %d out of bounds", i)
+			}
+			v = float64(binary.LittleEndian.Uint32(b))
+			b = b[4:]
+		case "uint64":
+			if len(b) < 8 {
+				return vm.RaiseExceptionf("struct field %d out of bounds", i)
+			}
+			v = float64(binary.LittleEndian.Uint64(b))
+			b = b[8:]
+		case "int8":
+			if len(b) < 1 {
+				return vm.RaiseExceptionf("struct field %d out of bounds", i)
+			}
+			v = float64(int8(b[0]))
+			b = b[1:]
+		case "int16":
+			if len(b) < 2 {
+				return vm.RaiseExceptionf("struct field %d out of bounds", i)
+			}
+			v = float64(int16(binary.LittleEndian.Uint16(b)))
+			b = b[2:]
+		case "int32":
+			if len(b) < 4 {
+				return vm.RaiseExceptionf("struct field %d out of bounds", i)
+			}
+			v = float64(int32(binary.LittleEndian.Uint32(b)))
+			b = b[4:]
+		case "int64":
+			if len(b) < 8 {
+				return vm.RaiseExceptionf("struct field %d out of bounds", i)
+			}
+			v = float64(int64(binary.LittleEndian.Uint64(b)))
+			b = b[8:]
+		case "float32":
+			if len(b) < 4 {
+				return vm.RaiseExceptionf("struct field %d out of bounds", i)
+			}
+			v = float64(math.Float32frombits(binary.LittleEndian.Uint32(b)))
+			b = b[4:]
+		case "float64":
+			if len(b) < 8 {
+				return vm.RaiseExceptionf("struct field %d out of bounds", i)
+			}
+			v = math.Float64frombits(binary.LittleEndian.Uint64(b))
+			b = b[8:]
+		default:
+			return vm.RaiseExceptionf("unrecognized struct field type %q", typs)
+		}
+		slots[nam.String()] = vm.NewNumber(v)
+	}
+	return vm.ObjectWith(slots)
+}
+
 // SequenceAsSymbol is a Sequence method.
 //
 // asSymbol creates an immutable copy of the sequence.
 func SequenceAsSymbol(vm *VM, target, locals Interface, msg *Message) Interface {
 	s := target.(*Sequence)
 	return vm.NewSequence(s.Value, false, s.Code)
+}
+
+// SequenceWithStruct is a Sequence method.
+//
+// withStruct creates a packed binary sequence representing the values in the
+// argument list, with list elements alternating between types and values. Note
+// that while 64-bit types are valid, not all their values can be represented.
+func SequenceWithStruct(vm *VM, target, locals Interface, msg *Message) Interface {
+	l, stop := msg.ListArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	b := make([]byte, 0, len(l.Value)*2)
+	p := []byte{7: 0}
+	for i := 0; i < len(l.Value)/2; i++ {
+		typ, ok := l.Value[2*i].(*Sequence)
+		if !ok {
+			return vm.RaiseExceptionf("types must be strings, not %s", vm.TypeName(l.Value[2*i]))
+		}
+		val, ok := l.Value[2*i+1].(*Number)
+		if !ok {
+			return vm.RaiseExceptionf("values must be numbers, not %s", vm.TypeName(l.Value[2*i]))
+		}
+		switch typs := typ.String(); strings.ToLower(typs) {
+		case "uint8", "int8":
+			b = append(b, byte(val.Value))
+		case "uint16", "int16":
+			binary.LittleEndian.PutUint16(p, uint16(val.Value))
+			b = append(b, p[:2]...)
+		case "uint32", "int32":
+			binary.LittleEndian.PutUint32(p, uint32(val.Value))
+			b = append(b, p[:4]...)
+		case "uint64", "int64":
+			binary.LittleEndian.PutUint64(p, uint64(val.Value))
+			b = append(b, p...)
+		case "float32":
+			binary.LittleEndian.PutUint32(p, math.Float32bits(float32(val.Value)))
+			b = append(b, p[:4]...)
+		case "float64":
+			binary.LittleEndian.PutUint64(p, math.Float64bits(val.Value))
+			b = append(b, p...)
+		default:
+			return vm.RaiseExceptionf("unrecognized struct field type %q", typs)
+		}
+	}
+	return vm.NewSequence(b, true, "ascii")
 }
