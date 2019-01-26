@@ -851,6 +851,7 @@ func (vm *VM) initSequence() {
 		"append":            vm.NewTypedCFunction(SequenceAppend, exemplar),
 		"appendSeq":         vm.NewTypedCFunction(SequenceAppendSeq, exemplar),
 		"asMutable":         vm.NewTypedCFunction(SequenceAsMutable, exemplar),
+		"atInsertSeq":       vm.NewTypedCFunction(SequenceAtInsertSeq, exemplar),
 		"convertToItemType": vm.NewTypedCFunction(SequenceConvertToItemType, exemplar),
 		"copy":              vm.NewTypedCFunction(SequenceCopy, exemplar),
 		"setItemType":       vm.NewTypedCFunction(SequenceSetItemType, exemplar),

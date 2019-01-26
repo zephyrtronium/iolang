@@ -131,6 +131,50 @@ func SequenceAppendSeq(vm *VM, target, locals Interface, msg *Message) Interface
 	return target
 }
 
+// SequenceAtInsertSeq is a Sequence method.
+//
+// atInsertSeq inserts at the index given in the first argument the object
+// asString in the second.
+func SequenceAtInsertSeq(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckMutable("atInsertSeq"); err != nil {
+		return vm.IoError(err)
+	}
+	n, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	p := int(n.Value)
+	if p < 0 || p > s.Len() {
+		return vm.RaiseException("index out of bounds")
+	}
+	r, stop := msg.AsStringArgAt(vm, locals, 1)
+	if stop != nil {
+		return stop
+	}
+	// Since the inserted sequence's values are always converted to the type of
+	// the receiver, it would be _possible_ to use a switch for this, but I'm
+	// lazy and not entirely convinced switches are actually more efficient.
+	if p == s.Len() {
+		// shortcut
+		s.appendSameKind(r.Convert(vm, s.Kind))
+		return target
+	}
+	u := reflect.ValueOf(r.Value)
+	v := reflect.ValueOf(s.Value)
+	w := reflect.MakeSlice(v.Type(), u.Len(), u.Len())
+	x := reflect.MakeSlice(v.Type(), v.Len()-p, v.Len()-p)
+	t := v.Type().Elem()
+	for i := 0; i < w.Len(); i++ {
+		w.Index(i).Set(u.Index(i).Convert(t))
+	}
+	reflect.Copy(x, v.Slice(p, v.Len()))
+	v = reflect.AppendSlice(v.Slice(0, p), w)
+	v = reflect.AppendSlice(v, x)
+	s.Value = v.Interface()
+	return target
+}
+
 // SequenceSetItemType is a Sequence method.
 //
 // setItemType effectively reinterprets the bit pattern of the sequence data in
