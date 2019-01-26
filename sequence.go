@@ -849,6 +849,7 @@ func (vm *VM) initSequence() {
 		"asSymbol":       vm.NewTypedCFunction(SequenceAsSymbol, exemplar),
 		"at":             vm.NewTypedCFunction(SequenceAt, exemplar),
 		"beforeSeq":      vm.NewTypedCFunction(SequenceBeforeSeq, exemplar),
+		"beginsWithSeq":  vm.NewTypedCFunction(SequenceBeginsWithSeq, exemplar),
 		"cloneAppendSeq": vm.NewTypedCFunction(SequenceCloneAppendSeq, exemplar),
 		"compare":        vm.NewTypedCFunction(SequenceCompare, exemplar),
 		"isMutable":      vm.NewTypedCFunction(SequenceIsMutable, exemplar),

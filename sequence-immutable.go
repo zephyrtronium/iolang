@@ -386,6 +386,25 @@ func SequenceBeforeSeq(vm *VM, target, locals Interface, msg *Message) Interface
 	return vm.NewSequence(v.Interface(), s.IsMutable(), s.Code)
 }
 
+// SequenceBeginsWithSeq is a Sequence method.
+//
+// beginsWithSeq determines whether the sequence begins with the argument
+// sequence in the bytewise sense.
+func SequenceBeginsWithSeq(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	other, stop := msg.SequenceArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	n := other.Len() * other.ItemSize()
+	if n > s.Len()*s.ItemSize() {
+		return vm.False
+	}
+	a := s.BytesN(n)
+	b := other.BytesN(n)
+	return vm.IoBool(bytes.Equal(a, b))
+}
+
 // SequenceWithStruct is a Sequence method.
 //
 // withStruct creates a packed binary sequence representing the values in the
