@@ -635,6 +635,23 @@ func SequenceAsFixedSizeType(vm *VM, target, locals Interface, msg *Message) Int
 	panic("unreachable")
 }
 
+// SequenceAsIoPath is a Sequence method.
+//
+// asIoPath creates a sequence converting the receiver to Io's path convention.
+func SequenceAsIoPath(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	return vm.NewString(filepath.ToSlash(s.String()))
+}
+
+// SequenceAsOSPath is a Sequence method.
+//
+// asOSPath creates a sequence converting the receiver to the host operating
+// system's path convention.
+func SequenceAsOSPath(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	return vm.NewString(filepath.FromSlash(s.String()))
+}
+
 // SequenceCapitalize is a Sequence method.
 //
 // capitalize replaces the first rune in the sequence with the capitalized
