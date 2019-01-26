@@ -175,6 +175,38 @@ func SequenceAtInsertSeq(vm *VM, target, locals Interface, msg *Message) Interfa
 	return target
 }
 
+// SequenceAtPut is a Sequence method.
+//
+// atPut replaces the element at the given position with the given value,
+// growing the sequence if necessary.
+func SequenceAtPut(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckMutable("atPut"); err != nil {
+		return vm.IoError(err)
+	}
+	n, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	x, stop := msg.NumberArgAt(vm, locals, 1)
+	if stop != nil {
+		return stop
+	}
+	p := int(n.Value)
+	if p < 0 {
+		return vm.RaiseException("index out of bounds")
+	}
+	v := reflect.ValueOf(s.Value)
+	if p >= v.Len() {
+		k := p - s.Len() + 1
+		w := reflect.MakeSlice(v.Type(), k, k)
+		v = reflect.AppendSlice(v, w)
+	}
+	v.Index(p).Set(reflect.ValueOf(x.Value).Convert(v.Type().Elem()))
+	s.Value = v.Interface()
+	return s
+}
+
 // SequenceSetItemType is a Sequence method.
 //
 // setItemType effectively reinterprets the bit pattern of the sequence data in
