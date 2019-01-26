@@ -192,16 +192,14 @@ func (m *Message) ListArgAt(vm *VM, locals Interface, n int) (*List, Interface) 
 // is nil, and an error is returned.
 func (m *Message) AsStringArgAt(vm *VM, locals Interface, n int) (*Sequence, Interface) {
 	v := m.EvalArgAt(vm, locals, n)
-	if asString, proto := GetSlot(v, "asString"); proto != nil {
-		r, ok := CheckStop(asString.Activate(vm, locals, locals, proto, vm.IdentMessage("asString")), LoopStops)
-		if !ok {
-			return nil, r
-		}
+	r, ok := CheckStop(vm.Perform(v, locals, vm.IdentMessage("asString")), LoopStops)
+	if ok {
 		if s, ok := r.(*Sequence); ok {
 			return s, nil
 		}
+		return nil, vm.RaiseExceptionf("argument %d to %s cannot be converted to string", n, m.Text)
 	}
-	return nil, vm.RaiseExceptionf("argument %d to %s cannot be converted to string", n, m.Text)
+	return nil, r
 }
 
 // EvalArgAt evaluates the nth argument.
