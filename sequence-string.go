@@ -185,7 +185,7 @@ func (s *Sequence) BytesN(n int) []byte {
 	switch s.Kind {
 	case SeqMU8, SeqIU8:
 		v := s.Value.([]byte)
-		b = append(b, v...)
+		b = append(b, v[:n]...)
 	case SeqMU16, SeqIU16:
 		v := s.Value.([]uint16)
 		for _, c := range v {
@@ -271,7 +271,7 @@ func (s *Sequence) BytesN(n int) []byte {
 	default:
 		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
 	}
-	return b
+	return b[:n]
 }
 
 // SequenceFromBytes makes a Sequence with the given type having the same bit
