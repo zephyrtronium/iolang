@@ -438,6 +438,33 @@ func SequenceAsin(vm *VM, target, locals Interface, msg *Message) Interface {
 	return s
 }
 
+// SequenceAtan is a Sequence method.
+//
+// atan sets each element of the receiver to its arctangent.
+func SequenceAtan(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckNumeric("atan", true); err != nil {
+		return vm.IoError(err)
+	}
+	s.MapUnary(math.Atan)
+	return s
+}
+
+// SequenceCeil is a Sequence method.
+//
+// ceil sets each element of the receiver to the smallest integer greater than
+// its current value. No-op on integer sequences.
+func SequenceCeil(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckNumeric("ceil", true); err != nil {
+		return vm.IoError(err)
+	}
+	if s.IsFP() {
+		s.MapUnary(math.Ceil)
+	}
+	return s
+}
+
 // SequenceCos is a Sequence method.
 //
 // cos sets each element of the receiver to its cosine.
@@ -447,5 +474,140 @@ func SequenceCos(vm *VM, target, locals Interface, msg *Message) Interface {
 		return vm.IoError(err)
 	}
 	s.MapUnary(math.Cos)
+	return s
+}
+
+// SequenceCosh is a Sequence method.
+//
+// cosh sets each element of the receiver to its hyperbolic cosine.
+func SequenceCosh(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckNumeric("cosh", true); err != nil {
+		return vm.IoError(err)
+	}
+	s.MapUnary(math.Cosh)
+	return s
+}
+
+// SequenceFloor is a Sequence method.
+//
+// floor sets each element of the receiver to the largest integer less than its
+// current value. No-op on integer sequences.
+func SequenceFloor(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckNumeric("floor", true); err != nil {
+		return vm.IoError(err)
+	}
+	if s.IsFP() {
+		s.MapUnary(math.Floor)
+	}
+	return s
+}
+
+// SequenceLog is a Sequence method.
+//
+// log sets each element of the receiver to its natural logarithm.
+func SequenceLog(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckNumeric("log", true); err != nil {
+		return vm.IoError(err)
+	}
+	s.MapUnary(math.Log)
+	return s
+}
+
+// SequenceLog10 is a Sequence method.
+//
+// log10 sets each element of the receiver to its common logarithm.
+func SequenceLog10(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckNumeric("log10", true); err != nil {
+		return vm.IoError(err)
+	}
+	s.MapUnary(math.Log10)
+	return s
+}
+
+// SequenceNegate is a Sequence method.
+//
+// negate sets each element of the receiver to its opposite.
+func SequenceNegate(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckNumeric("negate", true); err != nil {
+		return vm.IoError(err)
+	}
+	s.MapUnary(func(x float64) float64 { return -x })
+	return s
+}
+
+// SequenceSin is a Sequence method.
+//
+// sin sets each element of the receiver to its sine.
+func SequenceSin(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckNumeric("sin", true); err != nil {
+		return vm.IoError(err)
+	}
+	s.MapUnary(math.Sin)
+	return s
+}
+
+// SequenceSinh is a Sequence method.
+//
+// sinh sets each element of the receiver to its hyperbolic sine.
+func SequenceSinh(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckNumeric("sinh", true); err != nil {
+		return vm.IoError(err)
+	}
+	s.MapUnary(math.Sinh)
+	return s
+}
+
+// SequenceSqrt is a Sequence method.
+//
+// sqrt sets each element of the receiver to its square root.
+func SequenceSqrt(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckNumeric("sqrt", true); err != nil {
+		return vm.IoError(err)
+	}
+	s.MapUnary(math.Sqrt)
+	return s
+}
+
+// SequenceSquare is a Sequence method.
+//
+// square sets each element of the receiver to its square.
+func SequenceSquare(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckNumeric("square", true); err != nil {
+		return vm.IoError(err)
+	}
+	s.MapUnary(func(x float64) float64 { return x * x })
+	return s
+}
+
+// SequenceTan is a Sequence method.
+//
+// tan sets each element of the receiver to its tangent.
+func SequenceTan(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckNumeric("tan", true); err != nil {
+		return vm.IoError(err)
+	}
+	s.MapUnary(math.Tan)
+	return s
+}
+
+// SequenceTanh is a Sequence method.
+//
+// tanh sets each element of the receiver to its hyperbolic tangent.
+func SequenceTanh(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckNumeric("tanh", true); err != nil {
+		return vm.IoError(err)
+	}
+	s.MapUnary(math.Tanh)
 	return s
 }

@@ -175,6 +175,15 @@ func (s *Sequence) IsMutable() bool {
 	return s.Kind > 0
 }
 
+// IsFP returns whether the sequence has a float32 or float64 kind.
+func (s *Sequence) IsFP() bool {
+	switch s.Kind {
+	case SeqMF32, SeqIF32, SeqMF64, SeqIF64:
+		return true
+	}
+	return false
+}
+
 // SameType returns whether the sequence has the same data type as another,
 // regardless of mutability.
 func (s *Sequence) SameType(as *Sequence) bool {
@@ -879,20 +888,34 @@ func (vm *VM) initSequence() {
 		"validEncodings":  vm.NewCFunction(SequenceValidEncodings),
 
 		// sequence-math.go:
-		"**=":                     vm.NewTypedCFunction(SequenceStarStarEq, exemplar),
-		"*=":                      vm.NewTypedCFunction(SequenceStarEq, exemplar),
-		"+=":                      vm.NewTypedCFunction(SequencePlusEq, exemplar),
-		"-=":                      vm.NewTypedCFunction(SequenceMinusEq, exemplar),
-		"/=":                      vm.NewTypedCFunction(SequenceSlashEq, exemplar),
-		"Max":                     vm.NewTypedCFunction(SequencePairwiseMax, exemplar),
-		"Min":                     vm.NewTypedCFunction(SequencePairwiseMin, exemplar),
-		"abs":                     vm.NewTypedCFunction(SequenceAbs, exemplar),
-		"acos":                    vm.NewTypedCFunction(SequenceAcos, exemplar),
+		"**=":    vm.NewTypedCFunction(SequenceStarStarEq, exemplar),
+		"*=":     vm.NewTypedCFunction(SequenceStarEq, exemplar),
+		"+=":     vm.NewTypedCFunction(SequencePlusEq, exemplar),
+		"-=":     vm.NewTypedCFunction(SequenceMinusEq, exemplar),
+		"/=":     vm.NewTypedCFunction(SequenceSlashEq, exemplar),
+		"Max":    vm.NewTypedCFunction(SequencePairwiseMax, exemplar),
+		"Min":    vm.NewTypedCFunction(SequencePairwiseMin, exemplar),
+		"abs":    vm.NewTypedCFunction(SequenceAbs, exemplar),
+		"acos":   vm.NewTypedCFunction(SequenceAcos, exemplar),
+		"asin":   vm.NewTypedCFunction(SequenceAsin, exemplar),
+		"atan":   vm.NewTypedCFunction(SequenceAtan, exemplar),
+		"ceil":   vm.NewTypedCFunction(SequenceCeil, exemplar),
+		"cos":    vm.NewTypedCFunction(SequenceCos, exemplar),
+		"cosh":   vm.NewTypedCFunction(SequenceCosh, exemplar),
+		"floor":  vm.NewTypedCFunction(SequenceFloor, exemplar),
+		"log":    vm.NewTypedCFunction(SequenceLog, exemplar),
+		"log10":  vm.NewTypedCFunction(SequenceLog10, exemplar),
+		"negate": vm.NewTypedCFunction(SequenceNegate, exemplar),
+		"sin":    vm.NewTypedCFunction(SequenceSin, exemplar),
+		"sinh":   vm.NewTypedCFunction(SequenceSinh, exemplar),
+		"sqrt":   vm.NewTypedCFunction(SequenceSqrt, exemplar),
+		"square": vm.NewTypedCFunction(SequenceSquare, exemplar),
+		"tan":    vm.NewTypedCFunction(SequenceTan, exemplar),
+		"tanh":   vm.NewTypedCFunction(SequenceTanh, exemplar),
+		//
 		"asBinaryNumber":          vm.NewTypedCFunction(SequenceAsBinaryNumber, exemplar),
 		"asBinarySignedInteger":   vm.NewTypedCFunction(SequenceAsBinarySignedInteger, exemplar),
 		"asBinaryUnsignedInteger": vm.NewTypedCFunction(SequenceAsBinaryUnsignedInteger, exemplar),
-		"asin":                    vm.NewTypedCFunction(SequenceAsin, exemplar),
-		"cos":                     vm.NewTypedCFunction(SequenceCos, exemplar),
 	}
 	slots["addEquals"] = slots["+="]
 	slots["asBuffer"] = slots["asMutable"]
