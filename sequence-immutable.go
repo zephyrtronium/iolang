@@ -1,6 +1,8 @@
 package iolang
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
 	"reflect"
 )
@@ -165,6 +167,101 @@ func SequenceAfterSeq(vm *VM, target, locals Interface, msg *Message) Interface 
 	v := reflect.MakeSlice(sv.Type(), l, l)
 	reflect.Copy(v, sv.Slice(p, sv.Len()))
 	return vm.NewSequence(v.Interface(), s.IsMutable(), s.Code)
+}
+
+// SequenceAsList is a Sequence method.
+//
+// asList creates a list containing each element of the sequence.
+func SequenceAsList(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	switch s.Kind {
+	case SeqMU8, SeqIU8:
+		v := s.Value.([]byte)
+		x := make([]Interface, len(v))
+		for i, c := range v {
+			x[i] = vm.NewSequence([]byte{c}, false, "ascii")
+		}
+		return vm.NewList(x...)
+	case SeqMU16, SeqIU16:
+		v := s.Value.([]uint16)
+		x := make([]Interface, len(v))
+		p := []byte{1: 0}
+		for i, c := range v {
+			binary.LittleEndian.PutUint16(p, c)
+			x[i] = vm.NewSequence(bytes.TrimRight(p, "\x00"), false, "ascii")
+		}
+		return vm.NewList(x...)
+	case SeqMU32, SeqIU32:
+		v := s.Value.([]uint32)
+		x := make([]Interface, len(v))
+		p := []byte{3: 0}
+		for i, c := range v {
+			binary.LittleEndian.PutUint32(p, c)
+			x[i] = vm.NewSequence(bytes.TrimRight(p, "\x00"), false, "ascii")
+		}
+		return vm.NewList(x...)
+	case SeqMU64, SeqIU64:
+		v := s.Value.([]uint64)
+		x := make([]Interface, len(v))
+		p := []byte{7: 0}
+		for i, c := range v {
+			binary.LittleEndian.PutUint64(p, c)
+			x[i] = vm.NewSequence(bytes.TrimRight(p, "\x00"), false, "ascii")
+		}
+		return vm.NewList(x...)
+	case SeqMS8, SeqIS8:
+		v := s.Value.([]int8)
+		x := make([]Interface, len(v))
+		for i, c := range v {
+			x[i] = vm.NewSequence([]byte{byte(c)}, false, "ascii")
+		}
+		return vm.NewList(x...)
+	case SeqMS16, SeqIS16:
+		v := s.Value.([]int16)
+		x := make([]Interface, len(v))
+		p := []byte{1: 0}
+		for i, c := range v {
+			binary.LittleEndian.PutUint16(p, uint16(c))
+			x[i] = vm.NewSequence(bytes.TrimRight(p, "\x00"), false, "ascii")
+		}
+		return vm.NewList(x...)
+	case SeqMS32, SeqIS32:
+		v := s.Value.([]int32)
+		x := make([]Interface, len(v))
+		p := []byte{3: 0}
+		for i, c := range v {
+			binary.LittleEndian.PutUint32(p, uint32(c))
+			x[i] = vm.NewSequence(bytes.TrimRight(p, "\x00"), false, "ascii")
+		}
+		return vm.NewList(x...)
+	case SeqMS64, SeqIS64:
+		v := s.Value.([]int64)
+		x := make([]Interface, len(v))
+		p := []byte{7: 0}
+		for i, c := range v {
+			binary.LittleEndian.PutUint64(p, uint64(c))
+			x[i] = vm.NewSequence(bytes.TrimRight(p, "\x00"), false, "ascii")
+		}
+		return vm.NewList(x...)
+	case SeqMF32, SeqIF32:
+		v := s.Value.([]float32)
+		x := make([]Interface, len(v))
+		for i, c := range v {
+			x[i] = vm.NewNumber(float64(c))
+		}
+		return vm.NewList(x...)
+	case SeqMF64, SeqIF64:
+		v := s.Value.([]float64)
+		x := make([]Interface, len(v))
+		for i, c := range v {
+			x[i] = vm.NewNumber(c)
+		}
+		return vm.NewList(x...)
+	case SeqUntyped:
+		panic("use of untyped sequence")
+	default:
+		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+	}
 }
 
 // SequenceAsSymbol is a Sequence method.

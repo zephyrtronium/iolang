@@ -835,6 +835,7 @@ func (vm *VM) initSequence() {
 	slots := Slots{
 		// sequence-immutable.go:
 		"afterSeq":       vm.NewTypedCFunction(SequenceAfterSeq, exemplar),
+		"asList":         vm.NewTypedCFunction(SequenceAsList, exemplar),
 		"asSymbol":       vm.NewTypedCFunction(SequenceAsSymbol, exemplar),
 		"at":             vm.NewTypedCFunction(SequenceAt, exemplar),
 		"cloneAppendSeq": vm.NewTypedCFunction(SequenceCloneAppendSeq, exemplar),
