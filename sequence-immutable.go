@@ -448,6 +448,135 @@ func SequenceBetween(vm *VM, target, locals Interface, msg *Message) Interface {
 	return vm.NewSequence(w.Interface(), s.IsMutable(), s.Code)
 }
 
+// SequenceBitAt is a Sequence method.
+//
+// bitAt returns the value of the selected bit within the sequence, 0 or 1. If
+// the index is out of bounds, the result is always 0.
+func SequenceBitAt(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	n, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	// Would it be more accurate to do these divisions before converting to
+	// int? Do we care?
+	j := int(n.Value) / 8
+	k := uint(n.Value) % 8
+	// Explicitly test j in addition to n.Value to account for over/underflow.
+	if n.Value < 0 || j < 0 || j >= s.Len()*s.ItemSize() {
+		return vm.NewNumber(0)
+	}
+	var c byte
+	switch s.Kind {
+	case SeqMU8, SeqIU8:
+		v := s.Value.([]byte)
+		c = v[j]
+	case SeqMU16, SeqIU16:
+		v := s.Value.([]uint16)
+		x := v[j/2]
+		c = byte(x >> uint(j&1*8))
+	case SeqMU32, SeqIU32:
+		v := s.Value.([]uint32)
+		x := v[j/4]
+		c = byte(x >> uint(j&3*8))
+	case SeqMU64, SeqIU64:
+		v := s.Value.([]uint64)
+		x := v[j/8]
+		c = byte(x >> uint(j&7*8))
+	case SeqMS8, SeqIS8:
+		v := s.Value.([]int8)
+		c = byte(v[j])
+	case SeqMS16, SeqIS16:
+		v := s.Value.([]int16)
+		x := v[j/2]
+		c = byte(x >> uint(j&1*8))
+	case SeqMS32, SeqIS32:
+		v := s.Value.([]int32)
+		x := v[j/4]
+		c = byte(x >> uint(j&3*8))
+	case SeqMS64, SeqIS64:
+		v := s.Value.([]int64)
+		x := v[j/8]
+		c = byte(x >> uint(j&7*8))
+	case SeqMF32, SeqIF32:
+		v := s.Value.([]float32)
+		x := math.Float32bits(v[j/4])
+		c = byte(x >> uint(j&3*8))
+	case SeqMF64, SeqIF64:
+		v := s.Value.([]float64)
+		x := math.Float64bits(v[j/8])
+		c = byte(x >> uint(j&7*8))
+	case SeqUntyped:
+		panic("use of untyped sequence")
+	default:
+		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+	}
+	return vm.NewNumber(float64(c >> k & 1))
+}
+
+// SequenceByteAt is a Sequence method.
+//
+// byteAt returns the value of the selected byte of the sequence's underlying
+// representation, 0 to 255. If the index is out of bounds, the result is 0.
+func SequenceByteAt(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	n, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	j := int(n.Value)
+	// Explicitly test j rather than n.Value to account for over/underflow.
+	if j < 0 || j >= s.Len()*s.ItemSize() {
+		return vm.NewNumber(0)
+	}
+	var c byte
+	switch s.Kind {
+	case SeqMU8, SeqIU8:
+		v := s.Value.([]byte)
+		c = v[j]
+	case SeqMU16, SeqIU16:
+		v := s.Value.([]uint16)
+		x := v[j/2]
+		c = byte(x >> uint(j&1*8))
+	case SeqMU32, SeqIU32:
+		v := s.Value.([]uint32)
+		x := v[j/4]
+		c = byte(x >> uint(j&3*8))
+	case SeqMU64, SeqIU64:
+		v := s.Value.([]uint64)
+		x := v[j/8]
+		c = byte(x >> uint(j&7*8))
+	case SeqMS8, SeqIS8:
+		v := s.Value.([]int8)
+		c = byte(v[j])
+	case SeqMS16, SeqIS16:
+		v := s.Value.([]int16)
+		x := v[j/2]
+		c = byte(x >> uint(j&1*8))
+	case SeqMS32, SeqIS32:
+		v := s.Value.([]int32)
+		x := v[j/4]
+		c = byte(x >> uint(j&3*8))
+	case SeqMS64, SeqIS64:
+		v := s.Value.([]int64)
+		x := v[j/8]
+		c = byte(x >> uint(j&7*8))
+	case SeqMF32, SeqIF32:
+		v := s.Value.([]float32)
+		x := math.Float32bits(v[j/4])
+		c = byte(x >> uint(j&3*8))
+	case SeqMF64, SeqIF64:
+		v := s.Value.([]float64)
+		x := math.Float64bits(v[j/8])
+		c = byte(x >> uint(j&7*8))
+	case SeqUntyped:
+		panic("use of untyped sequence")
+	default:
+		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+	}
+	return vm.NewNumber(float64(c))
+}
+
 // SequenceWithStruct is a Sequence method.
 //
 // withStruct creates a packed binary sequence representing the values in the
