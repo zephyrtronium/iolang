@@ -405,6 +405,49 @@ func SequenceBeginsWithSeq(vm *VM, target, locals Interface, msg *Message) Inter
 	return vm.IoBool(bytes.Equal(a, b))
 }
 
+// SequenceBetween is a Sequence method.
+//
+// between returns the portion of the sequence between the first occurrence of
+// the first argument sequence and the first following occurrence of the
+// second.
+func SequenceBetween(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	r, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
+	if !ok {
+		return r
+	}
+	k := 0
+	if other, ok := r.(*Sequence); ok {
+		k = s.Find(other, 0)
+		if k < 0 {
+			return vm.Nil
+		}
+		k += other.Len()
+	} else if r != vm.Nil {
+		return vm.RaiseExceptionf("argument 0 to between must be Sequence or nil, not %s", vm.TypeName(r))
+	}
+	r, ok = CheckStop(msg.EvalArgAt(vm, locals, 1), LoopStops)
+	if !ok {
+		return r
+	}
+	l := 0
+	if other, ok := r.(*Sequence); ok {
+		l = s.Find(other, k)
+		if l < 0 {
+			// The original returns nil in this case.
+			l = s.Len()
+		}
+	} else if r == vm.Nil {
+		l = s.Len()
+	} else {
+		return vm.RaiseExceptionf("argument 1 to between must be Sequence or nil, not %s", vm.TypeName(r))
+	}
+	v := reflect.ValueOf(s.Value)
+	w := reflect.MakeSlice(v.Type(), l-k, l-k)
+	reflect.Copy(w, v.Slice(k, l))
+	return vm.NewSequence(w.Interface(), s.IsMutable(), s.Code)
+}
+
 // SequenceWithStruct is a Sequence method.
 //
 // withStruct creates a packed binary sequence representing the values in the

@@ -866,6 +866,7 @@ func (vm *VM) initSequence() {
 		"at":             vm.NewTypedCFunction(SequenceAt, exemplar),
 		"beforeSeq":      vm.NewTypedCFunction(SequenceBeforeSeq, exemplar),
 		"beginsWithSeq":  vm.NewTypedCFunction(SequenceBeginsWithSeq, exemplar),
+		"between":        vm.NewTypedCFunction(SequenceBetween, exemplar),
 		"cloneAppendSeq": vm.NewTypedCFunction(SequenceCloneAppendSeq, exemplar),
 		"compare":        vm.NewTypedCFunction(SequenceCompare, exemplar),
 		"isMutable":      vm.NewTypedCFunction(SequenceIsMutable, exemplar),
@@ -938,6 +939,7 @@ func (vm *VM) initSequence() {
 	slots["addEquals"] = slots["+="]
 	slots["asBuffer"] = slots["asMutable"]
 	slots["asString"] = slots["asSymbol"]
+	slots["betweenSeq"] = slots["between"]
 	ms := &Sequence{
 		Object: *vm.ObjectWith(slots),
 		Value:  []byte(nil),
