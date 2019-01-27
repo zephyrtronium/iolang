@@ -159,7 +159,7 @@ func SequenceAfterSeq(vm *VM, target, locals Interface, msg *Message) Interface 
 	if stop != nil {
 		return stop
 	}
-	p := s.Find(other)
+	p := s.Find(other, 0)
 	if p < 0 {
 		return vm.Nil
 	}
@@ -376,7 +376,7 @@ func SequenceBeforeSeq(vm *VM, target, locals Interface, msg *Message) Interface
 	if stop != nil {
 		return stop
 	}
-	p := s.Find(other)
+	p := s.Find(other, 0)
 	if p < 0 {
 		return target
 	}

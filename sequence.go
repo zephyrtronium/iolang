@@ -562,16 +562,32 @@ func (s *Sequence) appendGrow(other *Sequence) {
 	s.Kind = other.Kind
 }
 
-// Find locates the first instance of other in the sequence. Comparison is done
-// following conversion to the same type. If there is no match, the result is
-// -1.
-func (s *Sequence) Find(other *Sequence) int {
+// Find locates the first instance of other in the sequence following start.
+// Comparison is done following conversion to the same type. If there is no
+// match, the result is -1.
+func (s *Sequence) Find(other *Sequence, start int) int {
 	ol := other.Len()
 	if ol == 0 {
 		return 0
 	}
 	checks := s.Len() - ol + 1
-	for i := 0; i < checks; i++ {
+	for i := start; i < checks; i++ {
+		if s.findMatch(other, i, ol) {
+			return i
+		}
+	}
+	return -1
+}
+
+// RFind locates the last instance of other in the sequence ending before end.
+// Comparison is done following conversion to the same type. If there is no
+// match, the result is -1.
+func (s *Sequence) RFind(other *Sequence, end int) int {
+	ol := other.Len()
+	if ol == 0 {
+		return s.Len()
+	}
+	for i := s.Len() - ol - end; i >= 0; i-- {
 		if s.findMatch(other, i, ol) {
 			return i
 		}
