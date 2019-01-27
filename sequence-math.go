@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"math/bits"
 )
 
 // CheckNumeric checks that the sequence is numeric, optionally requiring the
@@ -448,6 +449,71 @@ func SequenceAtan(vm *VM, target, locals Interface, msg *Message) Interface {
 	}
 	s.MapUnary(math.Atan)
 	return s
+}
+
+// SequenceBitCount is a Sequence method.
+//
+// bitCount returns the number of 1 bits in the sequence.
+func SequenceBitCount(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	n := 0
+	switch s.Kind {
+	case SeqMU8, SeqIU8:
+		v := s.Value.([]byte)
+		for _, c := range v {
+			n += bits.OnesCount8(c)
+		}
+	case SeqMU16, SeqIU16:
+		v := s.Value.([]uint16)
+		for _, c := range v {
+			n += bits.OnesCount16(c)
+		}
+	case SeqMU32, SeqIU32:
+		v := s.Value.([]uint32)
+		for _, c := range v {
+			n += bits.OnesCount32(c)
+		}
+	case SeqMU64, SeqIU64:
+		v := s.Value.([]uint64)
+		for _, c := range v {
+			n += bits.OnesCount64(c)
+		}
+	case SeqMS8, SeqIS8:
+		v := s.Value.([]int8)
+		for _, c := range v {
+			n += bits.OnesCount8(byte(c))
+		}
+	case SeqMS16, SeqIS16:
+		v := s.Value.([]int16)
+		for _, c := range v {
+			n += bits.OnesCount16(uint16(c))
+		}
+	case SeqMS32, SeqIS32:
+		v := s.Value.([]int32)
+		for _, c := range v {
+			n += bits.OnesCount32(uint32(c))
+		}
+	case SeqMS64, SeqIS64:
+		v := s.Value.([]int64)
+		for _, c := range v {
+			n += bits.OnesCount64(uint64(c))
+		}
+	case SeqMF32, SeqIF32:
+		v := s.Value.([]float32)
+		for _, c := range v {
+			n += bits.OnesCount32(math.Float32bits(c))
+		}
+	case SeqMF64, SeqIF64:
+		v := s.Value.([]float64)
+		for _, c := range v {
+			n += bits.OnesCount64(math.Float64bits(c))
+		}
+	case SeqUntyped:
+		panic("use of untyped sequence")
+	default:
+		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+	}
+	return vm.NewNumber(float64(n))
 }
 
 // SequenceCeil is a Sequence method.
