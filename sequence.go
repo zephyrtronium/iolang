@@ -938,6 +938,10 @@ func (vm *VM) initSequence() {
 		"asBinarySignedInteger":   vm.NewTypedCFunction(SequenceAsBinarySignedInteger, exemplar),
 		"asBinaryUnsignedInteger": vm.NewTypedCFunction(SequenceAsBinaryUnsignedInteger, exemplar),
 		"bitCount":                vm.NewTypedCFunction(SequenceBitCount, exemplar),
+		"bitwiseAnd":              vm.NewTypedCFunction(SequenceBitwiseAnd, exemplar),
+		"bitwiseNot":              vm.NewTypedCFunction(SequenceBitwiseNot, exemplar),
+		"bitwiseOr":               vm.NewTypedCFunction(SequenceBitwiseOr, exemplar),
+		"bitwiseXor":              vm.NewTypedCFunction(SequenceBitwiseXor, exemplar),
 	}
 	slots["addEquals"] = slots["+="]
 	slots["asBuffer"] = slots["asMutable"]

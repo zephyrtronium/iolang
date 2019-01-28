@@ -1,6 +1,7 @@
 package iolang
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"math"
@@ -514,6 +515,115 @@ func SequenceBitCount(vm *VM, target, locals Interface, msg *Message) Interface 
 		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
 	}
 	return vm.NewNumber(float64(n))
+}
+
+// SequenceBitwiseAnd is a Sequence method.
+//
+// bitwiseAnd sets the receiver to the bitwise AND of its binary representation
+// and that of the argument sequence.
+func SequenceBitwiseAnd(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckMutable("bitwiseAnd"); err != nil {
+		return vm.IoError(err)
+	}
+	other, stop := msg.SequenceArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	v := s.Bytes()
+	w := other.BytesN(len(v))
+	var i int
+	for i = 0; i < len(w)/8; i++ {
+		x := binary.LittleEndian.Uint64(v[8*i:])
+		y := binary.LittleEndian.Uint64(w[8*i:])
+		x &= y
+		binary.LittleEndian.PutUint64(v[8*i:], x)
+	}
+	for i *= 8; i < len(w); i++ {
+		v[i] &= w[i]
+	}
+	binary.Read(bytes.NewReader(v), binary.LittleEndian, s.Value)
+	return target
+}
+
+// SequenceBitwiseNot is a Sequence method.
+//
+// bitwiseNot sets the receiver to the bitwise NOT of its binary representation
+// and that of the argument sequence.
+func SequenceBitwiseNot(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckMutable("bitwiseNot"); err != nil {
+		return vm.IoError(err)
+	}
+	v := s.Bytes()
+	var i int
+	for i = 0; i < len(v)/8; i++ {
+		x := binary.LittleEndian.Uint64(v[8*i:])
+		binary.LittleEndian.PutUint64(v[8*i:], ^x)
+	}
+	for i *= 8; i < len(v); i++ {
+		v[i] = ^v[i]
+	}
+	binary.Read(bytes.NewReader(v), binary.LittleEndian, s.Value)
+	return target
+}
+
+// SequenceBitwiseOr is a Sequence method.
+//
+// bitwiseOr sets the receiver to the bitwise OR of its binary representation
+// and that of the argument sequence.
+func SequenceBitwiseOr(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckMutable("bitwiseOr"); err != nil {
+		return vm.IoError(err)
+	}
+	other, stop := msg.SequenceArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	v := s.Bytes()
+	w := other.BytesN(len(v))
+	var i int
+	for i = 0; i < len(w)/8; i++ {
+		x := binary.LittleEndian.Uint64(v[8*i:])
+		y := binary.LittleEndian.Uint64(w[8*i:])
+		x |= y
+		binary.LittleEndian.PutUint64(v[8*i:], x)
+	}
+	for i *= 8; i < len(w); i++ {
+		v[i] |= w[i]
+	}
+	binary.Read(bytes.NewReader(v), binary.LittleEndian, s.Value)
+	return target
+}
+
+// SequenceBitwiseXor is a Sequence method.
+//
+// bitwiseXor sets the receiver to the bitwise XOR of its binary representation
+// and that of the argument sequence.
+func SequenceBitwiseXor(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckMutable("bitwiseXor"); err != nil {
+		return vm.IoError(err)
+	}
+	other, stop := msg.SequenceArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	v := s.Bytes()
+	w := other.BytesN(len(v))
+	var i int
+	for i = 0; i < len(w)/8; i++ {
+		x := binary.LittleEndian.Uint64(v[8*i:])
+		y := binary.LittleEndian.Uint64(w[8*i:])
+		x ^= y
+		binary.LittleEndian.PutUint64(v[8*i:], x)
+	}
+	for i *= 8; i < len(w); i++ {
+		v[i] ^= w[i]
+	}
+	binary.Read(bytes.NewReader(v), binary.LittleEndian, s.Value)
+	return target
 }
 
 // SequenceCeil is a Sequence method.
