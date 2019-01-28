@@ -905,6 +905,7 @@ func (vm *VM) initSequence() {
 		"asUTF32":         vm.NewTypedCFunction(SequenceAsUTF32, exemplar),
 		"asUTF8":          vm.NewTypedCFunction(SequenceAsUTF8, exemplar),
 		"capitalize":      vm.NewTypedCFunction(SequenceCapitalize, exemplar),
+		"cloneAppendPath": vm.NewTypedCFunction(SequenceCloneAppendPath, exemplar),
 		"encoding":        vm.NewTypedCFunction(SequenceEncoding, exemplar),
 		"escape":          vm.NewTypedCFunction(SequenceEscape, exemplar),
 		"lowercase":       vm.NewTypedCFunction(SequenceLowercase, exemplar),

@@ -770,6 +770,38 @@ func SequenceCapitalize(vm *VM, target, locals Interface, msg *Message) Interfac
 	return target
 }
 
+// SequenceCloneAppendPath is a Sequence method.
+//
+// cloneAppendPath creates a new Symbol with the receiver's contents and the
+// argument sequence's contents appended with redundant path separators
+// between them removed.
+func SequenceCloneAppendPath(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	other, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	sl, ok := s.At(s.Len() - 1)
+	if !ok {
+		return vm.NewSequence(other.Value, true, other.Code)
+	}
+	of, ok := other.At(0)
+	if !ok {
+		return s
+	}
+	sis := rune(sl) == filepath.Separator || rune(sl) == '/'
+	ois := rune(of) == filepath.Separator || rune(of) == '/'
+	v := vm.NewSequence(s.Value, true, s.Code)
+	if sis && ois {
+		v.Slice(0, v.Len()-1, 1)
+	} else if !sis && !ois {
+		v.Append(vm.NewString(string(filepath.Separator)))
+	}
+	v.Append(other)
+	v.Kind = -v.Kind
+	return v
+}
+
 // SequenceEscape is a Sequence method.
 //
 // escape replaces control and non-printable characters with backslash-escaped
