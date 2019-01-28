@@ -253,6 +253,88 @@ func SequenceSetItemType(vm *VM, target, locals Interface, msg *Message) Interfa
 	return target
 }
 
+// SequenceClipAfterSeq is a Sequence method.
+//
+// clipAfterSeq removes the portion of the sequence which follows the end of
+// the argument sequence.
+func SequenceClipAfterSeq(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckMutable("clipAfterSeq"); err != nil {
+		return vm.IoError(err)
+	}
+	other, stop := msg.SequenceArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	k := s.Find(other, 0)
+	if k >= 0 {
+		k += other.Len()
+		s.Slice(0, k, 1)
+	}
+	return target
+}
+
+// SequenceClipAfterStartOfSeq is a Sequence method.
+//
+// clipAfterStartOfSeq removes the portion of the sequence which follows the
+// beginning of the argument sequence.
+func SequenceClipAfterStartOfSeq(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckMutable("clipAfterStartOfSeq"); err != nil {
+		return vm.IoError(err)
+	}
+	other, stop := msg.SequenceArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	k := s.Find(other, 0)
+	if k >= 0 {
+		s.Slice(0, k, 1)
+	}
+	return target
+}
+
+// SequenceClipBeforeEndOfSeq is a Sequence method.
+//
+// clipBeforeEndOfSeq removes the portion of the sequence which precedes the end
+// of the argument sequence.
+func SequenceClipBeforeEndOfSeq(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckMutable("clipBeforeStartOfSeq"); err != nil {
+		return vm.IoError(err)
+	}
+	other, stop := msg.SequenceArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	k := s.Find(other, 0)
+	if k >= 0 {
+		k += other.Len()
+		s.Slice(k, s.Len(), 1)
+	}
+	return target
+}
+
+// SequenceClipBeforeSeq is a Sequence method.
+//
+// clipBeforeSeq removes the portion of the sequence which precedes the
+// beginning of the argument sequence.
+func SequenceClipBeforeSeq(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckMutable("clipBeforeSeq"); err != nil {
+		return vm.IoError(err)
+	}
+	other, stop := msg.SequenceArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	k := s.Find(other, 0)
+	if k >= 0 {
+		s.Slice(k, s.Len(), 1)
+	}
+	return target
+}
+
 // SequenceConvertToItemType is a Sequence method.
 //
 // convertToItemType changes the item type of the sequence.

@@ -878,15 +878,19 @@ func (vm *VM) initSequence() {
 		"withStruct":     vm.NewCFunction(SequenceWithStruct),
 
 		// sequence-mutable.go:
-		"append":            vm.NewTypedCFunction(SequenceAppend, exemplar),
-		"appendSeq":         vm.NewTypedCFunction(SequenceAppendSeq, exemplar),
-		"asMutable":         vm.NewTypedCFunction(SequenceAsMutable, exemplar),
-		"atInsertSeq":       vm.NewTypedCFunction(SequenceAtInsertSeq, exemplar),
-		"atPut":             vm.NewTypedCFunction(SequenceAtPut, exemplar),
-		"convertToItemType": vm.NewTypedCFunction(SequenceConvertToItemType, exemplar),
-		"copy":              vm.NewTypedCFunction(SequenceCopy, exemplar),
-		"setItemType":       vm.NewTypedCFunction(SequenceSetItemType, exemplar),
-		"setSize":           vm.NewTypedCFunction(SequenceSetSize, exemplar),
+		"append":              vm.NewTypedCFunction(SequenceAppend, exemplar),
+		"appendSeq":           vm.NewTypedCFunction(SequenceAppendSeq, exemplar),
+		"asMutable":           vm.NewTypedCFunction(SequenceAsMutable, exemplar),
+		"atInsertSeq":         vm.NewTypedCFunction(SequenceAtInsertSeq, exemplar),
+		"atPut":               vm.NewTypedCFunction(SequenceAtPut, exemplar),
+		"clipAfterSeq":        vm.NewTypedCFunction(SequenceClipAfterSeq, exemplar),
+		"clipAfterStartOfSeq": vm.NewTypedCFunction(SequenceClipAfterStartOfSeq, exemplar),
+		"clipBeforeEndOfSeq":  vm.NewTypedCFunction(SequenceClipBeforeEndOfSeq, exemplar),
+		"clipBeforeSeq":       vm.NewTypedCFunction(SequenceClipBeforeSeq, exemplar),
+		"convertToItemType":   vm.NewTypedCFunction(SequenceConvertToItemType, exemplar),
+		"copy":                vm.NewTypedCFunction(SequenceCopy, exemplar),
+		"setItemType":         vm.NewTypedCFunction(SequenceSetItemType, exemplar),
+		"setSize":             vm.NewTypedCFunction(SequenceSetSize, exemplar),
 
 		// sequence-string.go:
 		"appendPathSeq":   vm.NewTypedCFunction(SequenceAppendPathSeq, exemplar),
