@@ -871,6 +871,8 @@ func (vm *VM) initSequence() {
 		"byteAt":         vm.NewTypedCFunction(SequenceByteAt, exemplar),
 		"cloneAppendSeq": vm.NewTypedCFunction(SequenceCloneAppendSeq, exemplar),
 		"compare":        vm.NewTypedCFunction(SequenceCompare, exemplar),
+		"contains":       vm.NewTypedCFunction(SequenceContains, exemplar),
+		"containsSeq":    vm.NewTypedCFunction(SequenceContainsSeq, exemplar),
 		"isMutable":      vm.NewTypedCFunction(SequenceIsMutable, exemplar),
 		"itemSize":       vm.NewTypedCFunction(SequenceItemSize, exemplar),
 		"itemType":       vm.NewTypedCFunction(SequenceItemType, exemplar),

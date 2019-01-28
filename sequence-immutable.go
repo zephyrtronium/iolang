@@ -577,6 +577,108 @@ func SequenceByteAt(vm *VM, target, locals Interface, msg *Message) Interface {
 	return vm.NewNumber(float64(c))
 }
 
+// SequenceContains is a Sequence method.
+//
+// contains returns true if any element of the sequence is equal to the given
+// Number.
+func SequenceContains(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	n, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	x := n.Value
+	switch s.Kind {
+	case SeqMU8, SeqIU8:
+		v := s.Value.([]byte)
+		for _, c := range v {
+			if float64(c) == x {
+				return vm.True
+			}
+		}
+	case SeqMU16, SeqIU16:
+		v := s.Value.([]uint16)
+		for _, c := range v {
+			if float64(c) == x {
+				return vm.True
+			}
+		}
+	case SeqMU32, SeqIU32:
+		v := s.Value.([]uint32)
+		for _, c := range v {
+			if float64(c) == x {
+				return vm.True
+			}
+		}
+	case SeqMU64, SeqIU64:
+		v := s.Value.([]uint64)
+		for _, c := range v {
+			if float64(c) == x {
+				return vm.True
+			}
+		}
+	case SeqMS8, SeqIS8:
+		v := s.Value.([]int8)
+		for _, c := range v {
+			if float64(c) == x {
+				return vm.True
+			}
+		}
+	case SeqMS16, SeqIS16:
+		v := s.Value.([]int16)
+		for _, c := range v {
+			if float64(c) == x {
+				return vm.True
+			}
+		}
+	case SeqMS32, SeqIS32:
+		v := s.Value.([]int32)
+		for _, c := range v {
+			if float64(c) == x {
+				return vm.True
+			}
+		}
+	case SeqMS64, SeqIS64:
+		v := s.Value.([]int64)
+		for _, c := range v {
+			if float64(c) == x {
+				return vm.True
+			}
+		}
+	case SeqMF32, SeqIF32:
+		v := s.Value.([]float32)
+		for _, c := range v {
+			if float64(c) == x {
+				return vm.True
+			}
+		}
+	case SeqMF64, SeqIF64:
+		v := s.Value.([]float64)
+		for _, c := range v {
+			if c == x {
+				return vm.True
+			}
+		}
+	case SeqUntyped:
+		panic("use of untyped sequence")
+	default:
+		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+	}
+	return vm.False
+}
+
+// SequenceContainsSeq is a Sequence method.
+//
+// containsSeq returns true if the receiver contains the argument sequence.
+func SequenceContainsSeq(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	other, stop := msg.SequenceArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	return vm.IoBool(s.Find(other, 0) >= 0)
+}
+
 // SequenceWithStruct is a Sequence method.
 //
 // withStruct creates a packed binary sequence representing the values in the
