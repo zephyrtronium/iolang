@@ -178,6 +178,9 @@ func (s *Sequence) Bytes() []byte {
 // BytesN returns a slice of up to n bytes with the same bit pattern as the
 // corresponding portion of the sequence. The result is always a copy.
 func (s *Sequence) BytesN(n int) []byte {
+	if n > s.Len()*s.ItemSize() {
+		n = s.Len() * s.ItemSize()
+	}
 	// We could create a LimitedWriter type to use binary.Write, but that
 	// function creates the entire slice to write first, which defeats the
 	// purpose of having this be a separate method.
