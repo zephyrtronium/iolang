@@ -940,6 +940,7 @@ func (vm *VM) initSequence() {
 		"cos":                     vm.NewTypedCFunction(SequenceCos, exemplar),
 		"cosh":                    vm.NewTypedCFunction(SequenceCosh, exemplar),
 		"distanceTo":              vm.NewTypedCFunction(SequenceDistanceTo, exemplar),
+		"dotProduct":              vm.NewTypedCFunction(SequenceDotProduct, exemplar),
 		"floor":                   vm.NewTypedCFunction(SequenceFloor, exemplar),
 		"log":                     vm.NewTypedCFunction(SequenceLog, exemplar),
 		"log10":                   vm.NewTypedCFunction(SequenceLog10, exemplar),

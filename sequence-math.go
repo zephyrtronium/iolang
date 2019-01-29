@@ -708,6 +708,36 @@ func SequenceDistanceTo(vm *VM, target, locals Interface, msg *Message) Interfac
 	return vm.NewNumber(0)
 }
 
+// SequenceDotProduct is a Sequence method.
+//
+// dotProduct computes the sum of pairwise products between the receiver and
+// argument sequence, up to the length of the shorter of the two.
+func SequenceDotProduct(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	other, stop := msg.SequenceArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	// The original required the receiver to be mutable for no reason, but we
+	// don't. It /would/ be reasonable to require number encoding, but the
+	// original doesn't, and I'm sufficiently comfortable with that.
+	var sum float64
+	i := 0
+	for {
+		x, ok := s.At(i)
+		if !ok {
+			break
+		}
+		y, ok := other.At(i)
+		if !ok {
+			break
+		}
+		sum += x * y
+		i++
+	}
+	return vm.NewNumber(sum)
+}
+
 // SequenceFloor is a Sequence method.
 //
 // floor sets each element of the receiver to the largest integer less than its
