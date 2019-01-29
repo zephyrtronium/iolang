@@ -665,6 +665,49 @@ func SequenceCosh(vm *VM, target, locals Interface, msg *Message) Interface {
 	return s
 }
 
+// SequenceDistanceTo is a Sequence method.
+//
+// distanceTo computes the L2-norm of the vector pointing between the receiver
+// and the argument sequence. Both sequences must be of the same floating-point
+// type and of equal size; otherwise, the result will be 0.
+func SequenceDistanceTo(vm *VM, target, locals Interface, msg *Message) Interface {
+	x := target.(*Sequence)
+	y, stop := msg.SequenceArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	if x.Kind != y.Kind && x.Kind != -y.Kind {
+		return vm.NewNumber(0)
+	}
+	switch x.Kind {
+	case SeqMF32, SeqIF32:
+		v := x.Value.([]float32)
+		w := y.Value.([]float32)
+		if len(v) != len(w) {
+			break
+		}
+		var sum float32
+		for i, a := range v {
+			b := a - w[i]
+			sum += b * b
+		}
+		return vm.NewNumber(math.Sqrt(float64(sum)))
+	case SeqMF64, SeqIF64:
+		v := x.Value.([]float64)
+		w := y.Value.([]float64)
+		if len(v) != len(w) {
+			break
+		}
+		var sum float64
+		for i, a := range v {
+			b := a - w[i]
+			sum += b * b
+		}
+		return vm.NewNumber(math.Sqrt(sum))
+	}
+	return vm.NewNumber(0)
+}
+
 // SequenceFloor is a Sequence method.
 //
 // floor sets each element of the receiver to the largest integer less than its
