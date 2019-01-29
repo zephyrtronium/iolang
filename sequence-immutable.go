@@ -679,6 +679,24 @@ func SequenceContainsSeq(vm *VM, target, locals Interface, msg *Message) Interfa
 	return vm.IoBool(s.Find(other, 0) >= 0)
 }
 
+// SequenceEndsWithSeq is a Sequence method.
+//
+// endsWithSeq determines whether the sequence ends with the argument sequence
+// in the bytewise sense.
+func SequenceEndsWithSeq(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	other, stop := msg.SequenceArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	v := s.Bytes()
+	w := other.Bytes()
+	if len(w) > len(v) {
+		return vm.False
+	}
+	return vm.IoBool(bytes.Equal(v[len(v)-len(w):], w))
+}
+
 // SequenceWithStruct is a Sequence method.
 //
 // withStruct creates a packed binary sequence representing the values in the

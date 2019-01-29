@@ -873,6 +873,7 @@ func (vm *VM) initSequence() {
 		"compare":        vm.NewTypedCFunction(SequenceCompare, exemplar),
 		"contains":       vm.NewTypedCFunction(SequenceContains, exemplar),
 		"containsSeq":    vm.NewTypedCFunction(SequenceContainsSeq, exemplar),
+		"endsWithSeq":    vm.NewTypedCFunction(SequenceEndsWithSeq, exemplar),
 		"isMutable":      vm.NewTypedCFunction(SequenceIsMutable, exemplar),
 		"itemSize":       vm.NewTypedCFunction(SequenceItemSize, exemplar),
 		"itemType":       vm.NewTypedCFunction(SequenceItemType, exemplar),
