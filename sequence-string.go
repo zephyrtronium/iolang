@@ -377,6 +377,114 @@ func (s *Sequence) FirstRune() (rune, int) {
 	panic(fmt.Sprintf("unsupported sequence encoding %q", s.Code))
 }
 
+var latin1range = unichr.RangeTable{
+	R16: []unichr.Range16{
+		{0x0000, 0x007f, 1},
+		{0x0081, 0x0081, 1},
+		{0x008d, 0x008d, 1},
+		{0x008f, 0x0090, 1},
+		{0x009d, 0x009d, 1},
+		{0x00a0, 0x00ff, 1},
+		{0x0152, 0x0153, 1},
+		{0x0160, 0x0161, 1},
+		{0x0178, 0x0178, 1},
+		{0x017d, 0x017e, 1},
+		{0x0192, 0x0192, 1},
+		{0x02c6, 0x02c6, 1},
+		{0x02dc, 0x02dc, 1},
+		{0x2013, 0x2014, 1},
+		{0x2018, 0x201a, 1},
+		{0x201c, 0x201e, 1},
+		{0x2020, 0x2022, 1},
+		{0x2026, 0x2026, 1},
+		{0x2030, 0x2030, 1},
+		{0x2039, 0x203a, 1},
+		{0x20ac, 0x20ac, 1},
+		{0x2122, 0x2122, 1},
+	},
+	LatinOffset: 229,
+}
+
+// MinCode determines the smallest supported encoding which can encode every
+// rune in the sequence. If there is any rune which cannot be decoded, or if
+// the sequence encoding is already number, the result is number. The order of
+// preference is UTF-8, Latin-1, UTF-16, UTF-32, number.
+func (s *Sequence) MinCode() string {
+	code := "utf8"
+	l1ok := true
+	switch s.Code {
+	case "number":
+		return "number"
+	case "utf8":
+		b := s.Bytes()
+		i := 0
+		for i < len(b) {
+			r, n := utf8.DecodeRune(b[i:])
+			if r < 0 {
+				return "number"
+			}
+			if n > 1 {
+				if r > 0xffff || 0xd800 <= r && r < 0xe000 {
+					code = "utf32"
+				} else {
+					code = "utf16"
+				}
+			}
+			if l1ok && !unichr.Is(&latin1range, r) {
+				l1ok = false
+			}
+			i += n
+		}
+	case "ascii", "latin1":
+		return s.Code
+	case "utf16":
+		d := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewDecoder()
+		b, err := d.Bytes(s.Bytes()) // bytes :)
+		if err != nil {
+			return "number"
+		}
+		i := 0
+		for i < len(b) {
+			r, n := utf8.DecodeRune(b[i:])
+			if r > 0xffff || 0xd800 <= r && r < 0xe000 {
+				code = "utf32"
+			} else if r > 0x7f {
+				code = "utf16"
+			}
+			if l1ok && !unichr.Is(&latin1range, r) {
+				l1ok = false
+			}
+			i += n
+		}
+	case "utf32":
+		d := utf32.UTF32(utf32.LittleEndian, utf32.IgnoreBOM).NewDecoder()
+		b, err := d.Bytes(s.Bytes()) // bytes :)
+		if err != nil {
+			return "number"
+		}
+		i := 0
+		for i < len(b) {
+			r, n := utf8.DecodeRune(b[i:])
+			if r > 0xffff || 0xd800 <= r && r < 0xe000 {
+				code = "utf32"
+			} else if r > 0x7f {
+				code = "utf16"
+			}
+			if l1ok && !unichr.Is(&latin1range, r) {
+				l1ok = false
+			}
+			i += n
+		}
+	default:
+		// TODO: We can really support any encoding in x/text/encoding.
+		panic(fmt.Sprintf("unsupported sequence encoding %q", s.Code))
+	}
+	if l1ok && code != "utf8" {
+		return "ascii"
+	}
+	return code
+}
+
 // CheckEncoding checks whether the given encoding name is a valid encoding
 // accepted by the VM.
 func (vm *VM) CheckEncoding(encoding string) bool {
@@ -555,79 +663,16 @@ func SequenceAsBase64(vm *VM, target, locals Interface, msg *Message) Interface 
 //
 // asFixedSizeType creates a copy of the sequence encoded in the first of
 // UTF-8, UTF-16, or UTF-32 that will encode each rune in a single word.
-// Number encoding is copied directly. Latin-1/ASCII is copied to a uint8
-// sequence, but is not attempted as a destination encoding. If an erroneous
-// encoding is encountered, the result will be numeric.
+// Number encoding is copied directly. If an erroneous encoding is
+// encountered, the result will be numeric.
 func SequenceAsFixedSizeType(vm *VM, target, locals Interface, msg *Message) Interface {
 	s := target.(*Sequence)
-	code := "utf8"
-	switch s.Code {
-	case "number":
-		return vm.NewSequence(s.Value, s.IsMutable(), "number")
-	case "utf8":
-		b := s.Bytes()
-		i := 0
-		for i < len(b) {
-			r, n := utf8.DecodeRune(b[i:])
-			if n > 1 {
-				if r > 0xffff || 0xd800 <= r && r < 0xe000 {
-					code = "utf32"
-					break
-				} else {
-					code = "utf16"
-				}
-			}
-			if r < 0 {
-				code = "number"
-				break
-			}
-			i += n
-		}
-	case "ascii", "latin1":
-		return vm.NewSequence(s.Bytes(), s.IsMutable(), s.Code)
-	case "utf16":
-		d := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewDecoder()
-		b, err := d.Bytes(s.Bytes()) // bytes :)
-		if err != nil {
-			code = "number"
-			break
-		}
-		i := 0
-		for i < len(b) {
-			r, n := utf8.DecodeRune(b[i:])
-			if r > 0xffff || 0xd800 <= r && r < 0xe000 {
-				code = "utf32"
-				break
-			} else if r > 0x7f {
-				code = "utf16"
-			}
-			i += n
-		}
-	case "utf32":
-		d := utf32.UTF32(utf32.LittleEndian, utf32.IgnoreBOM).NewDecoder()
-		b, err := d.Bytes(s.Bytes()) // bytes :)
-		if err != nil {
-			code = "number"
-			break
-		}
-		i := 0
-		for i < len(b) {
-			r, n := utf8.DecodeRune(b[i:])
-			if r > 0xffff || 0xd800 <= r && r < 0xe000 {
-				code = "utf32"
-				break
-			} else if r > 0x7f {
-				code = "utf16"
-			}
-			i += n
-		}
-	default:
-		// TODO: We can really support any encoding in x/text/encoding.
-		panic(fmt.Sprintf("unsupported sequence encoding %q", s.Code))
-	}
+	code := s.MinCode()
 	switch code {
 	case "utf8":
 		return SequenceAsUTF8(vm, target, locals, msg)
+	case "ascii", "latin1":
+		return SequenceAsLatin1(vm, target, locals, msg)
 	case "utf16":
 		return SequenceAsUTF16(vm, target, locals, msg)
 	case "utf32":
@@ -800,6 +845,58 @@ func SequenceCloneAppendPath(vm *VM, target, locals Interface, msg *Message) Int
 	v.Append(other)
 	v.Kind = -v.Kind
 	return v
+}
+
+// SequenceConvertToFixedSizeType is a Sequence method.
+//
+// convertToFixedSizeType converts the sequence to be  encoded in the first of
+// UTF-8, Latin-1, UTF-16, or UTF-32 that will encode each rune in a single
+// word. Number encoding is unchanged. If an erroneous code sequence is
+// encountered, the result will be numeric.
+func SequenceConvertToFixedSizeType(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckMutable("convertToFixedSizeType"); err != nil {
+		return vm.IoError(err)
+	}
+	code := s.MinCode()
+	switch code {
+	case "utf8":
+		if s.Code != "utf8" || s.Kind != SeqMU8 {
+			s.Value = []byte(s.String())
+			s.Kind = SeqMU8
+			s.Code = "utf8"
+		}
+	case "ascii", "latin1":
+		if s.Code != "ascii" && s.Code != "latin1" || s.Kind != SeqMU8 {
+			b := s.String()
+			v := make([]byte, 0, len(b))
+			for _, r := range b {
+				c, _ := charmap.Windows1252.EncodeRune(r)
+				v = append(v, c)
+			}
+			s.Value = v
+			s.Kind = SeqMU8
+			s.Code = "latin1"
+		}
+	case "utf16":
+		if s.Code != "utf16" || s.Kind != SeqMU16 {
+			b := s.String()
+			v := make([]uint16, 0, len(b))
+			for _, r := range b {
+				v = append(v, uint16(r))
+			}
+			s.Value = v
+			s.Kind = SeqMU16
+			s.Code = "utf16"
+		}
+	case "utf32":
+		if s.Code != "utf32" || s.Kind != SeqMS32 {
+			s.Value = []rune(s.String())
+			s.Kind = SeqMS32
+			s.Code = "utf32"
+		}
+	}
+	return target
 }
 
 // SequenceEscape is a Sequence method.
