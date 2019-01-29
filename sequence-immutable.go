@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"hash/fnv"
 	"math"
 	"reflect"
 	"strings"
@@ -757,6 +758,16 @@ func SequenceExSlice(vm *VM, target, locals Interface, msg *Message) Interface {
 	default:
 		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
 	}
+}
+
+// SequenceHash is a Sequence method.
+//
+// hash returns a hash of the sequence as a number.
+func SequenceHash(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	h := fnv.New32()
+	h.Write(s.Bytes())
+	return vm.NewNumber(float64(h.Sum32() << 2)) // ????????
 }
 
 // SequenceInSlice is a Sequence method.

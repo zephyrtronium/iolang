@@ -875,6 +875,7 @@ func (vm *VM) initSequence() {
 		"containsSeq":    vm.NewTypedCFunction(SequenceContainsSeq, exemplar),
 		"endsWithSeq":    vm.NewTypedCFunction(SequenceEndsWithSeq, exemplar),
 		"exSlice":        vm.NewTypedCFunction(SequenceExSlice, exemplar),
+		"hash":           vm.NewTypedCFunction(SequenceHash, exemplar),
 		"inSlice":        vm.NewTypedCFunction(SequenceInSlice, exemplar),
 		"isMutable":      vm.NewTypedCFunction(SequenceIsMutable, exemplar),
 		"itemSize":       vm.NewTypedCFunction(SequenceItemSize, exemplar),
