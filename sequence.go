@@ -874,6 +874,8 @@ func (vm *VM) initSequence() {
 		"contains":       vm.NewTypedCFunction(SequenceContains, exemplar),
 		"containsSeq":    vm.NewTypedCFunction(SequenceContainsSeq, exemplar),
 		"endsWithSeq":    vm.NewTypedCFunction(SequenceEndsWithSeq, exemplar),
+		"exSlice":        vm.NewTypedCFunction(SequenceExSlice, exemplar),
+		"inSlice":        vm.NewTypedCFunction(SequenceInSlice, exemplar),
 		"isMutable":      vm.NewTypedCFunction(SequenceIsMutable, exemplar),
 		"itemSize":       vm.NewTypedCFunction(SequenceItemSize, exemplar),
 		"itemType":       vm.NewTypedCFunction(SequenceItemType, exemplar),
@@ -959,6 +961,8 @@ func (vm *VM) initSequence() {
 	slots["asBuffer"] = slots["asMutable"]
 	slots["asString"] = slots["asSymbol"]
 	slots["betweenSeq"] = slots["between"]
+	slots["exclusiveSlice"] = slots["exSlice"]
+	slots["inclusiveSlice"] = slots["inSlice"]
 	ms := &Sequence{
 		Object: *vm.ObjectWith(slots),
 		Value:  []byte(nil),

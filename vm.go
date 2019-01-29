@@ -367,7 +367,7 @@ Sequence do(
 	asCapitalized := method(if(isMutable, capitalize, asMutable capitalize asSymbol))
 	asLowercase := method(asMutable lowercase asSymbol)
 	asUppercase := method(asMutable uppercase asSymbol)
-	
+
 	containsAnyCaseSeq := method(s, self asLowercase containsSeq(s asLowercase))
 
 	asFile := method(File with(self))

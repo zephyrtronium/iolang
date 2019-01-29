@@ -697,6 +697,136 @@ func SequenceEndsWithSeq(vm *VM, target, locals Interface, msg *Message) Interfa
 	return vm.IoBool(bytes.Equal(v[len(v)-len(w):], w))
 }
 
+// SequenceExSlice is a Sequence method.
+//
+// exSlice creates a copy from the first argument index, inclusive, to the
+// second argument index, exclusive, or to the end if the second is not given.
+func SequenceExSlice(vm *VM, target, locals Interface, msg *Message) Interface {
+	// We have Sequence.Slice(), but since there's no step argument to these
+	// methods and we want a copy, it's better to do it this way.
+	s := target.(*Sequence)
+	n, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	a := int(n.Value)
+	m := s.Len()
+	b := m
+	if msg.ArgCount() > 1 {
+		n, stop = msg.NumberArgAt(vm, locals, 1)
+		if stop != nil {
+			return stop
+		}
+		b = int(n.Value)
+	}
+	a = fixSliceIndex(a, 1, m)
+	b = fixSliceIndex(b, 1, m)
+	switch s.Kind {
+	case SeqMU8, SeqIU8:
+		v := s.Value.([]byte)
+		return vm.NewSequence(v[a:b], s.IsMutable(), s.Code)
+	case SeqMU16, SeqIU16:
+		v := s.Value.([]uint16)
+		return vm.NewSequence(v[a:b], s.IsMutable(), s.Code)
+	case SeqMU32, SeqIU32:
+		v := s.Value.([]uint32)
+		return vm.NewSequence(v[a:b], s.IsMutable(), s.Code)
+	case SeqMU64, SeqIU64:
+		v := s.Value.([]uint64)
+		return vm.NewSequence(v[a:b], s.IsMutable(), s.Code)
+	case SeqMS8, SeqIS8:
+		v := s.Value.([]int8)
+		return vm.NewSequence(v[a:b], s.IsMutable(), s.Code)
+	case SeqMS16, SeqIS16:
+		v := s.Value.([]int16)
+		return vm.NewSequence(v[a:b], s.IsMutable(), s.Code)
+	case SeqMS32, SeqIS32:
+		v := s.Value.([]int32)
+		return vm.NewSequence(v[a:b], s.IsMutable(), s.Code)
+	case SeqMS64, SeqIS64:
+		v := s.Value.([]int64)
+		return vm.NewSequence(v[a:b], s.IsMutable(), s.Code)
+	case SeqMF32, SeqIF32:
+		v := s.Value.([]float32)
+		return vm.NewSequence(v[a:b], s.IsMutable(), s.Code)
+	case SeqMF64, SeqIF64:
+		v := s.Value.([]float64)
+		return vm.NewSequence(v[a:b], s.IsMutable(), s.Code)
+	case SeqUntyped:
+		panic("use of untyped sequence")
+	default:
+		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+	}
+}
+
+// SequenceInSlice is a Sequence method.
+//
+// inSlice creates a copy from the first argument index, inclusive, to the
+// second argument index, inclusive, or to the end if the second is not given.
+func SequenceInSlice(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	n, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	a := int(n.Value)
+	r, ok := CheckStop(msg.EvalArgAt(vm, locals, 1), LoopStops)
+	if !ok {
+		return r
+	}
+	m := s.Len()
+	b := m
+	if msg.ArgCount() > 1 {
+		n, stop = msg.NumberArgAt(vm, locals, 1)
+		if stop != nil {
+			return stop
+		}
+		b = int(n.Value)
+		if b == -1 {
+			b = m
+		} else {
+			b = fixSliceIndex(b+1, 1, m)
+		}
+	}
+	a = fixSliceIndex(a, 1, m)
+	switch s.Kind {
+	case SeqMU8, SeqIU8:
+		v := s.Value.([]byte)
+		return vm.NewSequence(v[a:b], s.IsMutable(), s.Code)
+	case SeqMU16, SeqIU16:
+		v := s.Value.([]uint16)
+		return vm.NewSequence(v[a:b], s.IsMutable(), s.Code)
+	case SeqMU32, SeqIU32:
+		v := s.Value.([]uint32)
+		return vm.NewSequence(v[a:b], s.IsMutable(), s.Code)
+	case SeqMU64, SeqIU64:
+		v := s.Value.([]uint64)
+		return vm.NewSequence(v[a:b], s.IsMutable(), s.Code)
+	case SeqMS8, SeqIS8:
+		v := s.Value.([]int8)
+		return vm.NewSequence(v[a:b], s.IsMutable(), s.Code)
+	case SeqMS16, SeqIS16:
+		v := s.Value.([]int16)
+		return vm.NewSequence(v[a:b], s.IsMutable(), s.Code)
+	case SeqMS32, SeqIS32:
+		v := s.Value.([]int32)
+		return vm.NewSequence(v[a:b], s.IsMutable(), s.Code)
+	case SeqMS64, SeqIS64:
+		v := s.Value.([]int64)
+		return vm.NewSequence(v[a:b], s.IsMutable(), s.Code)
+	case SeqMF32, SeqIF32:
+		v := s.Value.([]float32)
+		return vm.NewSequence(v[a:b], s.IsMutable(), s.Code)
+	case SeqMF64, SeqIF64:
+		v := s.Value.([]float64)
+		return vm.NewSequence(v[a:b], s.IsMutable(), s.Code)
+	case SeqUntyped:
+		panic("use of untyped sequence")
+	default:
+		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+	}
+}
+
 // SequenceWithStruct is a Sequence method.
 //
 // withStruct creates a packed binary sequence representing the values in the
