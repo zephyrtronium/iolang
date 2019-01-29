@@ -422,6 +422,95 @@ func SequenceCopy(vm *VM, target, locals Interface, msg *Message) Interface {
 	return target
 }
 
+// SequenceDuplicateIndexes is a Sequence method.
+//
+// duplicateIndexes inserts a copy of each item in the sequence after its
+// position.
+func SequenceDuplicateIndexes(vm *VM, target, locals Interface, msg *Message) Interface {
+	// Did you mean: indices?
+	s := target.(*Sequence)
+	if err := s.CheckMutable("duplicateIndexes"); err != nil {
+		return vm.IoError(err)
+	}
+	switch s.Kind {
+	case SeqMU8, SeqIU8:
+		v := s.Value.([]byte)
+		w := make([]byte, 0, 2*len(v))
+		for _, c := range v {
+			w = append(w, c, c)
+		}
+		s.Value = w
+	case SeqMU16, SeqIU16:
+		v := s.Value.([]uint16)
+		w := make([]uint16, 0, 2*len(v))
+		for _, c := range v {
+			w = append(w, c, c)
+		}
+		s.Value = w
+	case SeqMU32, SeqIU32:
+		v := s.Value.([]uint32)
+		w := make([]uint32, 0, 2*len(v))
+		for _, c := range v {
+			w = append(w, c, c)
+		}
+		s.Value = w
+	case SeqMU64, SeqIU64:
+		v := s.Value.([]uint64)
+		w := make([]uint64, 0, 2*len(v))
+		for _, c := range v {
+			w = append(w, c, c)
+		}
+		s.Value = w
+	case SeqMS8, SeqIS8:
+		v := s.Value.([]int8)
+		w := make([]int8, 0, 2*len(v))
+		for _, c := range v {
+			w = append(w, c, c)
+		}
+		s.Value = w
+	case SeqMS16, SeqIS16:
+		v := s.Value.([]int16)
+		w := make([]int16, 0, 2*len(v))
+		for _, c := range v {
+			w = append(w, c, c)
+		}
+		s.Value = w
+	case SeqMS32, SeqIS32:
+		v := s.Value.([]int32)
+		w := make([]int32, 0, 2*len(v))
+		for _, c := range v {
+			w = append(w, c, c)
+		}
+		s.Value = w
+	case SeqMS64, SeqIS64:
+		v := s.Value.([]int64)
+		w := make([]int64, 0, 2*len(v))
+		for _, c := range v {
+			w = append(w, c, c)
+		}
+		s.Value = w
+	case SeqMF32, SeqIF32:
+		v := s.Value.([]float32)
+		w := make([]float32, 0, 2*len(v))
+		for _, c := range v {
+			w = append(w, c, c)
+		}
+		s.Value = w
+	case SeqMF64, SeqIF64:
+		v := s.Value.([]float64)
+		w := make([]float64, 0, 2*len(v))
+		for _, c := range v {
+			w = append(w, c, c)
+		}
+		s.Value = w
+	case SeqUntyped:
+		panic("use of untyped sequence")
+	default:
+		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+	}
+	return target
+}
+
 // SequenceSetSize is a Sequence method.
 //
 // setSize sets the size of the sequence.
