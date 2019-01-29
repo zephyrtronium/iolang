@@ -511,6 +511,83 @@ func SequenceDuplicateIndexes(vm *VM, target, locals Interface, msg *Message) In
 	return target
 }
 
+// SequenceEmpty is a Sequence method.
+//
+// empty zeroes all values in the sequence and sets its length to zero.
+func SequenceEmpty(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckMutable("empty"); err != nil {
+		return vm.IoError(err)
+	}
+	switch s.Kind {
+	case SeqMU8, SeqIU8:
+		v := s.Value.([]byte)
+		for i := range v {
+			v[i] = 0
+		}
+		s.Value = v[:0]
+	case SeqMU16, SeqIU16:
+		v := s.Value.([]uint16)
+		for i := range v {
+			v[i] = 0
+		}
+		s.Value = v[:0]
+	case SeqMU32, SeqIU32:
+		v := s.Value.([]uint32)
+		for i := range v {
+			v[i] = 0
+		}
+		s.Value = v[:0]
+	case SeqMU64, SeqIU64:
+		v := s.Value.([]uint64)
+		for i := range v {
+			v[i] = 0
+		}
+		s.Value = v[:0]
+	case SeqMS8, SeqIS8:
+		v := s.Value.([]int8)
+		for i := range v {
+			v[i] = 0
+		}
+		s.Value = v[:0]
+	case SeqMS16, SeqIS16:
+		v := s.Value.([]int16)
+		for i := range v {
+			v[i] = 0
+		}
+		s.Value = v[:0]
+	case SeqMS32, SeqIS32:
+		v := s.Value.([]int32)
+		for i := range v {
+			v[i] = 0
+		}
+		s.Value = v[:0]
+	case SeqMS64, SeqIS64:
+		v := s.Value.([]int64)
+		for i := range v {
+			v[i] = 0
+		}
+		s.Value = v[:0]
+	case SeqMF32, SeqIF32:
+		v := s.Value.([]float32)
+		for i := range v {
+			v[i] = 0
+		}
+		s.Value = v[:0]
+	case SeqMF64, SeqIF64:
+		v := s.Value.([]float64)
+		for i := range v {
+			v[i] = 0
+		}
+		s.Value = v[:0]
+	case SeqUntyped:
+		panic("use of untyped sequence")
+	default:
+		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+	}
+	return target
+}
+
 // SequenceSetSize is a Sequence method.
 //
 // setSize sets the size of the sequence.
