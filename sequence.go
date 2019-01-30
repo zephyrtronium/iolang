@@ -568,7 +568,7 @@ func (s *Sequence) appendGrow(other *Sequence) {
 func (s *Sequence) Find(other *Sequence, start int) int {
 	ol := other.Len()
 	if ol == 0 {
-		return 0
+		return start
 	}
 	checks := s.Len() - ol + 1
 	for i := start; i < checks; i++ {
@@ -585,9 +585,12 @@ func (s *Sequence) Find(other *Sequence, start int) int {
 func (s *Sequence) RFind(other *Sequence, end int) int {
 	ol := other.Len()
 	if ol == 0 {
-		return s.Len()
+		return end
 	}
-	for i := s.Len() - ol - end; i >= 0; i-- {
+	if end > s.Len() {
+		end = s.Len()
+	}
+	for i := end - ol; i >= 0; i-- {
 		if s.findMatch(other, i, ol) {
 			return i
 		}
@@ -875,11 +878,13 @@ func (vm *VM) initSequence() {
 		"containsSeq":    vm.NewTypedCFunction(SequenceContainsSeq, exemplar),
 		"endsWithSeq":    vm.NewTypedCFunction(SequenceEndsWithSeq, exemplar),
 		"exSlice":        vm.NewTypedCFunction(SequenceExSlice, exemplar),
+		"findSeq":        vm.NewTypedCFunction(SequenceFindSeq, exemplar),
 		"hash":           vm.NewTypedCFunction(SequenceHash, exemplar),
 		"inSlice":        vm.NewTypedCFunction(SequenceInSlice, exemplar),
 		"isMutable":      vm.NewTypedCFunction(SequenceIsMutable, exemplar),
 		"itemSize":       vm.NewTypedCFunction(SequenceItemSize, exemplar),
 		"itemType":       vm.NewTypedCFunction(SequenceItemType, exemplar),
+		"reverseFindSeq": vm.NewTypedCFunction(SequenceReverseFindSeq, exemplar),
 		"size":           vm.NewTypedCFunction(SequenceSize, exemplar),
 		"withStruct":     vm.NewCFunction(SequenceWithStruct),
 

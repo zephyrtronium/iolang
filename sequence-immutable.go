@@ -760,6 +760,34 @@ func SequenceExSlice(vm *VM, target, locals Interface, msg *Message) Interface {
 	}
 }
 
+// SequenceFindSeq is a Sequence method.
+//
+// findSeq locates the first occurrence of the argument sequence in the
+// receiver, optionally following a given start index.
+func SequenceFindSeq(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	other, stop := msg.SequenceArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	a := 0
+	if msg.ArgCount() > 1 {
+		n, stop := msg.NumberArgAt(vm, locals, 1)
+		if stop != nil {
+			return stop
+		}
+		a = int(n.Value)
+		if a < 0 || a > s.Len()-other.Len() {
+			return vm.Nil
+		}
+	}
+	k := s.Find(other, a)
+	if k >= 0 {
+		return vm.NewNumber(float64(k))
+	}
+	return vm.Nil
+}
+
 // SequenceHash is a Sequence method.
 //
 // hash returns a hash of the sequence as a number.
@@ -836,6 +864,35 @@ func SequenceInSlice(vm *VM, target, locals Interface, msg *Message) Interface {
 	default:
 		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
 	}
+}
+
+// SequenceReverseFindSeq is a Sequence method.
+//
+// reverseFindSeq locates the last occurrence of the argument sequence in the
+// receiver, optionally ending before a given stop index.
+func SequenceReverseFindSeq(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	other, stop := msg.SequenceArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	a := s.Len()
+	if msg.ArgCount() > 1 {
+		n, stop := msg.NumberArgAt(vm, locals, 1)
+		if stop != nil {
+			return stop
+		}
+		a = int(n.Value)
+		if a < 0 || a > s.Len() {
+			return vm.Nil
+		}
+		a += other.Len() - 1
+	}
+	k := s.RFind(other, a)
+	if k >= 0 {
+		return vm.NewNumber(float64(k))
+	}
+	return vm.Nil
 }
 
 // SequenceWithStruct is a Sequence method.
