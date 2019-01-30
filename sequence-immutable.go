@@ -767,7 +767,7 @@ func SequenceHash(vm *VM, target, locals Interface, msg *Message) Interface {
 	s := target.(*Sequence)
 	h := fnv.New32()
 	h.Write(s.Bytes())
-	return vm.NewNumber(float64(h.Sum32() << 2)) // ????????
+	return vm.NewNumber(float64(uint64(h.Sum32()) << 2)) // ????????
 }
 
 // SequenceInSlice is a Sequence method.
