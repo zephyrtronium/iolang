@@ -924,6 +924,8 @@ func (vm *VM) initSequence() {
 		"convertToFixedSizeType": vm.NewTypedCFunction(SequenceConvertToFixedSizeType, exemplar),
 		"encoding":               vm.NewTypedCFunction(SequenceEncoding, exemplar),
 		"escape":                 vm.NewTypedCFunction(SequenceEscape, exemplar),
+		"fromBase":               vm.NewTypedCFunction(SequenceFromBase, exemplar),
+		"fromBase64":             vm.NewTypedCFunction(SequenceFromBase64, exemplar),
 		"lowercase":              vm.NewTypedCFunction(SequenceLowercase, exemplar),
 		"setEncoding":            vm.NewTypedCFunction(SequenceSetEncoding, exemplar),
 		"uppercase":              vm.NewTypedCFunction(SequenceUppercase, exemplar),

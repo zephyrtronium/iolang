@@ -971,6 +971,43 @@ func SequenceEscape(vm *VM, target, locals Interface, msg *Message) Interface {
 	return target
 }
 
+// SequenceFromBase is a Sequence method.
+//
+// fromBase converts the sequence from a representation of an integer in a
+// given radix to the Number it represents.
+func SequenceFromBase(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	n, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	b := int(n.Value)
+	sv := strings.TrimSpace(s.String())
+	if b == 16 {
+		sv = strings.TrimPrefix(sv, "0x")
+	}
+	x, err := strconv.ParseInt(sv, b, 64)
+	if err != nil {
+		return vm.IoError(err)
+	}
+	return vm.NewNumber(float64(x))
+}
+
+// SequenceFromBase64 is a Sequence method.
+//
+// fromBase64 decodes standard (RFC 4648) base64 data from the sequence
+// interpreted bytewise.
+func SequenceFromBase64(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	v := s.Bytes()
+	w := make([]byte, base64.StdEncoding.DecodedLen(len(v)))
+	n, err := base64.StdEncoding.Decode(w, v)
+	if err != nil {
+		return vm.IoError(err)
+	}
+	return vm.NewSequence(w[:n], false, "utf8")
+}
+
 // SequenceLowercase is a Sequence method.
 //
 // lowercase converts the values in the sequence to their capitalized
