@@ -788,6 +788,46 @@ func SequenceFindSeq(vm *VM, target, locals Interface, msg *Message) Interface {
 	return vm.Nil
 }
 
+// SequenceFindSeqs is a Sequence method.
+//
+// findSeqs finds the first occurrence of any sequence in the argument List and
+// returns an object with its "match" slot set to the sequence which matched
+// and its "index" slot set to the index of the match.
+func SequenceFindSeqs(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	l, stop := msg.ListArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	a, j := 0, -1
+	var m *Sequence
+	if msg.ArgCount() > 1 {
+		n, stop := msg.NumberArgAt(vm, locals, 1)
+		if stop != nil {
+			return stop
+		}
+		a = int(n.Value)
+		if a < 0 {
+			return vm.Nil
+		}
+	}
+	for _, v := range l.Value {
+		x, ok := v.(*Sequence)
+		if !ok {
+			return vm.RaiseExceptionf("list elements for findSeqs must be Sequence, not %s", vm.TypeName(v))
+		}
+		k := s.Find(x, a)
+		if k >= 0 && (j < 0 || k < j) {
+			j = k
+			m = x
+		}
+	}
+	if j >= 0 {
+		return vm.ObjectWith(Slots{"match": m, "index": vm.NewNumber(float64(j))})
+	}
+	return vm.Nil
+}
+
 // SequenceHash is a Sequence method.
 //
 // hash returns a hash of the sequence as a number.
