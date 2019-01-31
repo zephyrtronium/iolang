@@ -880,6 +880,7 @@ func (vm *VM) initSequence() {
 		"exSlice":        vm.NewTypedCFunction(SequenceExSlice, exemplar),
 		"findSeq":        vm.NewTypedCFunction(SequenceFindSeq, exemplar),
 		"findSeqs":       vm.NewTypedCFunction(SequenceFindSeqs, exemplar),
+		"foreach":        vm.NewTypedCFunction(SequenceForeach, exemplar),
 		"hash":           vm.NewTypedCFunction(SequenceHash, exemplar),
 		"inSlice":        vm.NewTypedCFunction(SequenceInSlice, exemplar),
 		"isMutable":      vm.NewTypedCFunction(SequenceIsMutable, exemplar),

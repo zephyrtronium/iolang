@@ -828,6 +828,39 @@ func SequenceFindSeqs(vm *VM, target, locals Interface, msg *Message) Interface 
 	return vm.Nil
 }
 
+// SequenceForeach is a Sequence method.
+//
+// foreach performs a loop for each element of the sequence.
+func SequenceForeach(vm *VM, target, locals Interface, msg *Message) (result Interface) {
+	kn, vn, hkn, hvn, ev := ForeachArgs(msg)
+	if !hvn {
+		return vm.RaiseException("foreach requires 2 or 3 arguments")
+	}
+	s := target.(*Sequence)
+	sl := s.Len()
+	for k := 0; k < sl; k++ {
+		v, _ := s.At(k)
+		SetSlot(locals, vn, vm.NewNumber(v))
+		if hkn {
+			SetSlot(locals, kn, vm.NewNumber(float64(k)))
+		}
+		result = ev.Eval(vm, locals)
+		if rr, ok := CheckStop(result, NoStop); !ok {
+			switch s := rr.(Stop); s.Status {
+			case ContinueStop:
+				result = s.Result
+			case BreakStop:
+				return s.Result
+			case ReturnStop, ExceptionStop:
+				return rr
+			default:
+				panic(fmt.Sprintf("iolang: invalid Stop: %#v", rr))
+			}
+		}
+	}
+	return result
+}
+
 // SequenceHash is a Sequence method.
 //
 // hash returns a hash of the sequence as a number.
