@@ -1008,6 +1008,57 @@ func SequenceFromBase64(vm *VM, target, locals Interface, msg *Message) Interfac
 	return vm.NewSequence(w[:n], false, "utf8")
 }
 
+// SequenceInterpolate is a Sequence method.
+//
+// interpolate replaces "#{Io code}" in the sequence with the result of
+// evaluating the Io code in the current context or the optionally supplied
+// one, returning a new sequence with the result.
+func SequenceInterpolate(vm *VM, target, locals Interface, msg *Message) Interface {
+	// The original implementation is equivalent to
+	// method(self asMutable interpolateInPlace asSymbol), but our stronger
+	// types actually make it easier to make interpolateInPlace use this.
+	s := target.(*Sequence)
+	ctxt := locals
+	if msg.ArgCount() > 0 {
+		var ok bool
+		ctxt, ok = CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
+		if !ok {
+			return ctxt
+		}
+	}
+	sv := s.String()
+	k := 0
+	b := strings.Builder{}
+	m := vm.IdentMessage("doString", nil)
+	m.InsertAfter(vm.IdentMessage("asString"))
+	for {
+		i := strings.Index(sv[k:], "#{")
+		if i < 0 {
+			b.WriteString(sv[k:])
+			break
+		}
+		j := strings.Index(sv[k+i+2:], "}")
+		if j < 0 {
+			b.WriteString(sv[k:])
+			break
+		}
+		b.WriteString(sv[k : k+i])
+		code := sv[k+i+2 : k+i+j+2]
+		if len(code) != 0 {
+			m.Args[0] = vm.StringMessage(code)
+			r, ok := CheckStop(m.Eval(vm, ctxt), NoStop)
+			if !ok {
+				return r
+			}
+			if rs, ok := r.(*Sequence); ok {
+				b.WriteString(rs.String())
+			}
+		}
+		k += i + j + 3
+	}
+	return vm.NewString(b.String())
+}
+
 // SequenceLowercase is a Sequence method.
 //
 // lowercase converts the values in the sequence to their capitalized

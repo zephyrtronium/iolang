@@ -369,6 +369,8 @@ Sequence do(
 	asUppercase := method(asMutable uppercase asSymbol)
 
 	containsAnyCaseSeq := method(s, self asLowercase containsSeq(s asLowercase))
+	
+	interpolateInPlace := method(self copy(self interpolate))
 
 	asFile := method(File with(self))
 )
