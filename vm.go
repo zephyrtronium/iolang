@@ -352,6 +352,8 @@ Sequence do(
 	setSlot("-", method(v, Sequence clone copy(self) -= v))
 	setSlot("/", method(v, Sequence clone copy(self) /= v))
 
+	isEmpty := method(self size == 0)
+
 	alignLeftInPlace := method(w, pad,
 		os := size
 		if(pad isNil or pad size == 0, pad = " ")
@@ -369,6 +371,7 @@ Sequence do(
 	asUppercase := method(asMutable uppercase asSymbol)
 
 	containsAnyCaseSeq := method(s, self asLowercase containsSeq(s asLowercase))
+	isEqualAnyCase := method(s, if(self size == s size, containsAnyCaseSeq(s)))
 	
 	interpolateInPlace := method(self copy(self interpolate))
 
