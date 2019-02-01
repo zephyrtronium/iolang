@@ -588,6 +588,176 @@ func SequenceEmpty(vm *VM, target, locals Interface, msg *Message) Interface {
 	return target
 }
 
+// SequenceInsertSeqEvery is a Sequence method.
+//
+// insertSeqEvery inserts the argument sequence into the receiver at every nth
+// position.
+func SequenceInsertSeqEvery(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckMutable("insertSeqEvery"); err != nil {
+		return vm.IoError(err)
+	}
+	other, stop := msg.SequenceArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	n, stop := msg.NumberArgAt(vm, locals, 1)
+	if stop != nil {
+		return stop
+	}
+	k := int(n.Value)
+	if k <= 0 {
+		return vm.RaiseException("distance must be > 0")
+	}
+	if k > s.Len() {
+		return vm.RaiseException("out of bounds")
+	}
+	if !s.SameType(other) {
+		other = other.Convert(vm, s.Kind)
+	}
+	if k == s.Len() {
+		s.Append(other)
+		return target
+	}
+	switch s.Kind {
+	case SeqMU8:
+		v := s.Value.([]byte)
+		w := other.Value.([]byte)
+		n := len(v) / k
+		x := make([]byte, 0, len(v)+len(w)*n)
+		for i := 0; i < n; i++ {
+			x = append(x, v[i*k:(i+1)*k]...)
+			x = append(x, w...)
+		}
+		if len(v)%k != 0 {
+			x = append(x, v[n*k:]...)
+		}
+		s.Value = x
+	case SeqMU16:
+		v := s.Value.([]uint16)
+		w := other.Value.([]uint16)
+		n := len(v) / k
+		x := make([]uint16, 0, len(v)+len(w)*n)
+		for i := 0; i < n; i++ {
+			x = append(x, v[i*k:(i+1)*k]...)
+			x = append(x, w...)
+		}
+		if len(v)%k != 0 {
+			x = append(x, v[n*k:]...)
+		}
+		s.Value = x
+	case SeqMU32:
+		v := s.Value.([]uint32)
+		w := other.Value.([]uint32)
+		n := len(v) / k
+		x := make([]uint32, 0, len(v)+len(w)*n)
+		for i := 0; i < n; i++ {
+			x = append(x, v[i*k:(i+1)*k]...)
+			x = append(x, w...)
+		}
+		if len(v)%k != 0 {
+			x = append(x, v[n*k:]...)
+		}
+		s.Value = x
+	case SeqMU64:
+		v := s.Value.([]uint64)
+		w := other.Value.([]uint64)
+		n := len(v) / k
+		x := make([]uint64, 0, len(v)+len(w)*n)
+		for i := 0; i < n; i++ {
+			x = append(x, v[i*k:(i+1)*k]...)
+			x = append(x, w...)
+		}
+		if len(v)%k != 0 {
+			x = append(x, v[n*k:]...)
+		}
+		s.Value = x
+	case SeqMS8:
+		v := s.Value.([]int8)
+		w := other.Value.([]int8)
+		n := len(v) / k
+		x := make([]int8, 0, len(v)+len(w)*n)
+		for i := 0; i < n; i++ {
+			x = append(x, v[i*k:(i+1)*k]...)
+			x = append(x, w...)
+		}
+		if len(v)%k != 0 {
+			x = append(x, v[n*k:]...)
+		}
+		s.Value = x
+	case SeqMS16:
+		v := s.Value.([]int16)
+		w := other.Value.([]int16)
+		n := len(v) / k
+		x := make([]int16, 0, len(v)+len(w)*n)
+		for i := 0; i < n; i++ {
+			x = append(x, v[i*k:(i+1)*k]...)
+			x = append(x, w...)
+		}
+		if len(v)%k != 0 {
+			x = append(x, v[n*k:]...)
+		}
+		s.Value = x
+	case SeqMS32:
+		v := s.Value.([]int32)
+		w := other.Value.([]int32)
+		n := len(v) / k
+		x := make([]int32, 0, len(v)+len(w)*n)
+		for i := 0; i < n; i++ {
+			x = append(x, v[i*k:(i+1)*k]...)
+			x = append(x, w...)
+		}
+		if len(v)%k != 0 {
+			x = append(x, v[n*k:]...)
+		}
+		s.Value = x
+	case SeqMS64:
+		v := s.Value.([]int64)
+		w := other.Value.([]int64)
+		n := len(v) / k
+		x := make([]int64, 0, len(v)+len(w)*n)
+		for i := 0; i < n; i++ {
+			x = append(x, v[i*k:(i+1)*k]...)
+			x = append(x, w...)
+		}
+		if len(v)%k != 0 {
+			x = append(x, v[n*k:]...)
+		}
+		s.Value = x
+	case SeqMF32:
+		v := s.Value.([]float32)
+		w := other.Value.([]float32)
+		n := len(v) / k
+		x := make([]float32, 0, len(v)+len(w)*n)
+		for i := 0; i < n; i++ {
+			x = append(x, v[i*k:(i+1)*k]...)
+			x = append(x, w...)
+		}
+		if len(v)%k != 0 {
+			x = append(x, v[n*k:]...)
+		}
+		s.Value = x
+	case SeqMF64:
+		v := s.Value.([]float64)
+		w := other.Value.([]float64)
+		n := len(v) / k
+		x := make([]float64, 0, len(v)+len(w)*n)
+		for i := 0; i < n; i++ {
+			x = append(x, v[i*k:(i+1)*k]...)
+			x = append(x, w...)
+		}
+		if len(v)%k != 0 {
+			x = append(x, v[n*k:]...)
+		}
+		s.Value = x
+	case SeqUntyped:
+		panic("use of untyped sequence")
+	default:
+		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+	}
+	return target
+}
+
 // SequenceSetSize is a Sequence method.
 //
 // setSize sets the size of the sequence.

@@ -904,6 +904,7 @@ func (vm *VM) initSequence() {
 		"copy":                vm.NewTypedCFunction(SequenceCopy, exemplar),
 		"duplicateIndexes":    vm.NewTypedCFunction(SequenceDuplicateIndexes, exemplar),
 		"empty":               vm.NewTypedCFunction(SequenceEmpty, exemplar),
+		"insertSeqEvery":      vm.NewTypedCFunction(SequenceInsertSeqEvery, exemplar),
 		"setItemType":         vm.NewTypedCFunction(SequenceSetItemType, exemplar),
 		"setSize":             vm.NewTypedCFunction(SequenceSetSize, exemplar),
 
