@@ -1059,6 +1059,36 @@ func SequenceInterpolate(vm *VM, target, locals Interface, msg *Message) Interfa
 	return vm.NewString(b.String())
 }
 
+// SequenceIsLowercase is a Sequence method.
+//
+// isLowercase determines whether all characters in the string are equal to
+// their lowercase-converted versions using Unicode standard case conversion.
+func SequenceIsLowercase(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	sv := s.String()
+	for _, r := range sv {
+		if r != unichr.ToLower(r) {
+			return vm.False
+		}
+	}
+	return vm.True
+}
+
+// SequenceIsUppercase is a Sequence method.
+//
+// isUppercase determines whether all characters in the string are equal to
+// their uppercase-converted versions using Unicode standard case conversion.
+func SequenceIsUppercase(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	sv := s.String()
+	for _, r := range sv {
+		if r != unichr.ToUpper(r) {
+			return vm.False
+		}
+	}
+	return vm.True
+}
+
 // SequenceLowercase is a Sequence method.
 //
 // lowercase converts the values in the sequence to their capitalized

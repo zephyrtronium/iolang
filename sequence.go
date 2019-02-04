@@ -928,6 +928,8 @@ func (vm *VM) initSequence() {
 		"fromBase":               vm.NewTypedCFunction(SequenceFromBase, exemplar),
 		"fromBase64":             vm.NewTypedCFunction(SequenceFromBase64, exemplar),
 		"interpolate":            vm.NewTypedCFunction(SequenceInterpolate, exemplar),
+		"isLowercase":            vm.NewTypedCFunction(SequenceIsLowercase, exemplar),
+		"isUppercase":            vm.NewTypedCFunction(SequenceIsUppercase, exemplar),
 		"lowercase":              vm.NewTypedCFunction(SequenceLowercase, exemplar),
 		"setEncoding":            vm.NewTypedCFunction(SequenceSetEncoding, exemplar),
 		"uppercase":              vm.NewTypedCFunction(SequenceUppercase, exemplar),
