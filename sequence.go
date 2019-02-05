@@ -931,6 +931,7 @@ func (vm *VM) initSequence() {
 		"interpolate":            vm.NewTypedCFunction(SequenceInterpolate, exemplar),
 		"isLowercase":            vm.NewTypedCFunction(SequenceIsLowercase, exemplar),
 		"isUppercase":            vm.NewTypedCFunction(SequenceIsUppercase, exemplar),
+		"lastPathComponent":      vm.NewTypedCFunction(SequenceLastPathComponent, exemplar),
 		"lowercase":              vm.NewTypedCFunction(SequenceLowercase, exemplar),
 		"setEncoding":            vm.NewTypedCFunction(SequenceSetEncoding, exemplar),
 		"uppercase":              vm.NewTypedCFunction(SequenceUppercase, exemplar),

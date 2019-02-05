@@ -1089,6 +1089,19 @@ func SequenceIsUppercase(vm *VM, target, locals Interface, msg *Message) Interfa
 	return vm.True
 }
 
+// SequenceLastPathComponent is a Sequence method.
+//
+// lastPathComponent returns the basename of the sequence.
+func SequenceLastPathComponent(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	// This is the easy method, but results differ from Io's implementation;
+	// the original preserved trailing slashes and made no attempt to interpret
+	// the result as an actual path, while this removes trailing slashes,
+	// returns "." for the empty string, and returns the system's path
+	// separator for all-slash strings.
+	return vm.NewString(filepath.Base(s.String()))
+}
+
 // SequenceLowercase is a Sequence method.
 //
 // lowercase converts the values in the sequence to their capitalized
