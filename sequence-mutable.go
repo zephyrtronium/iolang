@@ -758,6 +758,153 @@ func SequenceInsertSeqEvery(vm *VM, target, locals Interface, msg *Message) Inte
 	return target
 }
 
+// SequenceLeaveThenRemove is a Sequence method.
+//
+// leaveThenRemove(m, n) keeps the first m items, removes the following n, and
+// repeats this process on the remainder.
+func SequenceLeaveThenRemove(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckMutable("leaveThenRemove"); err != nil {
+		return vm.IoError(err)
+	}
+	mm, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	m := int(mm.Value)
+	if m < 0 {
+		return vm.RaiseException("leaveThenRemove arguments must be nonnegative")
+	}
+	nn, stop := msg.NumberArgAt(vm, locals, 1)
+	if stop != nil {
+		return stop
+	}
+	n := int(nn.Value)
+	if n < 0 {
+		return vm.RaiseException("leaveThenRemove arguments must be nonnegative")
+	}
+	if n == 0 {
+		return target
+	}
+	switch s.Kind {
+	case SeqMU8, SeqIU8:
+		v := s.Value.([]byte)
+		if m == 0 {
+			s.Value = v[:0]
+			break
+		}
+		k := 0
+		for i, o := 0, 0; i < len(v); i, o = i+m+n, o+m {
+			k += copy(v[o:o+m], v[i:])
+		}
+		s.Value = v[:k]
+	case SeqMU16, SeqIU16:
+		v := s.Value.([]uint16)
+		if m == 0 {
+			s.Value = v[:0]
+			break
+		}
+		k := 0
+		for i, o := 0, 0; i < len(v); i, o = i+m+n, o+m {
+			k += copy(v[o:o+m], v[i:])
+		}
+		s.Value = v[:k]
+	case SeqMU32, SeqIU32:
+		v := s.Value.([]uint32)
+		if m == 0 {
+			s.Value = v[:0]
+			break
+		}
+		k := 0
+		for i, o := 0, 0; i < len(v); i, o = i+m+n, o+m {
+			k += copy(v[o:o+m], v[i:])
+		}
+		s.Value = v[:k]
+	case SeqMU64, SeqIU64:
+		v := s.Value.([]uint64)
+		if m == 0 {
+			s.Value = v[:0]
+			break
+		}
+		k := 0
+		for i, o := 0, 0; i < len(v); i, o = i+m+n, o+m {
+			k += copy(v[o:o+m], v[i:])
+		}
+		s.Value = v[:k]
+	case SeqMS8, SeqIS8:
+		v := s.Value.([]int8)
+		if m == 0 {
+			s.Value = v[:0]
+			break
+		}
+		k := 0
+		for i, o := 0, 0; i < len(v); i, o = i+m+n, o+m {
+			k += copy(v[o:o+m], v[i:])
+		}
+		s.Value = v[:k]
+	case SeqMS16, SeqIS16:
+		v := s.Value.([]int16)
+		if m == 0 {
+			s.Value = v[:0]
+			break
+		}
+		k := 0
+		for i, o := 0, 0; i < len(v); i, o = i+m+n, o+m {
+			k += copy(v[o:o+m], v[i:])
+		}
+		s.Value = v[:k]
+	case SeqMS32, SeqIS32:
+		v := s.Value.([]int32)
+		if m == 0 {
+			s.Value = v[:0]
+			break
+		}
+		k := 0
+		for i, o := 0, 0; i < len(v); i, o = i+m+n, o+m {
+			k += copy(v[o:o+m], v[i:])
+		}
+		s.Value = v[:k]
+	case SeqMS64, SeqIS64:
+		v := s.Value.([]int64)
+		if m == 0 {
+			s.Value = v[:0]
+			break
+		}
+		k := 0
+		for i, o := 0, 0; i < len(v); i, o = i+m+n, o+m {
+			k += copy(v[o:o+m], v[i:])
+		}
+		s.Value = v[:k]
+	case SeqMF32, SeqIF32:
+		v := s.Value.([]float32)
+		if m == 0 {
+			s.Value = v[:0]
+			break
+		}
+		k := 0
+		for i, o := 0, 0; i < len(v); i, o = i+m+n, o+m {
+			k += copy(v[o:o+m], v[i:])
+		}
+		s.Value = v[:k]
+	case SeqMF64, SeqIF64:
+		v := s.Value.([]float64)
+		if m == 0 {
+			s.Value = v[:0]
+			break
+		}
+		k := 0
+		for i, o := 0, 0; i < len(v); i, o = i+m+n, o+m {
+			k += copy(v[o:o+m], v[i:])
+		}
+		s.Value = v[:k]
+	case SeqUntyped:
+		panic("use of untyped sequence")
+	default:
+		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+	}
+	return target
+}
+
 // SequenceSetSize is a Sequence method.
 //
 // setSize sets the size of the sequence.
