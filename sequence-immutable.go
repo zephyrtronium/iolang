@@ -939,6 +939,90 @@ func SequenceInSlice(vm *VM, target, locals Interface, msg *Message) Interface {
 	}
 }
 
+// SequenceIsZero is a Sequence method.
+//
+// isZero returns whether all elements of the sequence are zero.
+func SequenceIsZero(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	switch s.Kind {
+	case SeqMU8, SeqIU8:
+		v := s.Value.([]byte)
+		for _, c := range v {
+			if c != 0 {
+				return vm.False
+			}
+		}
+	case SeqMU16, SeqIU16:
+		v := s.Value.([]uint16)
+		for _, c := range v {
+			if c != 0 {
+				return vm.False
+			}
+		}
+	case SeqMU32, SeqIU32:
+		v := s.Value.([]uint32)
+		for _, c := range v {
+			if c != 0 {
+				return vm.False
+			}
+		}
+	case SeqMU64, SeqIU64:
+		v := s.Value.([]uint64)
+		for _, c := range v {
+			if c != 0 {
+				return vm.False
+			}
+		}
+	case SeqMS8, SeqIS8:
+		v := s.Value.([]int8)
+		for _, c := range v {
+			if c != 0 {
+				return vm.False
+			}
+		}
+	case SeqMS16, SeqIS16:
+		v := s.Value.([]int16)
+		for _, c := range v {
+			if c != 0 {
+				return vm.False
+			}
+		}
+	case SeqMS32, SeqIS32:
+		v := s.Value.([]int32)
+		for _, c := range v {
+			if c != 0 {
+				return vm.False
+			}
+		}
+	case SeqMS64, SeqIS64:
+		v := s.Value.([]int64)
+		for _, c := range v {
+			if c != 0 {
+				return vm.False
+			}
+		}
+	case SeqMF32, SeqIF32:
+		v := s.Value.([]float32)
+		for _, c := range v {
+			if c != 0 {
+				return vm.False
+			}
+		}
+	case SeqMF64, SeqIF64:
+		v := s.Value.([]float64)
+		for _, c := range v {
+			if c != 0 {
+				return vm.False
+			}
+		}
+	case SeqUntyped:
+		panic("use of untyped sequence")
+	default:
+		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+	}
+	return vm.True
+}
+
 // SequenceReverseFindSeq is a Sequence method.
 //
 // reverseFindSeq locates the last occurrence of the argument sequence in the

@@ -353,6 +353,7 @@ Sequence do(
 	setSlot("/", method(v, Sequence clone copy(self) /= v))
 
 	isEmpty := method(self size == 0)
+	isSymbol := method(self isMutable not)
 
 	alignLeftInPlace := method(w, pad,
 		os := size

@@ -884,6 +884,7 @@ func (vm *VM) initSequence() {
 		"hash":           vm.NewTypedCFunction(SequenceHash, exemplar),
 		"inSlice":        vm.NewTypedCFunction(SequenceInSlice, exemplar),
 		"isMutable":      vm.NewTypedCFunction(SequenceIsMutable, exemplar),
+		"isZero":         vm.NewTypedCFunction(SequenceIsZero, exemplar),
 		"itemSize":       vm.NewTypedCFunction(SequenceItemSize, exemplar),
 		"itemType":       vm.NewTypedCFunction(SequenceItemType, exemplar),
 		"reverseFindSeq": vm.NewTypedCFunction(SequenceReverseFindSeq, exemplar),
