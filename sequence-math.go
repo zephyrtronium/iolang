@@ -848,6 +848,27 @@ func SequenceMax(vm *VM, target, locals Interface, msg *Message) Interface {
 	return vm.NewNumber(s.Reduce(math.Max, math.Inf(-1)))
 }
 
+// SequenceMean is a Sequence method.
+//
+// mean computes the arithmetic mean of the elements in the sequence.
+func SequenceMean(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	r := s.Reduce(func(x, y float64) float64 { return x + y }, 0)
+	return vm.NewNumber(r / float64(s.Len()))
+}
+
+// SequenceMeanSquare is a Sequence method.
+//
+// meanSquare computes the arithmetic mean of the squares of the elements in
+// the sequence.
+func SequenceMeanSquare(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	// This disagrees with Io's meanSquare, which performs the squaring in the
+	// receiver's type.
+	r := s.Reduce(func(x, y float64) float64 { return x + y*y }, 0)
+	return vm.NewNumber(r / float64(s.Len()))
+}
+
 // SequenceMin is a Sequence method.
 //
 // min returns the minimum element in the sequence.

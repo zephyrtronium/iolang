@@ -967,6 +967,8 @@ func (vm *VM) initSequence() {
 		"log":                     vm.NewTypedCFunction(SequenceLog, exemplar),
 		"log10":                   vm.NewTypedCFunction(SequenceLog10, exemplar),
 		"max":                     vm.NewTypedCFunction(SequenceMax, exemplar),
+		"mean":                    vm.NewTypedCFunction(SequenceMean, exemplar),
+		"meanSquare":              vm.NewTypedCFunction(SequenceMeanSquare, exemplar),
 		"min":                     vm.NewTypedCFunction(SequenceMin, exemplar),
 		"negate":                  vm.NewTypedCFunction(SequenceNegate, exemplar),
 		"sin":                     vm.NewTypedCFunction(SequenceSin, exemplar),
