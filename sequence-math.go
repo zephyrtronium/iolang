@@ -189,6 +189,69 @@ func (s *Sequence) MapBinary(op func(float64, float64) float64, t *Sequence, def
 	}
 }
 
+// Reduce evaluates op on each element of the sequence, using the output as the
+// first input to the following call. The first input for the first element is
+// ic.
+func (s *Sequence) Reduce(op func(float64, float64) float64, ic float64) float64 {
+	switch s.Kind {
+	case SeqMU8, SeqIU8:
+		v := s.Value.([]byte)
+		for _, c := range v {
+			ic = op(ic, float64(c))
+		}
+	case SeqMU16, SeqIU16:
+		v := s.Value.([]uint16)
+		for _, c := range v {
+			ic = op(ic, float64(c))
+		}
+	case SeqMU32, SeqIU32:
+		v := s.Value.([]uint32)
+		for _, c := range v {
+			ic = op(ic, float64(c))
+		}
+	case SeqMU64, SeqIU64:
+		v := s.Value.([]uint64)
+		for _, c := range v {
+			ic = op(ic, float64(c))
+		}
+	case SeqMS8, SeqIS8:
+		v := s.Value.([]int8)
+		for _, c := range v {
+			ic = op(ic, float64(c))
+		}
+	case SeqMS16, SeqIS16:
+		v := s.Value.([]int16)
+		for _, c := range v {
+			ic = op(ic, float64(c))
+		}
+	case SeqMS32, SeqIS32:
+		v := s.Value.([]int32)
+		for _, c := range v {
+			ic = op(ic, float64(c))
+		}
+	case SeqMS64, SeqIS64:
+		v := s.Value.([]int64)
+		for _, c := range v {
+			ic = op(ic, float64(c))
+		}
+	case SeqMF32, SeqIF32:
+		v := s.Value.([]float32)
+		for _, c := range v {
+			ic = op(ic, float64(c))
+		}
+	case SeqMF64, SeqIF64:
+		v := s.Value.([]float64)
+		for _, c := range v {
+			ic = op(ic, c)
+		}
+	case SeqUntyped:
+		panic("use of untyped sequence")
+	default:
+		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+	}
+	return ic
+}
+
 // SeqOrNumArgAt evaluates the given argument, then returns it as a Sequence
 // or Number, or a raised exception if it is neither, or a return or raised
 // exception if one occurs during evaluation.
@@ -775,6 +838,22 @@ func SequenceLog10(vm *VM, target, locals Interface, msg *Message) Interface {
 	}
 	s.MapUnary(math.Log10)
 	return s
+}
+
+// SequenceMax is a Sequence method.
+//
+// max returns the maximum element in the sequence.
+func SequenceMax(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	return vm.NewNumber(s.Reduce(math.Max, math.Inf(-1)))
+}
+
+// SequenceMin is a Sequence method.
+//
+// min returns the minimum element in the sequence.
+func SequenceMin(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	return vm.NewNumber(s.Reduce(math.Min, math.Inf(0)))
 }
 
 // SequenceNegate is a Sequence method.
