@@ -19,6 +19,12 @@ import (
 	"unicode/utf8"
 )
 
+var (
+	encLatin1 = charmap.Windows1252
+	encUTF16  = unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM)
+	encUTF32  = utf32.UTF32(utf32.LittleEndian, utf32.IgnoreBOM)
+)
+
 // NewString creates a new Sequence object representing the given string in
 // UTF-8 encoding.
 func (vm *VM) NewString(value string) *Sequence {
@@ -327,6 +333,59 @@ func (vm *VM) SequenceFromBytes(b []byte, kind SeqKind) *Sequence {
 	}
 	binary.Read(bytes.NewReader(b), binary.LittleEndian, v)
 	return vm.NewSequence(v, kind > 0, kind.Encoding())
+}
+
+// SetString sets the sequence's value to the given string, using the
+// sequence's current encoding. If the encoding is number, the sequence will be
+// each rune of sv converted to the sequence's type; otherwise, the value will
+// read the packed binary representation of the encoded string. Any
+// unrepresentable runes are converted to replacements.
+func (s *Sequence) SetString(sv string) {
+	if err := s.CheckMutable("iolang.(*Sequence).SetString"); err != nil {
+		panic(err)
+	}
+	var b []byte
+	switch s.Code {
+	case "number":
+		t := reflect.TypeOf(s.Value)
+		v := reflect.MakeSlice(t, 0, len(sv))
+		t = t.Elem()
+		for _, r := range sv {
+			v = reflect.Append(v, reflect.ValueOf(r).Convert(t))
+		}
+		s.Value = v.Interface()
+		return
+	case "utf8":
+		b = []byte(sv)
+	case "ascii", "latin1":
+		// Encode by hand to make sure we get replacement encodings.
+		b := make([]byte, 0, len(sv))
+		for _, r := range sv {
+			c, _ := encLatin1.EncodeRune(r)
+			b = append(b, c)
+		}
+	case "utf16":
+		b, _ = encUTF16.NewEncoder().Bytes([]byte(sv))
+	case "utf32":
+		b, _ = encUTF32.NewEncoder().Bytes([]byte(sv))
+	default:
+		// TODO: We can really support any encoding in x/text/encoding.
+		panic(fmt.Sprintf("unsupported sequence encoding %q", s.Code))
+	}
+	if s.Kind == SeqMU8 {
+		s.Value = b
+	} else {
+		// Round up the length of the buffer to the next multiple of the item
+		// size so that we use every rune.
+		k := s.ItemSize()
+		if len(b)%k != 0 {
+			x := [SeqMaxItemSize]byte{}
+			b = append(b, x[:k-len(b)%k]...)
+		}
+		v := reflect.MakeSlice(reflect.TypeOf(s.Value), len(b)/k, len(b)/k)
+		binary.Read(bytes.NewReader(b), binary.LittleEndian, v.Interface())
+		s.Value = v.Interface()
+	}
 }
 
 // FirstRune decodes the first rune from the sequence and returns its size in
@@ -1156,6 +1215,29 @@ func SequenceLowercase(vm *VM, target, locals Interface, msg *Message) Interface
 		// TODO: We can really support any encoding in x/text/encoding.
 		panic(fmt.Sprintf("unsupported sequence encoding %q", s.Code))
 	}
+	return target
+}
+
+// SequenceLstrip is a Sequence method.
+//
+// lstrip removes all whitespace characters from the beginning of the sequence,
+// or all characters in the provided cut set.
+func SequenceLstrip(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckMutable("lstrip"); err != nil {
+		return vm.IoError(err)
+	}
+	var sv string
+	if msg.ArgCount() == 0 {
+		sv = strings.TrimLeftFunc(s.String(), unichr.IsSpace)
+	} else {
+		other, stop := msg.StringArgAt(vm, locals, 0)
+		if stop != nil {
+			return stop
+		}
+		sv = strings.TrimLeft(s.String(), other.String())
+	}
+	s.SetString(sv)
 	return target
 }
 

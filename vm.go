@@ -376,6 +376,8 @@ Sequence do(
 	
 	interpolateInPlace := method(self copy(self interpolate))
 
+	linePrint := method(File standardOutput write(self, "\n"); self)
+
 	asFile := method(File with(self))
 )
 

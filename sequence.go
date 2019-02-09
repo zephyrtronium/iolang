@@ -48,6 +48,9 @@ const (
 
 var seqItemSizes = [...]int{0, 1, 2, 4, 8, 1, 2, 4, 8, 4, 8}
 
+// SeqMaxItemSize is the maximum size in bytes of a single sequence element.
+const SeqMaxItemSize = 8
+
 // ItemSize returns the size in bytes of each element of the sequence.
 func (kind SeqKind) ItemSize() int {
 	if kind >= 0 {
@@ -934,6 +937,7 @@ func (vm *VM) initSequence() {
 		"isUppercase":            vm.NewTypedCFunction(SequenceIsUppercase, exemplar),
 		"lastPathComponent":      vm.NewTypedCFunction(SequenceLastPathComponent, exemplar),
 		"lowercase":              vm.NewTypedCFunction(SequenceLowercase, exemplar),
+		"lstrip":                 vm.NewTypedCFunction(SequenceLstrip, exemplar),
 		"setEncoding":            vm.NewTypedCFunction(SequenceSetEncoding, exemplar),
 		"uppercase":              vm.NewTypedCFunction(SequenceUppercase, exemplar),
 		"validEncodings":         vm.NewCFunction(SequenceValidEncodings),
