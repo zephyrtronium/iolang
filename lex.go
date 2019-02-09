@@ -249,11 +249,15 @@ func lexNumber(src *bufio.Reader, tokens chan<- token, line, col int) (lexFn, in
 	prelen := len(b)
 	if r == 'x' || r == 'X' {
 		b = append(b, 'x')
+		_, _, err = src.ReadRune()
+		if err != nil {
+			return lexsend(err, tokens, token{Kind: badToken, Err: err, Line: line, Col: col}), line, ncol
+		}
 		b, _, err = accept(src, func(r rune) bool {
-			return '0' <= r && r <= '9' || 'a' <= r && r <= 'f' || 'A' <= r && r <= 'F'
+			return ('0' <= r && r <= '9') || ('a' <= r && r <= 'f') || ('A' <= r && r <= 'F')
 		}, b)
 		ncol += len(b) - prelen
-		return lexsend(err, tokens, token{Kind: numberToken, Value: string(b), Line: line, Col: col}), line, ncol
+		return lexsend(err, tokens, token{Kind: hexToken, Value: string(b), Line: line, Col: col}), line, ncol
 	}
 	if r == '.' {
 		b = append(b, '.')
