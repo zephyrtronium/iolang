@@ -51,7 +51,7 @@ func (s *Sequence) String() string {
 		return string(s.Bytes())
 	}
 	if s.Code == "ascii" || s.Code == "latin1" {
-		d := charmap.Windows1252.NewDecoder()
+		d := encLatin1.NewDecoder()
 		b, _ := d.Bytes(s.Bytes()) // bytes :)
 		return string(b)
 	}
@@ -61,7 +61,7 @@ func (s *Sequence) String() string {
 		if s.Kind == SeqMU16 || s.Kind == SeqIU16 {
 			return string(utf16.Decode(s.Value.([]uint16)))
 		}
-		d := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewDecoder()
+		d := encUTF16.NewDecoder()
 		b, _ := d.Bytes(s.Bytes()) // bytes :)
 		return string(b)
 	}
@@ -73,7 +73,7 @@ func (s *Sequence) String() string {
 			// string.
 			return string(s.Value.([]rune))
 		}
-		d := utf32.UTF32(utf32.LittleEndian, utf32.IgnoreBOM).NewDecoder()
+		d := encUTF32.NewDecoder()
 		b, _ := d.Bytes(s.Bytes()) // bytes :)
 		return string(b)
 	}
@@ -359,7 +359,7 @@ func (s *Sequence) SetString(sv string) {
 		b = []byte(sv)
 	case "ascii", "latin1":
 		// Encode by hand to make sure we get replacement encodings.
-		b := make([]byte, 0, len(sv))
+		b = make([]byte, 0, len(sv))
 		for _, r := range sv {
 			c, _ := encLatin1.EncodeRune(r)
 			b = append(b, c)
@@ -402,9 +402,9 @@ func (s *Sequence) FirstRune() (rune, int) {
 	case "utf8":
 		return utf8.DecodeRune(b)
 	case "ascii", "latin1":
-		return charmap.Windows1252.DecodeByte(b[0]), 1
+		return encLatin1.DecodeByte(b[0]), 1
 	case "utf16":
-		d := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewDecoder()
+		d := encUTF16.NewDecoder()
 		// Decoding to UTF-8 will replace an invalid UTF-16 sequence with
 		// U+FFFD, which will then decode successfully. This isn't exactly what
 		// we want, but it's too much effort to support what should be an
@@ -420,7 +420,7 @@ func (s *Sequence) FirstRune() (rune, int) {
 		}
 		return r, 4
 	case "utf32":
-		d := utf32.UTF32(utf32.LittleEndian, utf32.IgnoreBOM).NewDecoder()
+		d := encUTF32.NewDecoder()
 		// It would be slightly easier to detect invalid UTF-32, since we could
 		// just decode four bytes and use utf8.ValidRune, but this should be an
 		// even rarer case than UTF-16.
@@ -497,7 +497,7 @@ func (s *Sequence) MinCode() string {
 	case "ascii", "latin1":
 		return s.Code
 	case "utf16":
-		d := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewDecoder()
+		d := encUTF16.NewDecoder()
 		b, err := d.Bytes(s.Bytes()) // bytes :)
 		if err != nil {
 			return "number"
@@ -516,7 +516,7 @@ func (s *Sequence) MinCode() string {
 			i += n
 		}
 	case "utf32":
-		d := utf32.UTF32(utf32.LittleEndian, utf32.IgnoreBOM).NewDecoder()
+		d := encUTF32.NewDecoder()
 		b, err := d.Bytes(s.Bytes()) // bytes :)
 		if err != nil {
 			return "number"
@@ -612,7 +612,7 @@ func SequenceAsLatin1(vm *VM, target, locals Interface, msg *Message) Interface 
 	// we get our replacement bytes.
 	r := make([]byte, 0, len(v))
 	for _, c := range v {
-		ec, _ := charmap.Windows1252.EncodeRune(c)
+		ec, _ := encLatin1.EncodeRune(c)
 		r = append(r, ec)
 	}
 	return vm.NewSequence(r, s.IsMutable(), "latin1")
@@ -846,12 +846,12 @@ func SequenceCapitalize(vm *VM, target, locals Interface, msg *Message) Interfac
 			s.Value = x.Value
 		}
 	case "ascii", "latin1":
-		c, _ := charmap.Windows1252.EncodeRune(r)
+		c, _ := encLatin1.EncodeRune(r)
 		v := reflect.ValueOf(s.Value).Index(0)
 		// FIXME: This will overwrite if the type isn't 8-bit.
 		v.Set(reflect.ValueOf(c).Convert(v.Type()))
 	case "utf16":
-		e := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewEncoder()
+		e := encUTF16.NewEncoder()
 		b, _ = e.Bytes(b)
 		v := reflect.ValueOf(s.Value)
 		x := reflect.MakeSlice(v.Type(), len(b)/is, len(b)/is)
@@ -860,7 +860,7 @@ func SequenceCapitalize(vm *VM, target, locals Interface, msg *Message) Interfac
 		// sequence kind is 32, or if the sequence kind is 64-bit.
 		reflect.Copy(v, x)
 	case "utf32":
-		e := utf32.UTF32(utf32.LittleEndian, utf32.IgnoreBOM).NewEncoder()
+		e := encUTF32.NewEncoder()
 		b, _ = e.Bytes(b)
 		v := reflect.ValueOf(s.Value)
 		x := reflect.MakeSlice(v.Type(), len(b)/is, len(b)/is)
@@ -930,7 +930,7 @@ func SequenceConvertToFixedSizeType(vm *VM, target, locals Interface, msg *Messa
 			b := s.String()
 			v := make([]byte, 0, len(b))
 			for _, r := range b {
-				c, _ := charmap.Windows1252.EncodeRune(r)
+				c, _ := encLatin1.EncodeRune(r)
 				v = append(v, c)
 			}
 			s.Value = v
@@ -1170,51 +1170,7 @@ func SequenceLowercase(vm *VM, target, locals Interface, msg *Message) Interface
 	if err := s.CheckMutable("lowercase"); err != nil {
 		return vm.IoError(err)
 	}
-	sv := strings.ToLower(s.String())
-	switch s.Code {
-	case "number":
-		t := reflect.TypeOf(s.Value).Elem()
-		v := reflect.MakeSlice(t, 0, s.Len())
-		for _, r := range sv {
-			v = reflect.Append(v, reflect.ValueOf(r).Convert(t))
-		}
-		s.Value = v.Interface()
-	case "utf8":
-		if s.Kind == SeqMU8 {
-			s.Value = []byte(sv)
-		} else {
-			n := (len(sv) + s.ItemSize() - 1) / s.ItemSize()
-			v := reflect.MakeSlice(reflect.TypeOf(s.Value), n, n)
-			binary.Read(strings.NewReader(sv), binary.LittleEndian, v.Interface())
-			s.Value = v.Interface()
-		}
-	case "ascii", "latin1":
-		// This can't err because the original was also Latin-1.
-		b, _ := charmap.Windows1252.NewEncoder().Bytes([]byte(sv))
-		if s.Kind == SeqMU8 {
-			s.Value = b
-		} else {
-			n := (len(b) + s.ItemSize() - 1) / s.ItemSize()
-			v := reflect.MakeSlice(reflect.TypeOf(s.Value), n, n)
-			binary.Read(bytes.NewReader(b), binary.LittleEndian, v.Interface())
-			s.Value = v.Interface()
-		}
-	case "utf16":
-		b, _ := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewEncoder().Bytes([]byte(sv))
-		n := (len(b) + s.ItemSize() - 1) / s.ItemSize()
-		v := reflect.MakeSlice(reflect.TypeOf(s.Value), n, n)
-		binary.Read(bytes.NewReader(b), binary.LittleEndian, v.Interface())
-		s.Value = v.Interface()
-	case "utf32":
-		b, _ := utf32.UTF32(utf32.LittleEndian, utf32.IgnoreBOM).NewEncoder().Bytes([]byte(sv))
-		n := (len(b) + s.ItemSize() - 1) / s.ItemSize()
-		v := reflect.MakeSlice(reflect.TypeOf(s.Value), n, n)
-		binary.Read(bytes.NewReader(b), binary.LittleEndian, v.Interface())
-		s.Value = v.Interface()
-	default:
-		// TODO: We can really support any encoding in x/text/encoding.
-		panic(fmt.Sprintf("unsupported sequence encoding %q", s.Code))
-	}
+	s.SetString(strings.ToLower(s.String()))
 	return target
 }
 
@@ -1250,50 +1206,6 @@ func SequenceUppercase(vm *VM, target, locals Interface, msg *Message) Interface
 	if err := s.CheckMutable("uppercase"); err != nil {
 		return vm.IoError(err)
 	}
-	sv := strings.ToUpper(s.String())
-	switch s.Code {
-	case "number":
-		t := reflect.TypeOf(s.Value).Elem()
-		v := reflect.MakeSlice(t, 0, s.Len())
-		for _, r := range sv {
-			v = reflect.Append(v, reflect.ValueOf(r).Convert(t))
-		}
-		s.Value = v.Interface()
-	case "utf8":
-		if s.Kind == SeqMU8 {
-			s.Value = []byte(sv)
-		} else {
-			n := (len(sv) + s.ItemSize() - 1) / s.ItemSize()
-			v := reflect.MakeSlice(reflect.TypeOf(s.Value), n, n)
-			binary.Read(strings.NewReader(sv), binary.LittleEndian, v.Interface())
-			s.Value = v.Interface()
-		}
-	case "ascii", "latin1":
-		// This can't err because the original was also Latin-1.
-		b, _ := charmap.Windows1252.NewEncoder().Bytes([]byte(sv))
-		if s.Kind == SeqMU8 {
-			s.Value = b
-		} else {
-			n := (len(b) + s.ItemSize() - 1) / s.ItemSize()
-			v := reflect.MakeSlice(reflect.TypeOf(s.Value), n, n)
-			binary.Read(bytes.NewReader(b), binary.LittleEndian, v.Interface())
-			s.Value = v.Interface()
-		}
-	case "utf16":
-		b, _ := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewEncoder().Bytes([]byte(sv))
-		n := (len(b) + s.ItemSize() - 1) / s.ItemSize()
-		v := reflect.MakeSlice(reflect.TypeOf(s.Value), n, n)
-		binary.Read(bytes.NewReader(b), binary.LittleEndian, v.Interface())
-		s.Value = v.Interface()
-	case "utf32":
-		b, _ := utf32.UTF32(utf32.LittleEndian, utf32.IgnoreBOM).NewEncoder().Bytes([]byte(sv))
-		n := (len(b) + s.ItemSize() - 1) / s.ItemSize()
-		v := reflect.MakeSlice(reflect.TypeOf(s.Value), n, n)
-		binary.Read(bytes.NewReader(b), binary.LittleEndian, v.Interface())
-		s.Value = v.Interface()
-	default:
-		// TODO: We can really support any encoding in x/text/encoding.
-		panic(fmt.Sprintf("unsupported sequence encoding %q", s.Code))
-	}
+	s.SetString(strings.ToUpper(s.String()))
 	return target
 }
