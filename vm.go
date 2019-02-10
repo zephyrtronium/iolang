@@ -19,7 +19,7 @@ type VM struct {
 	True       *Object
 	False      *Object
 	Nil        *Object
-	Operators  *OpTable
+	Operators  *Object
 
 	// ValidEncodings is the list of accepted sequence encodings.
 	ValidEncodings []string
@@ -47,8 +47,6 @@ func NewVM(args ...string) *VM {
 		False:      &Object{},
 		Nil:        &Object{},
 
-		Operators: &OpTable{},
-
 		ValidEncodings: []string{"ascii", "utf8", "number", "latin1", "utf16", "utf32"},
 
 		// TODO: should this be since program start instead to match Io?
@@ -63,8 +61,8 @@ func NewVM(args ...string) *VM {
 	// initialize Core, so that other init methods can set up their protos on
 	// it. Then, we must initialize CFunction, so that others can use
 	// NewCFunction. Following that, we must initialize Sequence, which in turn
-	// initializes String, so that we can use NewString. After that, the order
-	// matters less, because other types are less likely to be used in inits.
+	// initializes String, so that we can use NewString. After that, we must
+	// have Map before OpTable and OpTable before Object.
 	vm.initCore()
 	vm.initCFunction()
 	vm.initSequence()
@@ -73,11 +71,12 @@ func NewVM(args ...string) *VM {
 	vm.initException()
 	vm.initBlock()
 	vm.initCall()
+	vm.initMap()
+	vm.initOpTable()
 	vm.initObject()
 	vm.initTrue()
 	vm.initFalse()
 	vm.initNil()
-	vm.initOpTable()
 	vm.initLocals()
 	vm.initList()
 	vm.initFile()
@@ -86,7 +85,6 @@ func NewVM(args ...string) *VM {
 	vm.initDuration()
 	vm.initSystem()
 	vm.initArgs(args)
-	vm.initMap()
 	vm.initCollector()
 
 	vm.finalInit()
@@ -1010,6 +1008,24 @@ Message do(
 		l := list(self)
 		call message argAt(0) arguments foreach(arg, l append(arg))
 		m setArguments(l)
+	)
+)
+
+OperatorTable do(
+	addOperator := method(name, prec, operators atPut(name, prec ifNilEval(0)); self)
+	addAssignOperator := method(name, calls, assignOperators atPut(name, calls asSymbol asUTF8); self)
+
+	asString := method(
+		b := Sequence clone appendSeq(self asSimpleString, ":\nOperators")
+		self operators values unique sort foreach(prec,
+			b appendSeq("\n  ", prec asString alignLeft(4), self operators select(k, v, v == prec) keys sort join(" "))
+		)
+		b appendSeq("\n\nAssign Operators")
+		self assignOperators keys sort foreach(name,
+			calls := self assignOperators at(name)
+			b appendSeq("\n  ", name alignLeft(4), calls)
+		)
+		b
 	)
 )
 `

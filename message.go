@@ -283,12 +283,12 @@ func (m *Message) IsTerminator() bool {
 	return m == nil || m.Text == ";" || m.Text == "\n"
 }
 
-// Name generates a string representation of this message based upon its type.
+// Name returns the name of the message, which is its text if it is non-nil.
 func (m *Message) Name() string {
-	if m == nil {
-		return "<nil message>"
+	if m != nil {
+		return m.Text
 	}
-	return m.Text
+	return "<nil message>"
 }
 
 // String generates a diagnostic string representation of this message.
@@ -298,32 +298,25 @@ func (m *Message) String() string {
 
 func (m *Message) stringRecurse(vm *VM, b *bytes.Buffer) {
 	if m == nil {
-		b.WriteString("<nil>")
+		b.WriteString("<nil message>")
 		return
 	}
 	for m != nil {
-		if m.Memo != nil {
-			if msg, ok := m.Memo.(*Message); ok {
-				b.WriteString("<message(")
-				msg.stringRecurse(vm, b)
-				b.WriteString(")>")
-			} else {
-				b.WriteString(vm.AsString(m.Memo))
+		b.WriteString(m.Text)
+		if len(m.Args) > 0 {
+			b.WriteByte('(')
+			m.Args[0].stringRecurse(vm, b)
+			for _, arg := range m.Args[1:] {
+				b.WriteString(", ")
+				arg.stringRecurse(vm, b)
 			}
-		} else {
-			b.WriteString(m.Text)
-			if len(m.Args) > 0 {
-				b.WriteByte('(')
-				m.Args[0].stringRecurse(vm, b)
-				for _, arg := range m.Args[1:] {
-					b.WriteString(", ")
-					arg.stringRecurse(vm, b)
-				}
-				b.WriteByte(')')
-			}
+			b.WriteByte(')')
 		}
-		if m.Next != nil {
+		if !m.IsTerminator() && m.Next != nil {
 			b.WriteByte(' ')
+		}
+		if m.Text == ";" {
+			b.WriteByte('\n')
 		}
 		m = m.Next
 	}
@@ -332,7 +325,6 @@ func (m *Message) stringRecurse(vm *VM, b *bytes.Buffer) {
 func (vm *VM) initMessage() {
 	var exemplar *Message
 	slots := Slots{
-		"OperatorTable":              vm.Operators,
 		"appendArg":                  vm.NewTypedCFunction(MessageAppendArg, exemplar),
 		"appendCachedArg":            vm.NewTypedCFunction(MessageAppendCachedArg, exemplar),
 		"argAt":                      vm.NewTypedCFunction(MessageArgAt, exemplar),
