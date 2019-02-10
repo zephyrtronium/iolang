@@ -889,6 +889,28 @@ func SequenceNegate(vm *VM, target, locals Interface, msg *Message) Interface {
 	return s
 }
 
+// SequenceNormalize is a Sequence method.
+//
+// normalize divides each element of the receiver by the sequence's L2 norm.
+func SequenceNormalize(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	// The original only checks for mutability, not numeric.
+	if err := s.CheckNumeric("normalize", true); err != nil {
+		return vm.IoError(err)
+	}
+	l2 := math.Sqrt(s.Reduce(func(x, y float64) float64 { return x + y*y }, 0))
+	s.MapUnary(func(x float64) float64 { return x / l2 })
+	return target
+}
+
+// SequenceProduct is a Sequence method.
+//
+// product returns the product of the elements of the sequence.
+func SequenceProduct(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	return vm.NewNumber(s.Reduce(func(x, y float64) float64 { return x * y }, 1))
+}
+
 // SequenceSin is a Sequence method.
 //
 // sin sets each element of the receiver to its sine.
@@ -935,6 +957,14 @@ func SequenceSquare(vm *VM, target, locals Interface, msg *Message) Interface {
 	}
 	s.MapUnary(func(x float64) float64 { return x * x })
 	return s
+}
+
+// SequenceSum is a Sequence method.
+//
+// sum returns the sum of the elements of the sequence.
+func SequenceSum(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	return vm.NewNumber(s.Reduce(func(x, y float64) float64 { return x + y }, 0))
 }
 
 // SequenceTan is a Sequence method.
