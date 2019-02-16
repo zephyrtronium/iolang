@@ -42,7 +42,6 @@ For a more in-depth introduction to Io, check out [the official guide](iolanguag
 		* All asJson methods.
 		* Object lazySlot
 		* Exception showStack, setters
-		* Block Formatter, asString
 		* File streamDestination, startStreaming
 - Write tests, both in Go and in Io.
 - Importer, and implement Addons, ideally supporting Go's `-buildmode=plugin`.
