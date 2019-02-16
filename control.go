@@ -159,7 +159,7 @@ func ObjectWhile(vm *VM, target, locals Interface, msg *Message) (result Interfa
 		if !ok {
 			return c
 		}
-		if vm.AsBool(c) {
+		if !vm.AsBool(c) {
 			return result
 		}
 		result = m.Eval(vm, locals)
