@@ -5,12 +5,10 @@ Io is a dynamic, prototype-based language inspired by Smalltalk (everything is
 an object), Self (prototypes - *everything* is an object), Lisp (even the
 program code is made up of objects), NewtonScript (differential inheritance),
 Act1 (concurrency via actors and futures), and Lua (small and embeddable
-implementations). It was originally developed in C by Steve Dekorte, but its
-development has stalled, as the task of maintaining a large, transparently
-cross-platform codebase in C is immense. Hence, a Go implementation.
+implementations). It was originally developed in C by Steve Dekorte.
 
-Currently, the implementation is focusing primarily on becoming a fully fledged
-interpreter. A read-eval-print loop is implemented, primarily for integration
+Currently, this implementation is focusing primarily on becoming a fully
+fledged interpreter. A read-eval-print loop exists, primarily for integration
 testing. There is no file interpreter, so written Io programs are not yet
 executable.
 
@@ -59,7 +57,7 @@ creates a slot on Object named x with the value 1.
 Certain objects have special behavior when activated. Methods are encapsulated
 messages that, when activated, send that message to the object which received
 the message that activated the method. The println method above is an example:
-it is defined as
+it is defined (roughly) as
 
 	Object println := method(File standardOutput write(self, "\n"); self)
 
