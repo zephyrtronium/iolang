@@ -22,7 +22,7 @@ Producing "subclasses" is done using the `clone` method. A clone of an object, s
 
 An important aspect of Io lacking syntax beyond messages is that control flow is implemented as `Object` methods. `if` is a method taking one to three arguments: `if(cond, message when cond is true, message when cond is false)` evaluates its first argument, then the second if it is true or the third if it is false. Because message arguments are themselves messages, the other argument is not evaluated. When any of the arguments are not supplied, the evaluation result is returned instead, which enables alternate forms of branching: `if(cond) then(message when cond is true) elseif(cond2, different message) else(last thing to try)`. There are also loops, including `for` to loop over a range with a counter, `while` to perform a loop as long as a condition is true, `loop` to perform a loop forever, and others. `continue`, `break`, and `return` generally do what you expect. Each of these methods is an expression, and the last value produced during evaluation of each is returned.
 
-For a more in-depth introduction to Io, check out [the official guide](iolanguage.org/guide/guide.html) and [reference](iolanguage.org/reference/index.html). There are more code examples at [the original implementation's GitHub repository](https://github.com/IoLanguage/io) as well.
+For a more in-depth introduction to Io, check out [the official guide](http://iolanguage.org/guide/guide.html) and [reference](http://iolanguage.org/reference/index.html). There are more code examples at [the original implementation's GitHub repository](https://github.com/IoLanguage/io) as well.
 
 ## TODO
 
