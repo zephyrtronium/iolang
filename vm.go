@@ -107,11 +107,6 @@ func (vm *VM) MemoizeNumber(v float64) {
 	vm.NumberMemo[v] = vm.NewNumber(v)
 }
 
-// MemoizeString creates a quick-access String with the given value.
-func (vm *VM) MemoizeString(v string) {
-	vm.StringMemo[v] = vm.NewString(v)
-}
-
 // IoBool converts a bool to the appropriate Io boolean object.
 func (vm *VM) IoBool(c bool) *Object {
 	if c {
