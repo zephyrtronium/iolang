@@ -25,6 +25,9 @@ var (
 	encUTF32  = utf32.UTF32(utf32.LittleEndian, utf32.IgnoreBOM)
 )
 
+// validEncodings is the list of accepted sequence encodings.
+var validEncodings = []string{"ascii", "utf8", "number", "latin1", "utf16", "utf32"}
+
 // NewString creates a new Sequence object representing the given string in
 // UTF-8 encoding.
 func (vm *VM) NewString(value string) *Sequence {
@@ -548,7 +551,7 @@ func (s *Sequence) MinCode() string {
 // accepted by the VM.
 func (vm *VM) CheckEncoding(encoding string) bool {
 	encoding = strings.ToLower(encoding)
-	for _, enc := range vm.ValidEncodings {
+	for _, enc := range validEncodings {
 		if encoding == enc {
 			return true
 		}
@@ -590,8 +593,8 @@ func SequenceSetEncoding(vm *VM, target, locals Interface, msg *Message) Interfa
 //
 // validEncodings returns a list of valid encoding names.
 func SequenceValidEncodings(vm *VM, target, locals Interface, msg *Message) Interface {
-	encs := make([]Interface, len(vm.ValidEncodings))
-	for k, v := range vm.ValidEncodings {
+	encs := make([]Interface, len(validEncodings))
+	for k, v := range validEncodings {
 		encs[k] = vm.NewString(v)
 	}
 	return vm.NewList(encs...)

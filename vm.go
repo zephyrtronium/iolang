@@ -21,16 +21,12 @@ type VM struct {
 	Nil        *Object
 	Operators  *Object
 
-	// ValidEncodings is the list of accepted sequence encodings.
-	ValidEncodings []string
-
 	// StartTime is the time at which VM initialization began, used for the
 	// Date clock method.
 	StartTime time.Time
 
-	// Common numbers and strings to avoid needing new objects for each use.
+	// Common numbers to avoid needing new objects for each use.
 	NumberMemo map[float64]*Number
-	StringMemo map[string]*Sequence
 }
 
 // NewVM prepares a new VM to interpret Io code. String arguments may be passed
@@ -46,8 +42,6 @@ func NewVM(args ...string) *VM {
 		True:       &Object{},
 		False:      &Object{},
 		Nil:        &Object{},
-
-		ValidEncodings: []string{"ascii", "utf8", "number", "latin1", "utf16", "utf32"},
 
 		// TODO: should this be since program start instead to match Io?
 		StartTime: time.Now(),
