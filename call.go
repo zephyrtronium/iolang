@@ -13,6 +13,8 @@ type Call struct {
 	Target Interface
 	// Context is the object which actually owned the activated slot.
 	Context Interface
+	// Coroutine is the coroutine running this call.
+	Coroutine *VM
 }
 
 // Activate returns the call.
@@ -29,6 +31,7 @@ func (c *Call) Clone() Interface {
 		Activated: c.Activated,
 		Msg:       c.Msg,
 		Target:    c.Target,
+		Coroutine: c.Coroutine,
 	}
 }
 
@@ -42,6 +45,7 @@ func (vm *VM) NewCall(sender, actor Interface, msg *Message, target, context Int
 		Msg:       msg,
 		Target:    target,
 		Context:   context,
+		Coroutine: vm,
 	}
 }
 
@@ -51,6 +55,7 @@ func (vm *VM) initCall() {
 		"activated":   vm.NewTypedCFunction(CallActivated, exemplar),
 		"argAt":       vm.NewTypedCFunction(CallArgAt, exemplar),
 		"argCount":    vm.NewTypedCFunction(CallArgCount, exemplar),
+		"coroutine":   vm.NewTypedCFunction(CallCoroutine, exemplar),
 		"evalArgAt":   vm.NewTypedCFunction(CallEvalArgAt, exemplar),
 		"message":     vm.NewTypedCFunction(CallMessage, exemplar),
 		"sender":      vm.NewTypedCFunction(CallSender, exemplar),
@@ -90,6 +95,13 @@ func CallArgAt(vm *VM, target, locals Interface, msg *Message) Interface {
 // argCount returns the number of arguments passed in the call.
 func CallArgCount(vm *VM, target, locals Interface, msg *Message) Interface {
 	return vm.NewNumber(float64(len(target.(*Call).Msg.Args)))
+}
+
+// CallCoroutine is a Call method.
+//
+// coroutine returns the coroutine running this call.
+func CallCoroutine(vm *VM, target, locals Interface, msg *Message) Interface {
+	return target.(*Call).Coroutine
 }
 
 // CallEvalArgAt is a Call method.
