@@ -28,10 +28,6 @@ For a more in-depth introduction to Io, check out [the official guide](http://io
 
 - Implement primitive (Core) types:
 	+ Compiler
-- Concurrency; coroutines, futures, promises, actors, &c.
-	+ Core Coroutine
-		* Call coroutine
-	+ Core Scheduler
 - Finish implementing CFunctions for existing primitive types:
 	+ Sequence
 	+ File - figure out how/whether to implement popen and reopen.
