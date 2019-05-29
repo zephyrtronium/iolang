@@ -90,7 +90,7 @@ func (vm *VM) initObject() {
 		"appendProto":          vm.NewCFunction(ObjectAppendProto),
 		"asGoRepr":             vm.NewCFunction(ObjectAsGoRepr),
 		"asString":             vm.NewCFunction(ObjectAsString),
-		"asyncSend": vm.NewCFunction(ObjectAsyncSend), // future.go
+		"asyncSend":            vm.NewCFunction(ObjectAsyncSend), // future.go
 		"block":                vm.NewCFunction(ObjectBlock),
 		"break":                vm.NewCFunction(ObjectBreak),
 		"clone":                vm.NewCFunction(ObjectClone),
@@ -106,7 +106,7 @@ func (vm *VM) initObject() {
 		"evalArgAndReturnSelf": vm.NewCFunction(ObjectEvalArgAndReturnSelf),
 		"for":                  vm.NewCFunction(ObjectFor),
 		"foreachSlot":          vm.NewCFunction(ObjectForeachSlot),
-		"futureSend": vm.NewCFunction(ObjectFutureSend), // future.go
+		"futureSend":           vm.NewCFunction(ObjectFutureSend), // future.go
 		"getLocalSlot":         vm.NewCFunction(ObjectGetLocalSlot),
 		"getSlot":              vm.NewCFunction(ObjectGetSlot),
 		"hasLocalSlot":         vm.NewCFunction(ObjectHasLocalSlot),
@@ -144,7 +144,7 @@ func (vm *VM) initObject() {
 		"type":                 vm.NewString("Object"),
 		"uniqueId":             vm.NewCFunction(ObjectUniqueId),
 		"updateSlot":           vm.NewCFunction(ObjectUpdateSlot),
-		"wait": vm.NewCFunction(ObjectWait),
+		"wait":                 vm.NewCFunction(ObjectWait),
 		"while":                vm.NewCFunction(ObjectWhile),
 	}
 	slots["evalArg"] = slots[""]

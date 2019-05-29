@@ -62,7 +62,7 @@ const (
 	// ExceptionStop should be interpreted by loops, blocks, and CFunctions as
 	// a signal to exit.
 	ExceptionStop
-	
+
 	// PauseStop tells a coroutine to stop execution until receiving a
 	// ResumeStop. While paused, a coroutine is considered dead (the scheduler
 	// will stop if all coroutines are paused), but it will still accept other

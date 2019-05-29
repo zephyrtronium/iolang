@@ -2,15 +2,15 @@ package iolang
 
 func (vm *VM) initCoroutine() {
 	slots := Slots{
-		"currentCoroutine": vm.NewCFunction(CoroutineCurrentCoroutine),
-		"implementation": vm.NewString("goroutines"),
+		"currentCoroutine":      vm.NewCFunction(CoroutineCurrentCoroutine),
+		"implementation":        vm.NewString("goroutines"),
 		"implementationVersion": vm.NewNumber(0), // in case API changes
-		"isCurrent": vm.NewTypedCFunction(CoroutineIsCurrent, vm),
-		"pause": vm.NewTypedCFunction(CoroutinePause, vm),
-		"resume": vm.NewTypedCFunction(CoroutineResume, vm),
-		"run": vm.NewTypedCFunction(CoroutineRun, vm),
-		"type": vm.NewString("Coroutine"),
-		"yield": vm.NewTypedCFunction(CoroutineYield, vm),
+		"isCurrent":             vm.NewTypedCFunction(CoroutineIsCurrent, vm),
+		"pause":                 vm.NewTypedCFunction(CoroutinePause, vm),
+		"resume":                vm.NewTypedCFunction(CoroutineResume, vm),
+		"run":                   vm.NewTypedCFunction(CoroutineRun, vm),
+		"type":                  vm.NewString("Coroutine"),
+		"yield":                 vm.NewTypedCFunction(CoroutineYield, vm),
 	}
 	slots["resumeLater"] = slots["resume"]
 	vm.Object = *vm.ObjectWith(slots)

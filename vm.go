@@ -23,7 +23,7 @@ type VM struct {
 	False      *Object
 	Nil        *Object
 	Operators  *Object
-	
+
 	// Sched is the scheduler for this VM and all related coroutines.
 	Sched *Scheduler
 	// Stop is a buffered channel for remote control of this coroutine. The
@@ -54,7 +54,7 @@ func NewVM(args ...string) *VM {
 		True:       &Object{},
 		False:      &Object{},
 		Nil:        &Object{},
-		
+
 		Stop: make(chan Stop, 1),
 
 		// TODO: should this be since program start instead to match Io?
@@ -112,18 +112,18 @@ func (vm *VM) Activate(vm2 *VM, target, locals, context Interface, msg *Message)
 // Clone creates a new, inactive coroutine cloned from this one.
 func (vm *VM) Clone() Interface {
 	nv := VM{
-		Object: Object{Slots: Slots{}, Protos: []Interface{vm}},
-		Lobby: vm.Lobby,
-		Core: vm.Core,
-		Addons: vm.Addons,
+		Object:     Object{Slots: Slots{}, Protos: []Interface{vm}},
+		Lobby:      vm.Lobby,
+		Core:       vm.Core,
+		Addons:     vm.Addons,
 		BaseObject: vm.BaseObject,
-		True: vm.True,
-		False: vm.False,
-		Nil: vm.Nil,
-		Operators: vm.Operators,
-		Sched: vm.Sched,
-		Stop: make(chan Stop, 1),
-		StartTime: vm.StartTime,
+		True:       vm.True,
+		False:      vm.False,
+		Nil:        vm.Nil,
+		Operators:  vm.Operators,
+		Sched:      vm.Sched,
+		Stop:       make(chan Stop, 1),
+		StartTime:  vm.StartTime,
 		NumberMemo: vm.NumberMemo,
 	}
 	return &nv

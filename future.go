@@ -10,8 +10,8 @@ import (
 // coroutine.
 type Future struct {
 	Object
-	
-	// Coro is the coroutine which will fill in the value. 
+
+	// Coro is the coroutine which will fill in the value.
 	Coro *VM
 	// Value is the computed result, or nil while waiting for it.
 	Value Interface
@@ -37,12 +37,12 @@ func (f *Future) Clone() Interface {
 func (vm *VM) initFuture() {
 	var exemplar *Future
 	slots := Slots{
-		"forward": vm.NewTypedCFunction(FutureForward, exemplar),
-		"type": vm.NewString("Future"),
+		"forward":      vm.NewTypedCFunction(FutureForward, exemplar),
+		"type":         vm.NewString("Future"),
 		"waitOnResult": vm.NewTypedCFunction(FutureWaitOnResult, exemplar),
 	}
 	f := Future{Object: Object{
-		Slots: slots,
+		Slots:  slots,
 		Protos: []Interface{}, // no protos so we forward where possible
 	}}
 	SetSlot(vm.Core, "Future", &f)
@@ -52,7 +52,7 @@ func (vm *VM) initFuture() {
 func (vm *VM) NewFuture(target Interface, msg *Message) *Future {
 	f := Future{
 		Object: *vm.CoreInstance("Future"),
-		Coro: vm.Clone().(*VM),
+		Coro:   vm.Clone().(*VM),
 	}
 	f.Object.Slots["runTarget"] = target
 	f.Object.Slots["runMessage"] = msg

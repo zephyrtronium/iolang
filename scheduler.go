@@ -46,15 +46,15 @@ func (s *Scheduler) Clone() Interface {
 
 func (vm *VM) initScheduler() {
 	slots := Slots{
-		"type": vm.NewString("Scheduler"),
+		"type":          vm.NewString("Scheduler"),
 		"yieldingCoros": vm.NewCFunction(SchedulerYieldingCoros),
 	}
 	sched := &Scheduler{
 		Object: Object{Slots: slots, Protos: []Interface{vm.BaseObject}},
-		Main: vm,
-		coros: map[*VM]*VM{vm: nil},
-		start: make(chan waitpair), // TODO: buffer?
-		pause: make(chan *VM),
+		Main:   vm,
+		coros:  map[*VM]*VM{vm: nil},
+		start:  make(chan waitpair), // TODO: buffer?
+		pause:  make(chan *VM),
 		finish: make(chan *VM),
 	}
 	vm.Sched = sched
@@ -79,7 +79,8 @@ func (s *Scheduler) Finish(coro *VM) {
 
 // schedule manages the start, pause, and finish channels and detects deadlocks.
 func (s *Scheduler) schedule() {
-	loop: for len(s.coros) > 0 {
+loop:
+	for len(s.coros) > 0 {
 		select {
 		case w := <-s.start:
 			if w.b != nil {
