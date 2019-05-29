@@ -7,6 +7,9 @@ import (
 
 // VM is an object for processing Io programs.
 type VM struct {
+	// The VM is an object because it also represents a coroutine.
+	Object
+
 	// Lobby is the default target of messages.
 	Lobby *Object
 	// Core is the object containing the basic types of Io.
@@ -20,6 +23,15 @@ type VM struct {
 	False      *Object
 	Nil        *Object
 	Operators  *Object
+	
+	// Sched is the scheduler for this VM and all related coroutines.
+	Sched *Scheduler
+	// Stop is a buffered channel for remote control of this coroutine. The
+	// evaluator checks this between each message. Stops with NoStop status
+	// tell the coroutine to yield, ones with ExceptionStop status are returned
+	// directly, and all other statuses cause the current evaluated result to
+	// be returned.
+	Stop chan Stop
 
 	// StartTime is the time at which VM initialization began, used for the
 	// Date clock method.
@@ -42,6 +54,8 @@ func NewVM(args ...string) *VM {
 		True:       &Object{},
 		False:      &Object{},
 		Nil:        &Object{},
+		
+		Stop: make(chan Stop, 1),
 
 		// TODO: should this be since program start instead to match Io?
 		StartTime: time.Now(),
@@ -56,7 +70,8 @@ func NewVM(args ...string) *VM {
 	// it. Then, we must initialize CFunction, so that others can use
 	// NewCFunction. Following that, we must initialize Sequence, which in turn
 	// initializes String, so that we can use NewString. After that, we must
-	// have Map before OpTable and OpTable before Object.
+	// have Map before OpTable and OpTable before Object. Lastly, we must have
+	// a scheduler in order to evaluate Io statements.
 	vm.initCore()
 	vm.initCFunction()
 	vm.initSequence()
@@ -80,10 +95,38 @@ func NewVM(args ...string) *VM {
 	vm.initSystem()
 	vm.initArgs(args)
 	vm.initCollector()
+	vm.initScheduler()
+	vm.initCoroutine()
+	vm.initFuture()
 
 	vm.finalInit()
 
 	return &vm
+}
+
+// Activate returns the VM (coroutine).
+func (vm *VM) Activate(vm2 *VM, target, locals, context Interface, msg *Message) Interface {
+	return vm
+}
+
+// Clone creates a new, inactive coroutine cloned from this one.
+func (vm *VM) Clone() Interface {
+	nv := VM{
+		Object: Object{Slots: Slots{}, Protos: []Interface{vm}},
+		Lobby: vm.Lobby,
+		Core: vm.Core,
+		Addons: vm.Addons,
+		BaseObject: vm.BaseObject,
+		True: vm.True,
+		False: vm.False,
+		Nil: vm.Nil,
+		Operators: vm.Operators,
+		Sched: vm.Sched,
+		Stop: make(chan Stop, 1),
+		StartTime: vm.StartTime,
+		NumberMemo: vm.NumberMemo,
+	}
+	return &nv
 }
 
 // CoreInstance instantiates a type whose default slots are in vm.Core,
@@ -311,6 +354,9 @@ Object do(
 	relativeDoFile := doRelativeFile := method(p,
 		self doFile(Path with(call message label pathComponent, p))
 	)
+	
+	yield := method(Coroutine currentCoroutine yield)
+	pause := method(Coroutine currentCoroutine pause)
 )
 
 Call do(
@@ -366,6 +412,34 @@ Sequence do(
 	linePrint := method(File standardOutput write(self, "\n"); self)
 
 	asFile := method(File with(self))
+)
+
+Scheduler do(
+	currentCoroutine := Coroutine getSlot("currentCoroutine")
+	waitForCorosToComplete := method(while(yieldingCoros size > 0, yield))
+)
+
+Coroutine do(
+	parentCoroutine ::= nil
+	runMessage ::= nil
+	runTarget ::= nil
+	runLocals ::= nil
+	exception ::= nil
+	result ::= nil
+
+	yieldingCoros := Scheduler getSlot("yieldingCoros")
+
+	label := method(self uniqueId)
+	setLabel := method(s, self label = s .. "_" .. self uniqueId)
+
+	showYielding := method(s,
+		File standardOutput writeln("   ", label, " ", s)
+		yieldingCoros foreach(v, File standardOutput writeln("    ", v label))
+	)
+
+	isYielding := method(yieldingCoros contains(self))
+
+	main := method(setResult(self getSlot("runTarget") doMessage(runMessage, self getSlot("runLocals"))))
 )
 
 Exception do(

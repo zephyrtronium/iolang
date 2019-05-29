@@ -3,6 +3,7 @@ package iolang
 import (
 	"bytes"
 	"fmt"
+	"runtime"
 	"strconv"
 	"strings"
 )
@@ -218,8 +219,49 @@ func (m *Message) Eval(vm *VM, locals Interface) (result Interface) {
 func (m *Message) Send(vm *VM, target, locals Interface) (result Interface) {
 	firstTarget := target
 	for m != nil {
+		select {
+		case stop := <-vm.Stop:
+			switch stop.Status {
+			case NoStop, ResumeStop:
+				// Yield.
+				runtime.Gosched()
+			case ContinueStop, BreakStop, ReturnStop:
+				// Return the current value.
+				if result == nil {
+					result = vm.Nil
+				}
+				return result
+			case ExceptionStop:
+				// Return the exception itself.
+				return stop
+			case PauseStop:
+				// Pause until we receive a ResumeStop.
+				vm.Sched.pause <- vm
+				for stop.Status != ResumeStop {
+					switch stop = <-vm.Stop; stop.Status {
+					case NoStop, PauseStop: // do nothing
+					case ContinueStop, BreakStop, ReturnStop:
+						if result == nil {
+							result = vm.Nil
+						}
+						return result
+					case ExceptionStop:
+						return stop
+					case ResumeStop:
+						// Add ourselves back into the scheduler.
+						vm.Sched.Start(vm)
+					default:
+						panic(fmt.Sprintf("invalid status in received stop %#v", stop))
+					}
+				}
+			default:
+				panic(fmt.Sprintf("invalid status in received stop %#v", stop))
+			}
+		default: // No waiting stop; continue as normal.
+		}
 		if m.Memo != nil {
-			// It is the parser's responsibility to set memos for literals.
+			// If there is a memo, the message automatically becomes it instead
+			// of performing.
 			result = m.Memo
 			target = result
 		} else if !m.IsTerminator() {

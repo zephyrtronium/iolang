@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"time"
 )
 
 // Interface is the interface which all Io objects satisfy. To satisfy this
@@ -89,6 +90,7 @@ func (vm *VM) initObject() {
 		"appendProto":          vm.NewCFunction(ObjectAppendProto),
 		"asGoRepr":             vm.NewCFunction(ObjectAsGoRepr),
 		"asString":             vm.NewCFunction(ObjectAsString),
+		"asyncSend": vm.NewCFunction(ObjectAsyncSend), // future.go
 		"block":                vm.NewCFunction(ObjectBlock),
 		"break":                vm.NewCFunction(ObjectBreak),
 		"clone":                vm.NewCFunction(ObjectClone),
@@ -104,6 +106,7 @@ func (vm *VM) initObject() {
 		"evalArgAndReturnSelf": vm.NewCFunction(ObjectEvalArgAndReturnSelf),
 		"for":                  vm.NewCFunction(ObjectFor),
 		"foreachSlot":          vm.NewCFunction(ObjectForeachSlot),
+		"futureSend": vm.NewCFunction(ObjectFutureSend), // future.go
 		"getLocalSlot":         vm.NewCFunction(ObjectGetLocalSlot),
 		"getSlot":              vm.NewCFunction(ObjectGetSlot),
 		"hasLocalSlot":         vm.NewCFunction(ObjectHasLocalSlot),
@@ -141,6 +144,7 @@ func (vm *VM) initObject() {
 		"type":                 vm.NewString("Object"),
 		"uniqueId":             vm.NewCFunction(ObjectUniqueId),
 		"updateSlot":           vm.NewCFunction(ObjectUpdateSlot),
+		"wait": vm.NewCFunction(ObjectWait),
 		"while":                vm.NewCFunction(ObjectWhile),
 	}
 	slots["evalArg"] = slots[""]
@@ -625,11 +629,18 @@ func ObjectGreater(vm *VM, target, locals Interface, msg *Message) Interface {
 // ObjectTry is an Object method.
 //
 // try executes its message, returning any exception that occurs or nil if none
-// does.
+// does. Any other control flow (continue, break, return) is passed normally.
 func ObjectTry(vm *VM, target, locals Interface, msg *Message) Interface {
-	r, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), ReturnStop)
+	r, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), NoStop)
 	if !ok {
-		return r.(Stop).Result
+		switch stop := r.(Stop); stop.Status {
+		case ContinueStop, BreakStop, ReturnStop:
+			return r
+		case ExceptionStop:
+			return stop.Result
+		default:
+			panic(fmt.Sprintf("try: invalid status in stop %#v", stop))
+		}
 	}
 	return vm.Nil
 }
@@ -1034,4 +1045,18 @@ func ObjectThisMessage(vm *VM, target, locals Interface, msg *Message) Interface
 func ObjectUniqueId(vm *VM, target, locals Interface, msg *Message) Interface {
 	u := reflect.ValueOf(target).Pointer()
 	return vm.NewString(fmt.Sprintf("%#x", u))
+}
+
+// ObjectWait is an Object method.
+//
+// wait pauses execution in the current coroutine for the given number of
+// seconds. The coroutine must be re-scheduled after waking up, which can
+// result in the actual wait time being longer by an unpredictable amount.
+func ObjectWait(vm *VM, target, locals Interface, msg *Message) Interface {
+	v, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	time.Sleep(time.Duration(v.Value * float64(time.Second)))
+	return vm.Nil
 }

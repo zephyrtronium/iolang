@@ -92,7 +92,7 @@ func (vm *VM) initBlock() {
 func (vm *VM) initLocals() {
 	// Locals have no protos, so that messages forward to self. Instead, they
 	// have copies of each built-in Object slot.
-	slots := make(Slots, len(vm.BaseObject.Slots)+1)
+	slots := make(Slots, len(vm.BaseObject.Slots)+2)
 	for k, v := range vm.BaseObject.Slots {
 		slots[k] = v
 	}

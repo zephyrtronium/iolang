@@ -31,7 +31,7 @@ func (Stop) isIoObject()      {}
 func CheckStop(v Interface, upto StopStatus) (r Interface, ok bool) {
 	if s, ok := v.(Stop); ok {
 		if s.Status <= NoStop {
-			// NoStop is not allowed to be used in a StopStatus.
+			// NoStop is only allowed for remotely yielding.
 			panic(fmt.Sprintf("iolang: invalid Stop: %#v", s))
 		}
 		if s.Status <= upto {
@@ -48,7 +48,8 @@ type StopStatus int
 // Control flow reasons.
 const (
 	// NoStop is a constant to allow loops to use CheckStop to check for both
-	// continues and breaks. It should not be used for normal execution.
+	// continues and breaks. Coroutines also use it to tell each other to yield
+	// remotely. It should not be used for normal execution.
 	NoStop StopStatus = iota
 	// ContinueStop should be interpreted by loops as a signal to restart the
 	// loop immediately.
@@ -61,6 +62,15 @@ const (
 	// ExceptionStop should be interpreted by loops, blocks, and CFunctions as
 	// a signal to exit.
 	ExceptionStop
+	
+	// PauseStop tells a coroutine to stop execution until receiving a
+	// ResumeStop. While paused, a coroutine is considered dead (the scheduler
+	// will stop if all coroutines are paused), but it will still accept other
+	// stops.
+	PauseStop
+	// ResumeStop tells a coroutine to unpause. If it is not paused, it will
+	// instead yield.
+	ResumeStop
 
 	// LoopStops is a synonym for BreakStop provided to allow a more
 	// descriptive name for non-loops to check stops intended for loops.
