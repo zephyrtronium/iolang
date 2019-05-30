@@ -443,6 +443,12 @@ Coroutine do(
 )
 
 Exception do(
+	caughtMessage ::= nil
+	coroutine ::= nil
+	error ::= nil
+	nestedException ::= nil
+	originalCall ::= nil
+
 	showStack := method(
 		self stack reverseForeach(m,
 			m previous ifNil(

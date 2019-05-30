@@ -22,6 +22,7 @@ func (e *Exception) Clone() Interface {
 func (vm *VM) NewException(msg string) *Exception {
 	e := Exception{Object: *vm.CoreInstance("Exception")}
 	e.Slots["error"] = vm.NewString(msg)
+	e.Slots["coroutine"] = vm
 	return &e
 }
 
