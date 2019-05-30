@@ -5,6 +5,7 @@ import "fmt"
 // An Exception is an Io exception.
 type Exception struct {
 	Object
+	Stack []*Message
 }
 
 // Activate returns the exception.
@@ -19,7 +20,7 @@ func (e *Exception) Clone() Interface {
 
 // NewException creates a new Io Exception with the given error message.
 func (vm *VM) NewException(msg string) *Exception {
-	e := Exception{*vm.CoreInstance("Exception")}
+	e := Exception{Object: *vm.CoreInstance("Exception")}
 	e.Slots["error"] = vm.NewString(msg)
 	return &e
 }
@@ -107,9 +108,10 @@ func (vm *VM) initException() {
 		"pass":            vm.NewTypedCFunction(ExceptionPass, exemplar),
 		"raise":           vm.NewCFunction(ExceptionRaise),
 		"raiseFrom":       vm.NewCFunction(ExceptionRaiseFrom),
+		"stack":           vm.NewTypedCFunction(ExceptionStack, exemplar),
 		"type":            vm.NewString("Exception"),
 	}
-	SetSlot(vm.Core, "Exception", &Exception{*vm.ObjectWith(slots)})
+	SetSlot(vm.Core, "Exception", &Exception{Object: *vm.ObjectWith(slots)})
 }
 
 // ExceptionPass is an Exception method.
@@ -158,4 +160,18 @@ func ExceptionRaiseFrom(vm *VM, target, locals Interface, msg *Message) Interfac
 	SetSlot(e, "nestedException", nested)
 	SetSlot(e, "originalCall", call)
 	return e.Raise()
+}
+
+// ExceptionStack is an Exception method.
+//
+// stack returns the message stack of the exception. The Object try method
+// transfers the control flow stack to the exception object, so the result will
+// be an empty list except for caught exceptions.
+func ExceptionStack(vm *VM, target, locals Interface, msg *Message) Interface {
+	e := target.(*Exception)
+	l := make([]Interface, len(e.Stack))
+	for i, m := range e.Stack {
+		l[i] = m
+	}
+	return vm.NewList(l...)
 }

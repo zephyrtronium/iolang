@@ -637,6 +637,10 @@ func ObjectTry(vm *VM, target, locals Interface, msg *Message) Interface {
 		case ContinueStop, BreakStop, ReturnStop:
 			return r
 		case ExceptionStop:
+			// Transfer the stack to the exception.
+			if e, ok := stop.Result.(*Exception); ok {
+				e.Stack = append(e.Stack, stop.Stack...)
+			}
 			return stop.Result
 		default:
 			panic(fmt.Sprintf("try: invalid status in stop %#v", stop))
