@@ -8,6 +8,7 @@ import (
 	"math"
 	"reflect"
 	"strings"
+	"unicode/utf8"
 )
 
 // SequenceAt is a Sequence method.
@@ -1023,6 +1024,180 @@ func SequenceIsZero(vm *VM, target, locals Interface, msg *Message) Interface {
 	return vm.True
 }
 
+// SequenceOccurrencesOfSeq is a Sequence method.
+//
+// occurrencesOfSeq counts the number of non-overlapping occurrences of the
+// given sequence in the receiver. Raises an exception if the argument is an
+// empty sequence.
+func SequenceOccurrencesOfSeq(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	other, stop := msg.SequenceArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	ol := other.Len()
+	if ol == 0 {
+		return vm.RaiseException("cannot count occurrences of empty sequence")
+	}
+	n := 0
+	for k := s.Find(other, 0); k >= 0; k = s.Find(other, k+ol) {
+		n++
+	}
+	return vm.NewNumber(float64(n))
+}
+
+// SequencePack is a Sequence method.
+//
+// pack forms a packed binary sequence with the given format.
+func SequencePack(vm *VM, target, locals Interface, msg *Message) Interface {
+	format, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	f := format.String()
+	b := []byte{}
+	arg := 1
+	count := 0
+	var ed binary.ByteOrder = binary.LittleEndian
+	if len(f) > 0 && f[0] == '*' {
+		ed = binary.BigEndian
+		f = f[1:]
+	}
+	for _, c := range f {
+		switch c {
+		case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+			count = count*10 + int(c) - '0'
+			continue
+		case 'b', 'B':
+			if count == 0 {
+				count++
+			}
+			for count > 0 {
+				v, stop := msg.NumberArgAt(vm, locals, arg)
+				if stop != nil {
+					return stop
+				}
+				b = append(b, uint8(v.Value))
+				arg++
+				count--
+			}
+		case 'h', 'H':
+			if count == 0 {
+				count++
+			}
+			for count > 0 {
+				v, stop := msg.NumberArgAt(vm, locals, arg)
+				if stop != nil {
+					return stop
+				}
+				x := [2]uint8{}
+				ed.PutUint16(x[:], uint16(v.Value))
+				b = append(b, x[:]...)
+				arg++
+				count--
+			}
+		case 'i', 'I':
+			if count == 0 {
+				count++
+			}
+			for count > 0 {
+				v, stop := msg.NumberArgAt(vm, locals, arg)
+				if stop != nil {
+					return stop
+				}
+				x := [4]uint8{}
+				ed.PutUint32(x[:], uint32(v.Value))
+				b = append(b, x[:]...)
+				arg++
+				count--
+			}
+		case 'l', 'L':
+			if count == 0 {
+				count++
+			}
+			for count > 0 {
+				v, stop := msg.NumberArgAt(vm, locals, arg)
+				if stop != nil {
+					return stop
+				}
+				x := [8]uint8{}
+				ed.PutUint64(x[:], uint64(v.Value))
+				b = append(b, x[:]...)
+				arg++
+				count--
+			}
+		case 'f':
+			if count == 0 {
+				count++
+			}
+			for count > 0 {
+				v, stop := msg.NumberArgAt(vm, locals, arg)
+				if stop != nil {
+					return stop
+				}
+				x := [4]uint8{}
+				ed.PutUint32(x[:], math.Float32bits(float32(v.Value)))
+				b = append(b, x[:]...)
+				arg++
+				count--
+			}
+		case 'F':
+			if count == 0 {
+				count++
+			}
+			for count > 0 {
+				v, stop := msg.NumberArgAt(vm, locals, arg)
+				if stop != nil {
+					return stop
+				}
+				x := [8]uint8{}
+				ed.PutUint64(x[:], math.Float64bits(v.Value))
+				b = append(b, x[:]...)
+				arg++
+				count--
+			}
+		case 'c', 'C':
+			if count == 0 {
+				count++
+			}
+			var a [4]uint8
+			for count > 0 {
+				v, stop := msg.StringArgAt(vm, locals, arg)
+				if stop != nil {
+					return stop
+				}
+				r, rl := v.FirstRune()
+				if rl == 0 {
+					return vm.RaiseExceptionf("cannot use empty string with pack format %c", c)
+				}
+				x := a[:rl]
+				utf8.EncodeRune(x, r)
+				b = append(b, x...)
+				arg++
+				count--
+			}
+		case 's':
+			v, stop := msg.StringArgAt(vm, locals, arg)
+			if stop != nil {
+				return stop
+			}
+			s := v.String()
+			if count == 0 {
+				// Io uses a one-length string in this case, but this seems
+				// more reasonable for actual use.
+				b = append(b, []byte(s)...)
+				b = append(b, 0)
+			} else {
+				// Encode count bytes (not runes) and pad with 0 as necessary.
+				x := make([]byte, count)
+				copy(x, s)
+				b = append(b, x...)
+			}
+		}
+	}
+	return vm.NewSequence(b, true, "number")
+}
+
 // SequenceReverseFindSeq is a Sequence method.
 //
 // reverseFindSeq locates the last occurrence of the argument sequence in the
@@ -1050,6 +1225,179 @@ func SequenceReverseFindSeq(vm *VM, target, locals Interface, msg *Message) Inte
 		return vm.NewNumber(float64(k))
 	}
 	return vm.Nil
+}
+
+// SequenceUnpack is a Sequence method.
+//
+// unpack reads a packed binary sequence into a List.
+func SequenceUnpack(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	format, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	b := s.Bytes()
+	f := format.String()
+	l := []Interface{}
+	count := 0
+	var ed binary.ByteOrder = binary.LittleEndian
+	if len(f) > 0 && f[0] == '*' {
+		ed = binary.BigEndian
+		f = f[1:]
+	}
+	for _, c := range f {
+		if len(b) == 0 {
+			break
+		}
+		switch c {
+		case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+			count = count*10 + int(c) - '0'
+		case 'b':
+			if count == 0 {
+				count++
+			}
+			for count > 0 {
+				x := int8(b[0])
+				l = append(l, vm.NewNumber(float64(x)))
+				b = b[1:]
+				count--
+			}
+		case 'B':
+			if count == 0 {
+				count++
+			}
+			for count > 0 {
+				l = append(l, vm.NewNumber(float64(b[0])))
+				b = b[1:]
+				count--
+			}
+		case 'h':
+			if count == 0 {
+				count++
+			}
+			for count > 0 {
+				v := [2]byte{}
+				n := copy(v[:], b)
+				x := int16(ed.Uint16(v[:]))
+				l = append(l, vm.NewNumber(float64(x)))
+				b = b[n:]
+				count--
+			}
+		case 'H':
+			if count == 0 {
+				count++
+			}
+			for count > 0 {
+				v := [2]byte{}
+				n := copy(v[:], b)
+				x := ed.Uint16(v[:])
+				l = append(l, vm.NewNumber(float64(x)))
+				b = b[n:]
+				count--
+			}
+		case 'i':
+			if count == 0 {
+				count++
+			}
+			for count > 0 {
+				v := [4]byte{}
+				n := copy(v[:], b)
+				x := int32(ed.Uint32(v[:]))
+				l = append(l, vm.NewNumber(float64(x)))
+				b = b[n:]
+				count--
+			}
+		case 'I':
+			if count == 0 {
+				count++
+			}
+			for count > 0 {
+				v := [4]byte{}
+				n := copy(v[:], b)
+				x := ed.Uint32(v[:])
+				l = append(l, vm.NewNumber(float64(x)))
+				b = b[n:]
+				count--
+			}
+		case 'l':
+			if count == 0 {
+				count++
+			}
+			for count > 0 {
+				v := [8]byte{}
+				n := copy(v[:], b)
+				x := int64(ed.Uint64(v[:]))
+				l = append(l, vm.NewNumber(float64(x)))
+				b = b[n:]
+				count--
+			}
+		case 'L':
+			if count == 0 {
+				count++
+			}
+			for count > 0 {
+				v := [8]byte{}
+				n := copy(v[:], b)
+				x := ed.Uint64(v[:])
+				l = append(l, vm.NewNumber(float64(x)))
+				b = b[n:]
+				count--
+			}
+		case 'f':
+			if count == 0 {
+				count++
+			}
+			for count > 0 {
+				v := [4]byte{}
+				n := copy(v[:], b)
+				x := math.Float32frombits(ed.Uint32(v[:]))
+				l = append(l, vm.NewNumber(float64(x)))
+				b = b[n:]
+				count--
+			}
+		case 'F':
+			if count == 0 {
+				count++
+			}
+			for count > 0 {
+				v := [8]byte{}
+				n := copy(v[:], b)
+				x := math.Float64frombits(ed.Uint64(v[:]))
+				l = append(l, vm.NewNumber(x))
+				b = b[n:]
+				count--
+			}
+		case 'c', 'C':
+			if count == 0 {
+				count++
+			}
+			for count > 0 {
+				x, n := utf8.DecodeRune(b)
+				l = append(l, vm.NewString(string(x)))
+				b = b[n:]
+				count--
+			}
+		case 's':
+			if count == 0 {
+				n := bytes.IndexByte(b, 0)
+				if n < 0 {
+					n = len(b)
+				}
+				l = append(l, vm.NewString(string(b[:n])))
+				b = b[n:]
+			} else {
+				v := make([]byte, count)
+				n := copy(v, b)
+				k := bytes.IndexByte(v, 0)
+				if k < 0 {
+					k = n
+				}
+				l = append(l, vm.NewString(string(v[:k])))
+				b = b[n:]
+			}
+		}
+	}
+	return vm.NewList(l...)
 }
 
 // SequenceWithStruct is a Sequence method.
