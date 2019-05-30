@@ -443,6 +443,22 @@ Coroutine do(
 )
 
 Exception do(
+	caughtMessage ::= nil
+	coroutine ::= nil
+	error ::= nil
+	nestedException ::= nil
+	originalCall ::= nil
+
+	showStack := method(
+		self stack reverseForeach(m,
+			m previous ifNil(
+				File standardOutput write("\t", m name, "\t", m label, ":", m lineNumber asString, "\n")
+			) ifNonNil(
+				File standardOutput write("\t", m previous name, " ", m name, "\t", m label, ":", m lineNumber asString, "\n")
+			)
+		)
+	)
+
 	catch := method(proto, if(self isKindOf(proto), call evalArgAt(1); nil, self))
 )
 

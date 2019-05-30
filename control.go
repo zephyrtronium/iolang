@@ -10,6 +10,7 @@ import (
 type Stop struct {
 	Status StopStatus
 	Result Interface
+	Stack  []*Message
 }
 
 // Stops are not objects, but let's pretend anyway so they can be returned

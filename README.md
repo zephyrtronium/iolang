@@ -37,7 +37,6 @@ For a more in-depth introduction to Io, check out [the official guide](http://io
 		* List ListCursor, cursor, sortByKey, sortKey.
 		* All asJson methods.
 		* Object lazySlot
-		* Exception showStack, setters
 		* File streamDestination, startStreaming
 - Write tests, both in Go and in Io.
 - Importer, and implement Addons, ideally supporting Go's `-buildmode=plugin`.

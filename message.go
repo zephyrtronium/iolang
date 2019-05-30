@@ -268,7 +268,9 @@ func (m *Message) Send(vm *VM, target, locals Interface) (result Interface) {
 			var ok bool
 			result, ok = CheckStop(vm.Perform(target, locals, m), NoStop)
 			if !ok {
-				return result
+				stop := result.(Stop)
+				stop.Stack = append(stop.Stack, m)
+				return stop
 			}
 			target = result
 		} else {
