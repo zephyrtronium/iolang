@@ -928,6 +928,96 @@ func SequencePreallocateToSize(vm *VM, target, locals Interface, msg *Message) I
 	return target
 }
 
+// SequenceRangeFill is a Sequence method.
+//
+// rangeFill sets each element of the sequence to its index.
+func SequenceRangeFill(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckMutable("rangeFill"); err != nil {
+		return vm.IoError(err)
+	}
+	switch s.Kind {
+	case SeqMU8, SeqIU8:
+		v := s.Value.([]byte)
+		for i := range v {
+			v[i] = byte(i)
+		}
+	case SeqMU16, SeqIU16:
+		v := s.Value.([]uint16)
+		for i := range v {
+			v[i] = uint16(i)
+		}
+	case SeqMU32, SeqIU32:
+		v := s.Value.([]uint32)
+		for i := range v {
+			v[i] = uint32(i)
+		}
+	case SeqMU64, SeqIU64:
+		v := s.Value.([]uint64)
+		for i := range v {
+			v[i] = uint64(i)
+		}
+	case SeqMS8, SeqIS8:
+		v := s.Value.([]int8)
+		for i := range v {
+			v[i] = int8(i)
+		}
+	case SeqMS16, SeqIS16:
+		v := s.Value.([]int16)
+		for i := range v {
+			v[i] = int16(i)
+		}
+	case SeqMS32, SeqIS32:
+		v := s.Value.([]int32)
+		for i := range v {
+			v[i] = int32(i)
+		}
+	case SeqMS64, SeqIS64:
+		v := s.Value.([]int64)
+		for i := range v {
+			v[i] = int64(i)
+		}
+	case SeqMF32, SeqIF32:
+		v := s.Value.([]float32)
+		for i := range v {
+			v[i] = float32(i)
+		}
+	case SeqMF64, SeqIF64:
+		v := s.Value.([]float64)
+		for i := range v {
+			v[i] = float64(i)
+		}
+	case SeqUntyped:
+		panic("use of untyped sequence")
+	default:
+		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+	}
+	return target
+}
+
+// SequenceRemoveAt is a Sequence method.
+//
+// removeAt removes the nth element from the sequence.
+func SequenceRemoveAt(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckMutable("removeAt"); err != nil {
+		return vm.IoError(err)
+	}
+	nn, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	k := s.FixIndex(int(nn.Value))
+	v := reflect.ValueOf(s.Value)
+	n := v.Len()
+	if k < n {
+		reflect.Copy(v.Slice(k, n), v.Slice(k+1, n))
+		v = v.Slice(0, n-1)
+	}
+	s.Value = v.Interface()
+	return target
+}
+
 // SequenceSetSize is a Sequence method.
 //
 // setSize sets the size of the sequence.

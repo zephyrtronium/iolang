@@ -223,6 +223,21 @@ func (s *Sequence) Len() int {
 	}
 }
 
+// FixIndex wraps an index into the sequence's size.
+func (s *Sequence) FixIndex(i int) int {
+	n := s.Len()
+	if i >= n {
+		return n
+	}
+	if i < 0 {
+		i += n
+		if i < 0 {
+			return 0
+		}
+	}
+	return i
+}
+
 // ItemSize is a proxy to s.Kind.ItemSize().
 func (s *Sequence) ItemSize() int {
 	return s.Kind.ItemSize()
@@ -914,6 +929,8 @@ func (vm *VM) initSequence() {
 		"insertSeqEvery":      vm.NewTypedCFunction(SequenceInsertSeqEvery, exemplar),
 		"leaveThenRemove":     vm.NewTypedCFunction(SequenceLeaveThenRemove, exemplar),
 		"preallocateToSize":   vm.NewTypedCFunction(SequencePreallocateToSize, exemplar),
+		"rangeFill":           vm.NewTypedCFunction(SequenceRangeFill, exemplar),
+		"removeAt":            vm.NewTypedCFunction(SequenceRemoveAt, exemplar),
 		"setItemType":         vm.NewTypedCFunction(SequenceSetItemType, exemplar),
 		"setSize":             vm.NewTypedCFunction(SequenceSetSize, exemplar),
 
