@@ -913,6 +913,7 @@ func (vm *VM) initSequence() {
 		"empty":               vm.NewTypedCFunction(SequenceEmpty, exemplar),
 		"insertSeqEvery":      vm.NewTypedCFunction(SequenceInsertSeqEvery, exemplar),
 		"leaveThenRemove":     vm.NewTypedCFunction(SequenceLeaveThenRemove, exemplar),
+		"preallocateToSize":   vm.NewTypedCFunction(SequencePreallocateToSize, exemplar),
 		"setItemType":         vm.NewTypedCFunction(SequenceSetItemType, exemplar),
 		"setSize":             vm.NewTypedCFunction(SequenceSetSize, exemplar),
 

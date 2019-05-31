@@ -905,6 +905,29 @@ func SequenceLeaveThenRemove(vm *VM, target, locals Interface, msg *Message) Int
 	return target
 }
 
+// SequencePreallocateToSize is a Sequence method.
+//
+// preallocateToSize ensures that the receiver can grow to be at least n bytes
+// without reallocating.
+func SequencePreallocateToSize(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckMutable("preallocateToSize"); err != nil {
+		return vm.IoError(err)
+	}
+	nn, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	n := (int(nn.Value) + s.ItemSize() - 1) / s.ItemSize()
+	v := reflect.ValueOf(s.Value)
+	if v.Cap() < n {
+		nv := reflect.MakeSlice(v.Type(), v.Len(), n)
+		reflect.Copy(nv, v)
+		s.Value = nv.Interface()
+	}
+	return target
+}
+
 // SequenceSetSize is a Sequence method.
 //
 // setSize sets the size of the sequence.
