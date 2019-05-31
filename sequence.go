@@ -931,6 +931,9 @@ func (vm *VM) initSequence() {
 		"preallocateToSize":   vm.NewTypedCFunction(SequencePreallocateToSize, exemplar),
 		"rangeFill":           vm.NewTypedCFunction(SequenceRangeFill, exemplar),
 		"removeAt":            vm.NewTypedCFunction(SequenceRemoveAt, exemplar),
+		"removeEvenIndexes":   vm.NewTypedCFunction(SequenceRemoveEvenIndexes, exemplar),
+		"removeLast":          vm.NewTypedCFunction(SequenceRemoveLast, exemplar),
+		"removeOddIndexes":    vm.NewTypedCFunction(SequenceRemoveOddIndexes, exemplar),
 		"setItemType":         vm.NewTypedCFunction(SequenceSetItemType, exemplar),
 		"setSize":             vm.NewTypedCFunction(SequenceSetSize, exemplar),
 

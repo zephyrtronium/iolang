@@ -1013,8 +1013,230 @@ func SequenceRemoveAt(vm *VM, target, locals Interface, msg *Message) Interface 
 	if k < n {
 		reflect.Copy(v.Slice(k, n), v.Slice(k+1, n))
 		v = v.Slice(0, n-1)
+		s.Value = v.Interface()
 	}
-	s.Value = v.Interface()
+	return target
+}
+
+// SequenceRemoveEvenIndexes is a Sequence method.
+//
+// removeEvenIndexes deletes each element whose index in the sequence is even.
+func SequenceRemoveEvenIndexes(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckMutable("removeEvenIndexes"); err != nil {
+		return vm.IoError(err)
+	}
+	switch s.Kind {
+	case SeqMU8, SeqIU8:
+		v := s.Value.([]byte)
+		for i := 0; 2*i+1 < len(v); i++ {
+			v[i] = v[2*i+1]
+		}
+		s.Value = v[:(len(v))/2]
+	case SeqMU16, SeqIU16:
+		v := s.Value.([]uint16)
+		for i := 0; 2*i+1 < len(v); i++ {
+			v[i] = v[2*i+1]
+		}
+		s.Value = v[:len(v)/2]
+	case SeqMU32, SeqIU32:
+		v := s.Value.([]uint32)
+		for i := 0; 2*i+1 < len(v); i++ {
+			v[i] = v[2*i+1]
+		}
+		s.Value = v[:len(v)/2]
+	case SeqMU64, SeqIU64:
+		v := s.Value.([]uint64)
+		for i := 0; 2*i+1 < len(v); i++ {
+			v[i] = v[2*i+1]
+		}
+		s.Value = v[:len(v)/2]
+	case SeqMS8, SeqIS8:
+		v := s.Value.([]int8)
+		for i := 0; 2*i+1 < len(v); i++ {
+			v[i] = v[2*i+1]
+		}
+		s.Value = v[:len(v)/2]
+	case SeqMS16, SeqIS16:
+		v := s.Value.([]int16)
+		for i := 0; 2*i+1 < len(v); i++ {
+			v[i] = v[2*i+1]
+		}
+		s.Value = v[:len(v)/2]
+	case SeqMS32, SeqIS32:
+		v := s.Value.([]int32)
+		for i := 0; 2*i+1 < len(v); i++ {
+			v[i] = v[2*i+1]
+		}
+		s.Value = v[:len(v)/2]
+	case SeqMS64, SeqIS64:
+		v := s.Value.([]int64)
+		for i := 0; 2*i+1 < len(v); i++ {
+			v[i] = v[2*i+1]
+		}
+		s.Value = v[:len(v)/2]
+	case SeqMF32, SeqIF32:
+		v := s.Value.([]float32)
+		for i := 0; 2*i+1 < len(v); i++ {
+			v[i] = v[2*i+1]
+		}
+		s.Value = v[:len(v)/2]
+	case SeqMF64, SeqIF64:
+		v := s.Value.([]float64)
+		for i := 0; 2*i+1 < len(v); i++ {
+			v[i] = v[2*i+1]
+		}
+		s.Value = v[:len(v)/2]
+	case SeqUntyped:
+		panic("use of untyped sequence")
+	default:
+		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+	}
+	return target
+}
+
+// SequenceRemoveLast is a Sequence method.
+//
+// removeLast removes the last element from the sequence and returns the
+// receiver.
+func SequenceRemoveLast(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckMutable("removeLast"); err != nil {
+		return vm.IoError(err)
+	}
+	switch s.Kind {
+	case SeqMU8, SeqIU8:
+		v := s.Value.([]byte)
+		if len(v) > 0 {
+			s.Value = v[:len(v)-1]
+		}
+	case SeqMU16, SeqIU16:
+		v := s.Value.([]uint16)
+		if len(v) > 0 {
+			s.Value = v[:len(v)-1]
+		}
+	case SeqMU32, SeqIU32:
+		v := s.Value.([]uint32)
+		if len(v) > 0 {
+			s.Value = v[:len(v)-1]
+		}
+	case SeqMU64, SeqIU64:
+		v := s.Value.([]uint64)
+		if len(v) > 0 {
+			s.Value = v[:len(v)-1]
+		}
+	case SeqMS8, SeqIS8:
+		v := s.Value.([]int8)
+		if len(v) > 0 {
+			s.Value = v[:len(v)-1]
+		}
+	case SeqMS16, SeqIS16:
+		v := s.Value.([]int16)
+		if len(v) > 0 {
+			s.Value = v[:len(v)-1]
+		}
+	case SeqMS32, SeqIS32:
+		v := s.Value.([]int32)
+		if len(v) > 0 {
+			s.Value = v[:len(v)-1]
+		}
+	case SeqMS64, SeqIS64:
+		v := s.Value.([]int64)
+		if len(v) > 0 {
+			s.Value = v[:len(v)-1]
+		}
+	case SeqMF32, SeqIF32:
+		v := s.Value.([]float32)
+		if len(v) > 0 {
+			s.Value = v[:len(v)-1]
+		}
+	case SeqMF64, SeqIF64:
+		v := s.Value.([]float64)
+		if len(v) > 0 {
+			s.Value = v[:len(v)-1]
+		}
+	case SeqUntyped:
+		panic("use of untyped sequence")
+	default:
+		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+	}
+	return target
+}
+
+// SequenceRemoveOddIndexes is a Sequence method.
+//
+// removeOddIndexes deletes each element whose index in the sequence is odd.
+func SequenceRemoveOddIndexes(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckMutable("removeEvenIndexes"); err != nil {
+		return vm.IoError(err)
+	}
+	switch s.Kind {
+	case SeqMU8, SeqIU8:
+		v := s.Value.([]byte)
+		for i := 0; 2*i < len(v); i++ {
+			v[i] = v[2*i]
+		}
+		s.Value = v[:(len(v)+1)/2]
+	case SeqMU16, SeqIU16:
+		v := s.Value.([]uint16)
+		for i := 0; 2*i < len(v); i++ {
+			v[i] = v[2*i]
+		}
+		s.Value = v[:(len(v)+1)/2]
+	case SeqMU32, SeqIU32:
+		v := s.Value.([]uint32)
+		for i := 0; 2*i < len(v); i++ {
+			v[i] = v[2*i]
+		}
+		s.Value = v[:(len(v)+1)/2]
+	case SeqMU64, SeqIU64:
+		v := s.Value.([]uint64)
+		for i := 0; 2*i < len(v); i++ {
+			v[i] = v[2*i]
+		}
+		s.Value = v[:(len(v)+1)/2]
+	case SeqMS8, SeqIS8:
+		v := s.Value.([]int8)
+		for i := 0; 2*i < len(v); i++ {
+			v[i] = v[2*i]
+		}
+		s.Value = v[:(len(v)+1)/2]
+	case SeqMS16, SeqIS16:
+		v := s.Value.([]int16)
+		for i := 0; 2*i < len(v); i++ {
+			v[i] = v[2*i]
+		}
+		s.Value = v[:(len(v)+1)/2]
+	case SeqMS32, SeqIS32:
+		v := s.Value.([]int32)
+		for i := 0; 2*i < len(v); i++ {
+			v[i] = v[2*i]
+		}
+		s.Value = v[:(len(v)+1)/2]
+	case SeqMS64, SeqIS64:
+		v := s.Value.([]int64)
+		for i := 0; 2*i < len(v); i++ {
+			v[i] = v[2*i]
+		}
+		s.Value = v[:(len(v)+1)/2]
+	case SeqMF32, SeqIF32:
+		v := s.Value.([]float32)
+		for i := 0; 2*i < len(v); i++ {
+			v[i] = v[2*i]
+		}
+		s.Value = v[:(len(v)+1)/2]
+	case SeqMF64, SeqIF64:
+		v := s.Value.([]float64)
+		for i := 0; 2*i < len(v); i++ {
+			v[i] = v[2*i]
+		}
+		s.Value = v[:(len(v)+1)/2]
+	case SeqUntyped:
+		panic("use of untyped sequence")
+	default:
+		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+	}
 	return target
 }
 
