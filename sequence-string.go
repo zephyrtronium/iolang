@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
+	"io"
 	"math"
 	"path/filepath"
 	"reflect"
@@ -1198,6 +1200,154 @@ func SequenceLstrip(vm *VM, target, locals Interface, msg *Message) Interface {
 	}
 	s.SetString(sv)
 	return target
+}
+
+// SequenceParseJson is a Sequence method.
+//
+// parseJson decodes the JSON represented by the receiver.
+func SequenceParseJson(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	d := json.NewDecoder(strings.NewReader(s.String()))
+	tok, err := d.Token()
+	switch err {
+	case nil: // do nothing
+	case io.EOF:
+		return vm.RaiseException("can't parse empty string")
+	default:
+		return vm.IoError(err)
+	}
+	switch t := tok.(type) {
+	case json.Delim:
+		if t == '[' {
+			l := vm.NewList()
+			err = parseJSONList(vm, d, l)
+			if err != nil {
+				return vm.IoError(err)
+			}
+			return l
+		}
+		m := vm.NewMap(map[string]Interface{})
+		err = parseJSONMap(vm, d, m)
+		if err != nil {
+			return vm.IoError(err)
+		}
+		return m
+	case bool:
+		return vm.IoBool(t)
+	case float64:
+		return vm.NewNumber(t)
+	case json.Number:
+		f, err := t.Float64()
+		if err != nil {
+			return vm.IoError(err)
+		}
+		return vm.NewNumber(f)
+	case string:
+		return vm.NewString(t)
+	case nil:
+		return vm.Nil
+	}
+	panic("unreachable")
+}
+
+func parseJSONList(vm *VM, d *json.Decoder, l *List) error {
+	v := l.Value
+	for d.More() {
+		tok, err := d.Token()
+		if err != nil {
+			return err
+		}
+		switch t := tok.(type) {
+		case json.Delim:
+			if t == '[' {
+				nl := vm.NewList()
+				err = parseJSONList(vm, d, nl)
+				if err != nil {
+					return err
+				}
+				v = append(v, nl)
+			} else {
+				// Token guarantees us that delimiters are matched, so we must
+				// have {.
+				m := vm.NewMap(map[string]Interface{})
+				err = parseJSONMap(vm, d, m)
+				if err != nil {
+					return err
+				}
+				v = append(v, m)
+			}
+		case bool:
+			v = append(v, vm.IoBool(t))
+		case float64:
+			v = append(v, vm.NewNumber(t))
+		case json.Number:
+			f, err := t.Float64()
+			if err != nil {
+				return err
+			}
+			v = append(v, vm.NewNumber(f))
+		case string:
+			v = append(v, vm.NewString(t))
+		case nil:
+			v = append(v, vm.Nil)
+		}
+	}
+	l.Value = v
+	// Consume the closing delimiter.
+	_, err := d.Token()
+	return err
+}
+
+func parseJSONMap(vm *VM, d *json.Decoder, m *Map) error {
+	v := m.Value
+	for d.More() {
+		tok, err := d.Token()
+		if err != nil {
+			return err
+		}
+		// tok must be the key name.
+		k := tok.(string)
+		tok, err = d.Token()
+		if err != nil {
+			return err
+		}
+		switch t := tok.(type) {
+		case json.Delim:
+			if t == '[' {
+				l := vm.NewList()
+				err = parseJSONList(vm, d, l)
+				if err != nil {
+					return err
+				}
+				v[k] = l
+			} else {
+				nm := vm.NewMap(map[string]Interface{})
+				err = parseJSONMap(vm, d, nm)
+				if err != nil {
+					return err
+				}
+				v[k] = nm
+			}
+		case bool:
+			v[k] = vm.IoBool(t)
+		case float64:
+			v[k] = vm.NewNumber(t)
+		case json.Number:
+			f, err := t.Float64()
+			if err != nil {
+				return err
+			}
+			v[k] = vm.NewNumber(f)
+		case string:
+			v[k] = vm.NewString(t)
+		case nil:
+			v[k] = vm.Nil
+		}
+	}
+	m.Value = v
+	// Consume the closing delimiter.
+	_, err := d.Token()
+	return err
 }
 
 // SequenceUppercase is a Sequence method.
