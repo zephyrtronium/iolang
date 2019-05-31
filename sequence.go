@@ -943,6 +943,8 @@ func (vm *VM) initSequence() {
 		"lstrip":                 vm.NewTypedCFunction(SequenceLstrip, exemplar),
 		"setEncoding":            vm.NewTypedCFunction(SequenceSetEncoding, exemplar),
 		"parseJson":              vm.NewTypedCFunction(SequenceParseJson, exemplar),
+		"pathComponent":          vm.NewTypedCFunction(SequencePathComponent, exemplar),
+		"pathExtension":          vm.NewTypedCFunction(SequencePathExtension, exemplar),
 		"uppercase":              vm.NewTypedCFunction(SequenceUppercase, exemplar),
 		"validEncodings":         vm.NewCFunction(SequenceValidEncodings),
 

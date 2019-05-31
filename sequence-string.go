@@ -1350,6 +1350,26 @@ func parseJSONMap(vm *VM, d *json.Decoder, m *Map) error {
 	return err
 }
 
+// SequencePathComponent is a Sequence method.
+//
+// pathComponent returns a new Sequence with the receiver up to the last path
+// separator. Always converts to slash paths.
+func SequencePathComponent(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	// Easy method again. Same differences as lastPathComponent above, but more
+	// details also differ: "a/b/c/" pathComponent returns "a/b/c" here, but
+	// "a/b" in Io. Should probably fix, but hopefully it's rare.
+	return vm.NewString(filepath.ToSlash(filepath.Dir(s.String())))
+}
+
+// SequencePathExtension is a Sequence method.
+//
+// pathExtension returns a new Sequence with the receiver past the last period.
+func SequencePathExtension(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	return vm.NewString(strings.TrimPrefix(filepath.Ext(s.String()), "."))
+}
+
 // SequenceUppercase is a Sequence method.
 //
 // uppercase converts the values in the sequence to their capitalized
