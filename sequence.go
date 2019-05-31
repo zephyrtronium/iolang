@@ -945,6 +945,8 @@ func (vm *VM) initSequence() {
 		"parseJson":              vm.NewTypedCFunction(SequenceParseJson, exemplar),
 		"pathComponent":          vm.NewTypedCFunction(SequencePathComponent, exemplar),
 		"pathExtension":          vm.NewTypedCFunction(SequencePathExtension, exemplar),
+		"percentDecoded":         vm.NewTypedCFunction(SequencePercentDecoded, exemplar),
+		"percentEncoded":         vm.NewTypedCFunction(SequencePercentEncoded, exemplar),
 		"uppercase":              vm.NewTypedCFunction(SequenceUppercase, exemplar),
 		"validEncodings":         vm.NewCFunction(SequenceValidEncodings),
 

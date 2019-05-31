@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"net/url"
 	"path/filepath"
 	"reflect"
 	"strconv"
@@ -1368,6 +1369,26 @@ func SequencePathComponent(vm *VM, target, locals Interface, msg *Message) Inter
 func SequencePathExtension(vm *VM, target, locals Interface, msg *Message) Interface {
 	s := target.(*Sequence)
 	return vm.NewString(strings.TrimPrefix(filepath.Ext(s.String()), "."))
+}
+
+// SequencePercentDecoded is a Sequence method.
+//
+// percentDecoded unescapes the receiver as a URL path segment.
+func SequencePercentDecoded(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	p, err := url.PathUnescape(s.String())
+	if err != nil {
+		return vm.NewString("")
+	}
+	return vm.NewString(p)
+}
+
+// SequencePercentEncoded is a Sequence method.
+//
+// percentEncoded escapes the receiver as a URL path segment.
+func SequencePercentEncoded(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	return vm.NewString(url.PathEscape(s.String()))
 }
 
 // SequenceUppercase is a Sequence method.
