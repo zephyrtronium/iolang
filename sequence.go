@@ -934,6 +934,10 @@ func (vm *VM) initSequence() {
 		"removeEvenIndexes":   vm.NewTypedCFunction(SequenceRemoveEvenIndexes, exemplar),
 		"removeLast":          vm.NewTypedCFunction(SequenceRemoveLast, exemplar),
 		"removeOddIndexes":    vm.NewTypedCFunction(SequenceRemoveOddIndexes, exemplar),
+		"removePrefix":        vm.NewTypedCFunction(SequenceRemovePrefix, exemplar),
+		"removeSeq":           vm.NewTypedCFunction(SequenceRemoveSeq, exemplar),
+		"removeSlice":         vm.NewTypedCFunction(SequenceRemoveSlice, exemplar),
+		"removeSuffix":        vm.NewTypedCFunction(SequenceRemoveSuffix, exemplar),
 		"setItemType":         vm.NewTypedCFunction(SequenceSetItemType, exemplar),
 		"setSize":             vm.NewTypedCFunction(SequenceSetSize, exemplar),
 

@@ -1168,7 +1168,7 @@ func SequenceRemoveLast(vm *VM, target, locals Interface, msg *Message) Interfac
 // removeOddIndexes deletes each element whose index in the sequence is odd.
 func SequenceRemoveOddIndexes(vm *VM, target, locals Interface, msg *Message) Interface {
 	s := target.(*Sequence)
-	if err := s.CheckMutable("removeEvenIndexes"); err != nil {
+	if err := s.CheckMutable("removeOddIndexes"); err != nil {
 		return vm.IoError(err)
 	}
 	switch s.Kind {
@@ -1236,6 +1236,96 @@ func SequenceRemoveOddIndexes(vm *VM, target, locals Interface, msg *Message) In
 		panic("use of untyped sequence")
 	default:
 		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+	}
+	return target
+}
+
+// SequenceRemovePrefix is a Sequence method.
+//
+// removePrefix removes a prefix from the receiver, if present.
+func SequenceRemovePrefix(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckMutable("removePrefix"); err != nil {
+		return vm.IoError(err)
+	}
+	other, stop := msg.SequenceArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	ol := other.Len()
+	if s.findMatch(other, 0, ol) {
+		s.Slice(ol, s.Len(), 1)
+	}
+	return target
+}
+
+// SequenceRemoveSeq is a Sequence method.
+//
+// removeSeq removes all occurrences of a sequence from the receiver.
+func SequenceRemoveSeq(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckMutable("removeSeq"); err != nil {
+		return vm.IoError(err)
+	}
+	other, stop := msg.SequenceArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	ol := other.Len()
+	v := reflect.ValueOf(s.Value)
+	for {
+		i := s.RFind(other, v.Len())
+		if i < 0 {
+			break
+		}
+		reflect.Copy(v.Slice(i, v.Len()), v.Slice(i+ol, v.Len()))
+		v = v.Slice(0, v.Len()-ol)
+		s.Value = v.Interface()
+	}
+	return target
+}
+
+// SequenceRemoveSlice is a Sequence method.
+//
+// removeSlice removes items between the given start and end, inclusive.
+func SequenceRemoveSlice(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckMutable("removeSlice"); err != nil {
+		return vm.IoError(err)
+	}
+	l, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	r, stop := msg.NumberArgAt(vm, locals, 1)
+	if stop != nil {
+		return stop
+	}
+	i := s.FixIndex(int(l.Value))
+	j := s.FixIndex(int(r.Value) + 1)
+	v := reflect.ValueOf(s.Value)
+	if i < v.Len() {
+		reflect.Copy(v.Slice(i, v.Len()), v.Slice(j, v.Len()))
+		s.Value = v.Slice(0, v.Len()-(j-i)).Interface()
+	}
+	return target
+}
+
+// SequenceRemoveSuffix is a Sequence method.
+//
+// removeSuffix removes a suffix from the receiver, if present.
+func SequenceRemoveSuffix(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckMutable("removeSuffix"); err != nil {
+		return vm.IoError(err)
+	}
+	other, stop := msg.SequenceArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	ol := other.Len()
+	if s.findMatch(other, s.Len()-ol, ol) {
+		s.Slice(0, s.Len()-ol, 1)
 	}
 	return target
 }
