@@ -1391,6 +1391,52 @@ func SequencePercentEncoded(vm *VM, target, locals Interface, msg *Message) Inte
 	return vm.NewString(url.PathEscape(s.String()))
 }
 
+// SequenceRstrip is a Sequence method.
+//
+// rstrip removes all whitespace characters from the end of the sequence, or
+// all characters in the provided cut set.
+func SequenceRstrip(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckMutable("rstrip"); err != nil {
+		return vm.IoError(err)
+	}
+	var sv string
+	if msg.ArgCount() == 0 {
+		sv = strings.TrimRightFunc(s.String(), unichr.IsSpace)
+	} else {
+		other, stop := msg.StringArgAt(vm, locals, 0)
+		if stop != nil {
+			return stop
+		}
+		sv = strings.TrimRight(s.String(), other.String())
+	}
+	s.SetString(sv)
+	return target
+}
+
+// SequenceStrip is a Sequence method.
+//
+// strip removes all whitespace characters from each end of the sequence, or
+// all characters in the provided cut set.
+func SequenceStrip(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckMutable("rstrip"); err != nil {
+		return vm.IoError(err)
+	}
+	var sv string
+	if msg.ArgCount() == 0 {
+		sv = strings.TrimFunc(s.String(), unichr.IsSpace)
+	} else {
+		other, stop := msg.StringArgAt(vm, locals, 0)
+		if stop != nil {
+			return stop
+		}
+		sv = strings.Trim(s.String(), other.String())
+	}
+	s.SetString(sv)
+	return target
+}
+
 // SequenceUppercase is a Sequence method.
 //
 // uppercase converts the values in the sequence to their capitalized

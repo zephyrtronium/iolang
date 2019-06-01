@@ -1210,6 +1210,8 @@ func (vm *VM) initSequence() {
 		"pathExtension":          vm.NewTypedCFunction(SequencePathExtension, exemplar),
 		"percentDecoded":         vm.NewTypedCFunction(SequencePercentDecoded, exemplar),
 		"percentEncoded":         vm.NewTypedCFunction(SequencePercentEncoded, exemplar),
+		"rstrip":                 vm.NewTypedCFunction(SequenceRstrip, exemplar),
+		"strip":                  vm.NewTypedCFunction(SequenceStrip, exemplar),
 		"uppercase":              vm.NewTypedCFunction(SequenceUppercase, exemplar),
 		"validEncodings":         vm.NewCFunction(SequenceValidEncodings),
 
