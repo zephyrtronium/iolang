@@ -1430,6 +1430,78 @@ func SequenceReverseInPlace(vm *VM, target, locals Interface, msg *Message) Inte
 	return target
 }
 
+// SequenceSetItemsToDouble is a Sequence method.
+//
+// setItemsToDouble sets all items to the given value.
+func SequenceSetItemsToDouble(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckMutable("setItemsToDouble"); err != nil {
+		return vm.IoError(err)
+	}
+	n, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	x := n.Value
+	switch s.Kind {
+	case SeqMU8:
+		v := s.Value.([]byte)
+		for i := range v {
+			v[i] = byte(x)
+		}
+	case SeqMU16:
+		v := s.Value.([]uint16)
+		for i := range v {
+			v[i] = uint16(x)
+		}
+	case SeqMU32:
+		v := s.Value.([]uint32)
+		for i := range v {
+			v[i] = uint32(x)
+		}
+	case SeqMU64:
+		v := s.Value.([]uint64)
+		for i := range v {
+			v[i] = uint64(x)
+		}
+	case SeqMS8:
+		v := s.Value.([]int8)
+		for i := range v {
+			v[i] = int8(x)
+		}
+	case SeqMS16:
+		v := s.Value.([]int16)
+		for i := range v {
+			v[i] = int16(x)
+		}
+	case SeqMS32:
+		v := s.Value.([]int32)
+		for i := range v {
+			v[i] = int32(x)
+		}
+	case SeqMS64:
+		v := s.Value.([]int64)
+		for i := range v {
+			v[i] = int64(x)
+		}
+	case SeqMF32:
+		v := s.Value.([]float32)
+		for i := range v {
+			v[i] = float32(x)
+		}
+	case SeqMF64:
+		v := s.Value.([]float64)
+		for i := range v {
+			v[i] = float64(x)
+		}
+	case SeqUntyped:
+		panic("use of untyped sequence")
+	default:
+		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+	}
+	return target
+}
+
 // SequenceSetSize is a Sequence method.
 //
 // setSize sets the size of the sequence.

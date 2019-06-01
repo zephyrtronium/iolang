@@ -416,6 +416,8 @@ Sequence do(
 	asFile := method(File with(self))
 
 	replaceMap := method(m, m foreach(k, v, self replaceSeq(k, v)))
+
+	setItemsToLong := method(x, self setItemsToDouble(x roundDown))
 )
 
 Scheduler do(

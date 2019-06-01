@@ -1177,6 +1177,7 @@ func (vm *VM) initSequence() {
 		"replaceSeq":          vm.NewTypedCFunction(SequenceReplaceSeq, exemplar),
 		"reverseInPlace":      vm.NewTypedCFunction(SequenceReverseInPlace, exemplar),
 		"setItemType":         vm.NewTypedCFunction(SequenceSetItemType, exemplar),
+		"setItemsToDouble":    vm.NewTypedCFunction(SequenceSetItemsToDouble, exemplar),
 		"setSize":             vm.NewTypedCFunction(SequenceSetSize, exemplar),
 
 		// sequence-string.go:
