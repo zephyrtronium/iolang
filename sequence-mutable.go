@@ -1363,6 +1363,73 @@ func SequenceReplaceSeq(vm *VM, target, locals Interface, msg *Message) Interfac
 	return target
 }
 
+// SequenceReverseInPlace is a Sequence method.
+//
+// reverseInPlace reverses the elements of the sequence.
+func SequenceReverseInPlace(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckMutable("reverseInPlace"); err != nil {
+		return vm.IoError(err)
+	}
+	switch s.Kind {
+	case SeqMU8, SeqIU8:
+		v := s.Value.([]byte)
+		for i := 0; i < len(v)/2; i++ {
+			v[i], v[len(v)-i-1] = v[len(v)-i-1], v[i]
+		}
+	case SeqMU16, SeqIU16:
+		v := s.Value.([]uint16)
+		for i := 0; i < len(v)/2; i++ {
+			v[i], v[len(v)-i-1] = v[len(v)-i-1], v[i]
+		}
+	case SeqMU32, SeqIU32:
+		v := s.Value.([]uint32)
+		for i := 0; i < len(v)/2; i++ {
+			v[i], v[len(v)-i-1] = v[len(v)-i-1], v[i]
+		}
+	case SeqMU64, SeqIU64:
+		v := s.Value.([]uint64)
+		for i := 0; i < len(v)/2; i++ {
+			v[i], v[len(v)-i-1] = v[len(v)-i-1], v[i]
+		}
+	case SeqMS8, SeqIS8:
+		v := s.Value.([]int8)
+		for i := 0; i < len(v)/2; i++ {
+			v[i], v[len(v)-i-1] = v[len(v)-i-1], v[i]
+		}
+	case SeqMS16, SeqIS16:
+		v := s.Value.([]int16)
+		for i := 0; i < len(v)/2; i++ {
+			v[i], v[len(v)-i-1] = v[len(v)-i-1], v[i]
+		}
+	case SeqMS32, SeqIS32:
+		v := s.Value.([]int32)
+		for i := 0; i < len(v)/2; i++ {
+			v[i], v[len(v)-i-1] = v[len(v)-i-1], v[i]
+		}
+	case SeqMS64, SeqIS64:
+		v := s.Value.([]int64)
+		for i := 0; i < len(v)/2; i++ {
+			v[i], v[len(v)-i-1] = v[len(v)-i-1], v[i]
+		}
+	case SeqMF32, SeqIF32:
+		v := s.Value.([]float32)
+		for i := 0; i < len(v)/2; i++ {
+			v[i], v[len(v)-i-1] = v[len(v)-i-1], v[i]
+		}
+	case SeqMF64, SeqIF64:
+		v := s.Value.([]float64)
+		for i := 0; i < len(v)/2; i++ {
+			v[i], v[len(v)-i-1] = v[len(v)-i-1], v[i]
+		}
+	case SeqUntyped:
+		panic("use of untyped sequence")
+	default:
+		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+	}
+	return target
+}
+
 // SequenceSetSize is a Sequence method.
 //
 // setSize sets the size of the sequence.

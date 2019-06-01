@@ -1175,6 +1175,7 @@ func (vm *VM) initSequence() {
 		"removeSuffix":        vm.NewTypedCFunction(SequenceRemoveSuffix, exemplar),
 		"replaceFirstSeq":     vm.NewTypedCFunction(SequenceReplaceFirstSeq, exemplar),
 		"replaceSeq":          vm.NewTypedCFunction(SequenceReplaceSeq, exemplar),
+		"reverseInPlace":      vm.NewTypedCFunction(SequenceReverseInPlace, exemplar),
 		"setItemType":         vm.NewTypedCFunction(SequenceSetItemType, exemplar),
 		"setSize":             vm.NewTypedCFunction(SequenceSetSize, exemplar),
 

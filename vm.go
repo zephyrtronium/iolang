@@ -385,6 +385,8 @@ Sequence do(
 	setSlot("-", method(v, Sequence clone copy(self) -= v))
 	setSlot("/", method(v, Sequence clone copy(self) /= v))
 
+	reverse := method(self asMutable reverseInPlace)
+
 	isEmpty := method(self size == 0)
 	isSymbol := method(self isMutable not)
 
