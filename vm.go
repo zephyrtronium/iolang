@@ -412,6 +412,8 @@ Sequence do(
 	linePrint := method(File standardOutput write(self, "\n"); self)
 
 	asFile := method(File with(self))
+
+	replaceMap := method(m, m foreach(k, v, self replaceSeq(k, v)))
 )
 
 Scheduler do(

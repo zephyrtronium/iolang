@@ -1338,6 +1338,31 @@ func SequenceReplaceFirstSeq(vm *VM, target, locals Interface, msg *Message) Int
 	return target
 }
 
+// SequenceReplaceSeq is a Sequence method.
+//
+// replaceSeq replaces all instances of a sequence with another.
+func SequenceReplaceSeq(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckMutable("replaceSeq"); err != nil {
+		return vm.IoError(err)
+	}
+	search, stop := msg.SequenceArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	repl, stop := msg.SequenceArgAt(vm, locals, 1)
+	if stop != nil {
+		return stop
+	}
+	sl := search.Len()
+	rl := repl.Len()
+	for k := s.Find(search, 0); k >= 0; k = s.Find(search, k+rl) {
+		s.Remove(k, k+sl)
+		s.Insert(repl, k)
+	}
+	return target
+}
+
 // SequenceSetSize is a Sequence method.
 //
 // setSize sets the size of the sequence.
