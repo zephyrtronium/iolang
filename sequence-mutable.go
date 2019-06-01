@@ -152,26 +152,7 @@ func SequenceAtInsertSeq(vm *VM, target, locals Interface, msg *Message) Interfa
 	if stop != nil {
 		return stop
 	}
-	// Since the inserted sequence's values are always converted to the type of
-	// the receiver, it would be _possible_ to use a switch for this, but I'm
-	// lazy and not entirely convinced switches are actually more efficient.
-	if p == s.Len() {
-		// shortcut
-		s.appendSameKind(r.Convert(vm, s.Kind))
-		return target
-	}
-	u := reflect.ValueOf(r.Value)
-	v := reflect.ValueOf(s.Value)
-	w := reflect.MakeSlice(v.Type(), u.Len(), u.Len())
-	x := reflect.MakeSlice(v.Type(), v.Len()-p, v.Len()-p)
-	t := v.Type().Elem()
-	for i := 0; i < w.Len(); i++ {
-		w.Index(i).Set(u.Index(i).Convert(t))
-	}
-	reflect.Copy(x, v.Slice(p, v.Len()))
-	v = reflect.AppendSlice(v.Slice(0, p), w)
-	v = reflect.AppendSlice(v, x)
-	s.Value = v.Interface()
+	s.Insert(r, p)
 	return target
 }
 
@@ -1008,12 +989,9 @@ func SequenceRemoveAt(vm *VM, target, locals Interface, msg *Message) Interface 
 		return stop
 	}
 	k := s.FixIndex(int(nn.Value))
-	v := reflect.ValueOf(s.Value)
-	n := v.Len()
+	n := s.Len()
 	if k < n {
-		reflect.Copy(v.Slice(k, n), v.Slice(k+1, n))
-		v = v.Slice(0, n-1)
-		s.Value = v.Interface()
+		s.Remove(k, k+1)
 	}
 	return target
 }
@@ -1272,15 +1250,12 @@ func SequenceRemoveSeq(vm *VM, target, locals Interface, msg *Message) Interface
 		return stop
 	}
 	ol := other.Len()
-	v := reflect.ValueOf(s.Value)
 	for {
-		i := s.RFind(other, v.Len())
+		i := s.RFind(other, s.Len())
 		if i < 0 {
 			break
 		}
-		reflect.Copy(v.Slice(i, v.Len()), v.Slice(i+ol, v.Len()))
-		v = v.Slice(0, v.Len()-ol)
-		s.Value = v.Interface()
+		s.Remove(i, i+ol)
 	}
 	return target
 }
@@ -1303,10 +1278,8 @@ func SequenceRemoveSlice(vm *VM, target, locals Interface, msg *Message) Interfa
 	}
 	i := s.FixIndex(int(l.Value))
 	j := s.FixIndex(int(r.Value) + 1)
-	v := reflect.ValueOf(s.Value)
-	if i < v.Len() {
-		reflect.Copy(v.Slice(i, v.Len()), v.Slice(j, v.Len()))
-		s.Value = v.Slice(0, v.Len()-(j-i)).Interface()
+	if i < s.Len() {
+		s.Remove(i, j)
 	}
 	return target
 }
@@ -1326,6 +1299,41 @@ func SequenceRemoveSuffix(vm *VM, target, locals Interface, msg *Message) Interf
 	ol := other.Len()
 	if s.findMatch(other, s.Len()-ol, ol) {
 		s.Slice(0, s.Len()-ol, 1)
+	}
+	return target
+}
+
+// SequenceReplaceFirstSeq is a Sequence method.
+//
+// replaceFirstSeq replaces the first instance of a sequence with another.
+func SequenceReplaceFirstSeq(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckMutable("replaceFirstSeq"); err != nil {
+		return vm.IoError(err)
+	}
+	search, stop := msg.SequenceArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	repl, stop := msg.SequenceArgAt(vm, locals, 1)
+	if stop != nil {
+		return stop
+	}
+	k := 0
+	if msg.ArgCount() > 2 {
+		start, stop := msg.NumberArgAt(vm, locals, 2)
+		if stop != nil {
+			return stop
+		}
+		k = int(start.Value)
+		if k < 0 {
+			k = 0
+		}
+	}
+	p := s.Find(search, k)
+	if p >= 0 {
+		s.Remove(p, p+search.Len())
+		s.Insert(repl, p)
 	}
 	return target
 }

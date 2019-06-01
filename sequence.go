@@ -580,6 +580,187 @@ func (s *Sequence) appendGrow(other *Sequence) {
 	s.Kind = other.Kind
 }
 
+// Insert inserts the elements of another sequence, converted to this
+// sequence's type, at a given index. If the index is beyond the length of the
+// sequence, then zeros are inserted as needed. Panics if k < 0 or if s is
+// immutable.
+func (s *Sequence) Insert(other *Sequence, k int) {
+	if err := s.CheckMutable("*Sequence.Insert"); err != nil {
+		panic(err)
+	}
+	if sl := s.Len(); k > sl {
+		s.extend(k)
+	}
+	if s.SameType(other) {
+		s.insertSameKind(other, k)
+	} else {
+		s.insertConvert(other, k)
+	}
+}
+
+func (s *Sequence) extend(k int) {
+	switch s.Kind {
+	case SeqMU8:
+		v := s.Value.([]byte)
+		if len(v) < k {
+			v = append(v, make([]byte, k-len(v))...)
+		}
+		s.Value = v
+	case SeqMU16:
+		v := s.Value.([]uint16)
+		if len(v) < k {
+			v = append(v, make([]uint16, k-len(v))...)
+		}
+		s.Value = v
+	case SeqMU32:
+		v := s.Value.([]uint32)
+		if len(v) < k {
+			v = append(v, make([]uint32, k-len(v))...)
+		}
+		s.Value = v
+	case SeqMU64:
+		v := s.Value.([]uint64)
+		if len(v) < k {
+			v = append(v, make([]uint64, k-len(v))...)
+		}
+		s.Value = v
+	case SeqMS8:
+		v := s.Value.([]int8)
+		if len(v) < k {
+			v = append(v, make([]int8, k-len(v))...)
+		}
+		s.Value = v
+	case SeqMS16:
+		v := s.Value.([]int16)
+		if len(v) < k {
+			v = append(v, make([]int16, k-len(v))...)
+		}
+		s.Value = v
+	case SeqMS32:
+		v := s.Value.([]int32)
+		if len(v) < k {
+			v = append(v, make([]int32, k-len(v))...)
+		}
+		s.Value = v
+	case SeqMS64:
+		v := s.Value.([]int64)
+		if len(v) < k {
+			v = append(v, make([]int64, k-len(v))...)
+		}
+		s.Value = v
+	case SeqMF32:
+		v := s.Value.([]float32)
+		if len(v) < k {
+			v = append(v, make([]float32, k-len(v))...)
+		}
+		s.Value = v
+	case SeqMF64:
+		v := s.Value.([]float64)
+		if len(v) < k {
+			v = append(v, make([]float64, k-len(v))...)
+		}
+		s.Value = v
+	case SeqUntyped:
+		panic("use of untyped sequence")
+	default:
+		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+	}
+}
+
+func (s *Sequence) insertSameKind(other *Sequence, k int) {
+	switch s.Kind {
+	case SeqMU8:
+		v := s.Value.([]byte)
+		w := other.Value.([]byte)
+		v = append(v, make([]byte, len(w))...)
+		copy(v[k+len(w):], v[k:])
+		copy(v[k:], w)
+		s.Value = v
+	case SeqMU16:
+		v := s.Value.([]uint16)
+		w := other.Value.([]uint16)
+		v = append(v, make([]uint16, len(w))...)
+		copy(v[k+len(w):], v[k:])
+		copy(v[k:], w)
+		s.Value = v
+	case SeqMU32:
+		v := s.Value.([]uint32)
+		w := other.Value.([]uint32)
+		v = append(v, make([]uint32, len(w))...)
+		copy(v[k+len(w):], v[k:])
+		copy(v[k:], w)
+		s.Value = v
+	case SeqMU64:
+		v := s.Value.([]uint64)
+		w := other.Value.([]uint64)
+		v = append(v, make([]uint64, len(w))...)
+		copy(v[k+len(w):], v[k:])
+		copy(v[k:], w)
+		s.Value = v
+	case SeqMS8:
+		v := s.Value.([]int8)
+		w := other.Value.([]int8)
+		v = append(v, make([]int8, len(w))...)
+		copy(v[k+len(w):], v[k:])
+		copy(v[k:], w)
+		s.Value = v
+	case SeqMS16:
+		v := s.Value.([]int16)
+		w := other.Value.([]int16)
+		v = append(v, make([]int16, len(w))...)
+		copy(v[k+len(w):], v[k:])
+		copy(v[k:], w)
+		s.Value = v
+	case SeqMS32:
+		v := s.Value.([]int32)
+		w := other.Value.([]int32)
+		v = append(v, make([]int32, len(w))...)
+		copy(v[k+len(w):], v[k:])
+		copy(v[k:], w)
+		s.Value = v
+	case SeqMS64:
+		v := s.Value.([]int64)
+		w := other.Value.([]int64)
+		v = append(v, make([]int64, len(w))...)
+		copy(v[k+len(w):], v[k:])
+		copy(v[k:], w)
+		s.Value = v
+	case SeqMF32:
+		v := s.Value.([]float32)
+		w := other.Value.([]float32)
+		v = append(v, make([]float32, len(w))...)
+		copy(v[k+len(w):], v[k:])
+		copy(v[k:], w)
+		s.Value = v
+	case SeqMF64:
+		v := s.Value.([]float64)
+		w := other.Value.([]float64)
+		v = append(v, make([]float64, len(w))...)
+		copy(v[k+len(w):], v[k:])
+		copy(v[k:], w)
+		s.Value = v
+	case SeqUntyped:
+		panic("use of untyped sequence")
+	default:
+		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+	}
+}
+
+func (s *Sequence) insertConvert(other *Sequence, k int) {
+	a := reflect.ValueOf(s.Value)
+	b := reflect.ValueOf(other.Value)
+	al := a.Len()
+	bl := b.Len()
+	z := reflect.MakeSlice(a.Type(), bl, bl)
+	a = reflect.AppendSlice(a, z)
+	reflect.Copy(a.Slice(k+bl, al), a.Slice(k, al))
+	at := a.Type().Elem()
+	for i := 0; i < bl; i++ {
+		a.Index(k + i).Set(b.Index(i).Convert(at))
+	}
+	s.Value = a.Interface()
+}
+
 // Find locates the first instance of other in the sequence following start.
 // Comparison is done following conversion to the same type. If there is no
 // match, the result is -1.
@@ -875,6 +1056,60 @@ func (s *Sequence) sliceBackward(start, stop, step int) {
 	}
 }
 
+// Remove deletes a range of elements from the sequence. Panics if the sequence
+// is immutable.
+func (s *Sequence) Remove(i, j int) {
+	if err := s.CheckMutable("*Sequence.Remove"); err != nil {
+		panic(err)
+	}
+	switch s.Kind {
+	case SeqMU8, SeqIU8:
+		v := s.Value.([]byte)
+		copy(v[i:], v[j:])
+		s.Value = v[:len(v)-(j-i)]
+	case SeqMU16, SeqIU16:
+		v := s.Value.([]uint16)
+		copy(v[i:], v[j:])
+		s.Value = v[:len(v)-(j-i)]
+	case SeqMU32, SeqIU32:
+		v := s.Value.([]uint32)
+		copy(v[i:], v[j:])
+		s.Value = v[:len(v)-(j-i)]
+	case SeqMU64, SeqIU64:
+		v := s.Value.([]uint64)
+		copy(v[i:], v[j:])
+		s.Value = v[:len(v)-(j-i)]
+	case SeqMS8, SeqIS8:
+		v := s.Value.([]int8)
+		copy(v[i:], v[j:])
+		s.Value = v[:len(v)-(j-i)]
+	case SeqMS16, SeqIS16:
+		v := s.Value.([]int16)
+		copy(v[i:], v[j:])
+		s.Value = v[:len(v)-(j-i)]
+	case SeqMS32, SeqIS32:
+		v := s.Value.([]int32)
+		copy(v[i:], v[j:])
+		s.Value = v[:len(v)-(j-i)]
+	case SeqMS64, SeqIS64:
+		v := s.Value.([]int64)
+		copy(v[i:], v[j:])
+		s.Value = v[:len(v)-(j-i)]
+	case SeqMF32, SeqIF32:
+		v := s.Value.([]float32)
+		copy(v[i:], v[j:])
+		s.Value = v[:len(v)-(j-i)]
+	case SeqMF64, SeqIF64:
+		v := s.Value.([]float64)
+		copy(v[i:], v[j:])
+		s.Value = v[:len(v)-(j-i)]
+	case SeqUntyped:
+		panic("use of untyped sequence")
+	default:
+		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+	}
+}
+
 func (vm *VM) initSequence() {
 	var exemplar *Sequence
 	// We can't use vm.NewString until we create the proto after this.
@@ -938,6 +1173,7 @@ func (vm *VM) initSequence() {
 		"removeSeq":           vm.NewTypedCFunction(SequenceRemoveSeq, exemplar),
 		"removeSlice":         vm.NewTypedCFunction(SequenceRemoveSlice, exemplar),
 		"removeSuffix":        vm.NewTypedCFunction(SequenceRemoveSuffix, exemplar),
+		"replaceFirstSeq":     vm.NewTypedCFunction(SequenceReplaceFirstSeq, exemplar),
 		"setItemType":         vm.NewTypedCFunction(SequenceSetItemType, exemplar),
 		"setSize":             vm.NewTypedCFunction(SequenceSetSize, exemplar),
 
