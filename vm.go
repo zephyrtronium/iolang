@@ -418,6 +418,20 @@ Sequence do(
 	replaceMap := method(m, m foreach(k, v, self replaceSeq(k, v)))
 
 	setItemsToLong := method(x, self setItemsToDouble(x roundDown))
+
+	sizeInBytes := method(size * itemSize)
+
+	slicesBetween := method(start, end,
+		l := list()
+		k := 0
+		while(a := self findSeq(start, k),
+			b := self findSeq(end, k + start size)
+			b ifNil(break)
+			l append(self exSlice(a + start size, b))
+			k = b + end size
+		)
+		l
+	)
 )
 
 Scheduler do(

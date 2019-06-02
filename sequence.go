@@ -1265,6 +1265,7 @@ func (vm *VM) initSequence() {
 	slots["betweenSeq"] = slots["between"]
 	slots["exclusiveSlice"] = slots["exSlice"]
 	slots["inclusiveSlice"] = slots["inSlice"]
+	slots["slice"] = slots["exSlice"]
 	ms := &Sequence{
 		Object: *vm.ObjectWith(slots),
 		Value:  []byte(nil),
