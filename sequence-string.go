@@ -1414,6 +1414,52 @@ func SequenceRstrip(vm *VM, target, locals Interface, msg *Message) Interface {
 	return target
 }
 
+// SequenceSplit is a Sequence method.
+//
+// split returns a list of the portions of the sequence split at each
+// occurrence of any of the given separators, or by whitespace if none given.
+func SequenceSplit(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	str := s.String()
+	l := []Interface{}
+	if msg.ArgCount() == 0 {
+		// Split at whitespace.
+		v := strings.Fields(str)
+		for _, x := range v {
+			l = append(l, vm.NewString(x))
+		}
+	} else {
+		seps := make([]string, msg.ArgCount())
+		for arg := range seps {
+			sep, stop := msg.StringArgAt(vm, locals, arg)
+			if stop != nil {
+				return stop
+			}
+			seps[arg] = sep.String()
+		}
+		v := strings.Builder{}
+		ign := 0
+	stringloop:
+		for k, r := range str {
+			if ign > 0 {
+				ign--
+				continue
+			}
+			for _, sep := range seps {
+				if strings.HasPrefix(str[k:], sep) {
+					l = append(l, vm.NewString(v.String()))
+					ign = utf8.RuneCountInString(sep) - 1
+					v.Reset()
+					continue stringloop
+				}
+			}
+			v.WriteRune(r)
+		}
+		l = append(l, vm.NewString(v.String()))
+	}
+	return vm.NewList(l...)
+}
+
 // SequenceStrip is a Sequence method.
 //
 // strip removes all whitespace characters from each end of the sequence, or

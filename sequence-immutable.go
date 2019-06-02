@@ -1227,6 +1227,23 @@ func SequenceReverseFindSeq(vm *VM, target, locals Interface, msg *Message) Inte
 	return vm.Nil
 }
 
+// SequenceSplitAt is a Sequence method.
+//
+// splitAt splits the sequence at the given index.
+func SequenceSplitAt(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	idx, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	k := s.FixIndex(int(idx.Value))
+	s1 := vm.NewSequence(s.Value, true, s.Code)
+	s2 := vm.NewSequence(s.Value, true, s.Code)
+	s1.Slice(0, k, 1)
+	s2.Slice(k, s2.Len(), 1)
+	return vm.NewList(s1, s2)
+}
+
 // SequenceUnpack is a Sequence method.
 //
 // unpack reads a packed binary sequence into a List.

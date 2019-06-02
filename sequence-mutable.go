@@ -3,6 +3,7 @@ package iolang
 import (
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 )
 
@@ -1524,6 +1525,53 @@ func SequenceSetSize(vm *VM, target, locals Interface, msg *Message) Interface {
 	} else if n > l {
 		v := reflect.ValueOf(s.Value)
 		s.Value = reflect.AppendSlice(v, reflect.MakeSlice(v.Type(), n-l, n-l)).Interface()
+	}
+	return target
+}
+
+// SequenceSort is a Sequence method.
+//
+// sort sorts the elements of the sequence.
+func SequenceSort(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckMutable("sort"); err != nil {
+		return vm.IoError(err)
+	}
+	switch s.Kind {
+	case SeqMU8:
+		v := s.Value.([]byte)
+		sort.Slice(v, func(i, j int) bool { return v[i] < v[j] })
+	case SeqMU16:
+		v := s.Value.([]uint16)
+		sort.Slice(v, func(i, j int) bool { return v[i] < v[j] })
+	case SeqMU32:
+		v := s.Value.([]uint32)
+		sort.Slice(v, func(i, j int) bool { return v[i] < v[j] })
+	case SeqMU64:
+		v := s.Value.([]uint64)
+		sort.Slice(v, func(i, j int) bool { return v[i] < v[j] })
+	case SeqMS8:
+		v := s.Value.([]int8)
+		sort.Slice(v, func(i, j int) bool { return v[i] < v[j] })
+	case SeqMS16:
+		v := s.Value.([]int16)
+		sort.Slice(v, func(i, j int) bool { return v[i] < v[j] })
+	case SeqMS32:
+		v := s.Value.([]int32)
+		sort.Slice(v, func(i, j int) bool { return v[i] < v[j] })
+	case SeqMS64:
+		v := s.Value.([]int64)
+		sort.Slice(v, func(i, j int) bool { return v[i] < v[j] })
+	case SeqMF32:
+		v := s.Value.([]float32)
+		sort.Slice(v, func(i, j int) bool { return v[i] < v[j] })
+	case SeqMF64:
+		v := s.Value.([]float64)
+		sort.Float64s(v)
+	case SeqUntyped:
+		panic("use of untyped sequence")
+	default:
+		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
 	}
 	return target
 }

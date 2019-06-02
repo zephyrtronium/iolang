@@ -1144,6 +1144,7 @@ func (vm *VM) initSequence() {
 		"pack":             vm.NewCFunction(SequencePack),
 		"reverseFindSeq":   vm.NewTypedCFunction(SequenceReverseFindSeq, exemplar),
 		"size":             vm.NewTypedCFunction(SequenceSize, exemplar),
+		"splitAt":          vm.NewTypedCFunction(SequenceSplitAt, exemplar),
 		"unpack":           vm.NewTypedCFunction(SequenceUnpack, exemplar),
 		"withStruct":       vm.NewCFunction(SequenceWithStruct),
 
@@ -1179,6 +1180,7 @@ func (vm *VM) initSequence() {
 		"setItemType":         vm.NewTypedCFunction(SequenceSetItemType, exemplar),
 		"setItemsToDouble":    vm.NewTypedCFunction(SequenceSetItemsToDouble, exemplar),
 		"setSize":             vm.NewTypedCFunction(SequenceSetSize, exemplar),
+		"sort":                vm.NewTypedCFunction(SequenceSort, exemplar),
 
 		// sequence-string.go:
 		"appendPathSeq":          vm.NewTypedCFunction(SequenceAppendPathSeq, exemplar),
@@ -1212,6 +1214,7 @@ func (vm *VM) initSequence() {
 		"percentDecoded":         vm.NewTypedCFunction(SequencePercentDecoded, exemplar),
 		"percentEncoded":         vm.NewTypedCFunction(SequencePercentEncoded, exemplar),
 		"rstrip":                 vm.NewTypedCFunction(SequenceRstrip, exemplar),
+		"split":                  vm.NewTypedCFunction(SequenceSplit, exemplar),
 		"strip":                  vm.NewTypedCFunction(SequenceStrip, exemplar),
 		"uppercase":              vm.NewTypedCFunction(SequenceUppercase, exemplar),
 		"validEncodings":         vm.NewCFunction(SequenceValidEncodings),
