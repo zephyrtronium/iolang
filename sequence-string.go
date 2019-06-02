@@ -1532,3 +1532,23 @@ func SequenceUppercase(vm *VM, target, locals Interface, msg *Message) Interface
 	s.SetString(strings.ToUpper(s.String()))
 	return target
 }
+
+// SequenceUrlDecoded is a Sequence method.
+//
+// urlDecoded unescapes the sequence as a URL query.
+func SequenceUrlDecoded(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	p, err := url.QueryUnescape(s.String())
+	if err != nil {
+		return vm.IoError(err)
+	}
+	return vm.NewString(p)
+}
+
+// SequenceUrlEncoded is a Sequence method.
+//
+// urlEncoded escapes the sequence for safe use in a URL query.
+func SequenceUrlEncoded(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	return vm.NewString(url.QueryEscape(s.String()))
+}

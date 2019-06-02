@@ -1219,6 +1219,8 @@ func (vm *VM) initSequence() {
 		"toBase":                 vm.NewTypedCFunction(SequenceToBase, exemplar),
 		"unescape":               vm.NewTypedCFunction(SequenceUnescape, exemplar),
 		"uppercase":              vm.NewTypedCFunction(SequenceUppercase, exemplar),
+		"urlDecoded":             vm.NewTypedCFunction(SequenceUrlDecoded, exemplar),
+		"urlEncoded":             vm.NewTypedCFunction(SequenceUrlEncoded, exemplar),
 		"validEncodings":         vm.NewCFunction(SequenceValidEncodings),
 
 		// sequence-math.go:
