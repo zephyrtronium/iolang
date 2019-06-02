@@ -395,15 +395,14 @@ func ObjectEvalArg(vm *VM, target, locals Interface, msg *Message) Interface {
 	// The original Io implementation has an assertion that there is at least
 	// one argument; this will instead return vm.Nil. It wouldn't be difficult
 	// to mimic Io's behavior, but ehhh.
-	r, _ := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
-	return r
+	return msg.EvalArgAt(vm, locals, 0)
 }
 
 // ObjectEvalArgAndReturnSelf is an Object method.
 //
 // evalArgAndReturnSelf evaluates its argument and returns this object.
 func ObjectEvalArgAndReturnSelf(vm *VM, target, locals Interface, msg *Message) Interface {
-	result, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
+	result, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), NoStop)
 	if ok {
 		return target
 	}
@@ -414,7 +413,7 @@ func ObjectEvalArgAndReturnSelf(vm *VM, target, locals Interface, msg *Message) 
 //
 // evalArgAndReturnNil evaluates its argument and returns nil.
 func ObjectEvalArgAndReturnNil(vm *VM, target, locals Interface, msg *Message) Interface {
-	result, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
+	result, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), NoStop)
 	if ok {
 		return vm.Nil
 	}
@@ -425,7 +424,7 @@ func ObjectEvalArgAndReturnNil(vm *VM, target, locals Interface, msg *Message) I
 //
 // do evaluates its message in the context of the receiver.
 func ObjectDo(vm *VM, target, locals Interface, msg *Message) Interface {
-	r, ok := CheckStop(msg.EvalArgAt(vm, target, 0), LoopStops)
+	r, ok := CheckStop(msg.EvalArgAt(vm, target, 0), NoStop)
 	if !ok {
 		return r
 	}
@@ -440,7 +439,7 @@ func ObjectLexicalDo(vm *VM, target, locals Interface, msg *Message) Interface {
 	o := target.SP()
 	n := len(o.Protos)
 	o.Protos = append(o.Protos, locals)
-	result, ok := CheckStop(msg.EvalArgAt(vm, target, 0), LoopStops)
+	result, ok := CheckStop(msg.EvalArgAt(vm, target, 0), NoStop)
 	copy(o.Protos[n:], o.Protos[n+1:])
 	o.Protos = o.Protos[:len(o.Protos)-1]
 	if !ok {
