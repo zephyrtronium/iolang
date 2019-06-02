@@ -1483,6 +1483,43 @@ func SequenceStrip(vm *VM, target, locals Interface, msg *Message) Interface {
 	return target
 }
 
+// SequenceToBase is a Sequence method.
+//
+// toBase converts the sequence from a base 10 representation of a number to a
+// base 8 or 16 representation of the same number.
+func SequenceToBase(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	n, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != nil {
+		return stop
+	}
+	base := int(n.Value)
+	if base < 2 || base > 36 {
+		return vm.RaiseExceptionf("cannot convert to base %d", base)
+	}
+	x, err := strconv.ParseInt(s.String(), 10, 64)
+	if err != nil {
+		return vm.IoError(err)
+	}
+	return vm.NewString(strconv.FormatInt(x, base))
+}
+
+// SequenceUnscape is a Sequence method.
+//
+// unescape interprets backslash-escaped codes in the sequence.
+func SequenceUnescape(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckMutable("unescape"); err != nil {
+		return vm.IoError(err)
+	}
+	ss, err := strconv.Unquote(`"` + s.String() + `"`)
+	if err != nil {
+		return vm.IoError(err)
+	}
+	s.SetString(ss)
+	return target
+}
+
 // SequenceUppercase is a Sequence method.
 //
 // uppercase converts the values in the sequence to their capitalized

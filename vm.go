@@ -420,7 +420,6 @@ Sequence do(
 	setItemsToLong := method(x, self setItemsToDouble(x roundDown))
 
 	sizeInBytes := method(size * itemSize)
-
 	slicesBetween := method(start, end,
 		l := list()
 		k := 0
@@ -432,6 +431,7 @@ Sequence do(
 		)
 		l
 	)
+	splitNoEmpties := method(self performWithArgList("split", call evalArgs) selectInPlace(size != 0))
 )
 
 Scheduler do(

@@ -1216,6 +1216,8 @@ func (vm *VM) initSequence() {
 		"rstrip":                 vm.NewTypedCFunction(SequenceRstrip, exemplar),
 		"split":                  vm.NewTypedCFunction(SequenceSplit, exemplar),
 		"strip":                  vm.NewTypedCFunction(SequenceStrip, exemplar),
+		"toBase":                 vm.NewTypedCFunction(SequenceToBase, exemplar),
+		"unescape":               vm.NewTypedCFunction(SequenceUnescape, exemplar),
 		"uppercase":              vm.NewTypedCFunction(SequenceUppercase, exemplar),
 		"validEncodings":         vm.NewCFunction(SequenceValidEncodings),
 
