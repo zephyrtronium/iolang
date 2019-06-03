@@ -252,6 +252,20 @@ Object do(
 			doString("method(" .. slot .. " = call evalArgAt(0); self)"))
 		getSlot("value")
 	)
+	lazySlot := method(
+		if(call argCount == 1,
+			m := method(self setSlot(call message name, nil))
+			args := getSlot("m") message next arguments
+			args atPut(1, call argAt(0) clone)
+			getSlot("m") message next setArguments(args)
+			getSlot("m") clone
+		,
+			name := call evalArgAt(0)
+			m := "self setSlot(\"#{name}\", #{call argAt(1) asString})" interpolate asMessage
+			self setSlot(name, method() setMessage(m))
+			nil
+		)
+	)
 
 	isActivatable := false
 	setIsActivatable := method(v, getSlot("self") isActivatable := v; self)
@@ -966,6 +980,80 @@ List do(
 		m := Map clone
 		foreach(pair, m atPut(pair at(0), pair at(1)))
 	)
+
+	ListCursor := Object clone do(
+		index ::= 0
+		collection ::= nil
+		next := method(
+			index = index + 1
+			max := collection size - 1
+			if(index > max, index = max; false, true)
+		)
+		previous := method(
+			index = index - 1
+			if(index < 0, index = 0; false, true)
+		)
+		value := method(collection at(index))
+		insert := method(v, collection atInsert(index, getSlot("v")))
+		remove := method(collection removeAt(index))
+	)
+	cursor := method(ListCursor clone setCollection(self))
+
+	sortKey := method(
+		schw := call activated SchwartzianList clone
+		if(call argCount == 1,
+			body := call argAt(0)
+			foreach(val,
+				k := val doMessage(body, call sender)
+				schw addPair(k, val)
+			)
+		,
+			valName := call argAt(0) name
+			foreach(val,
+				call sender setSlot(valName, val)
+				k := call evalArgAt(1)
+				schw addPair(k, val)
+			)
+		)
+		schw
+	) do(
+		SchwartzianList := Object clone do(
+			pairs ::= nil
+			init := method(pairs = list())
+
+			SchwartzianPair := Object clone do(
+				key ::= nil
+				value ::= nil
+				asSimpleString := method("(#{key asSimpleString}: #{value asSimpleString}" interpolate)
+			)
+
+			addPair := method(k, v, pairs append(SchwartzianPair clone setKey(k) setValue(v)))
+
+			sort := method(
+				if(call argCount == 0,
+					pairs sortBy(block(x, y, x key < y key))
+				,
+					if(call argCount == 1,
+						op := call argAt(0) name
+						args := list(nil)
+						pairs sortBy(block(x, y, x key performWithArgList(op, args atPut(0, y key))))
+					,
+						xn := call argAt(0) name
+						yn := call argAt(1) name
+						sc := call
+						pairs sortBy(
+							block(x, y,
+								sc sender setSlot(xn, x key)
+								sc sender setSlot(yn, y key)
+								sc evalArgAt(2)
+							)
+						)
+					)
+				) mapInPlace(value)
+			)
+		)
+	)
+	sortByKey := method(call delegateToMethod(self, "sortKey") sort)
 )
 
 File do(
@@ -1299,5 +1387,145 @@ Core tildeExpandsTo := if(System platform == "windows",
 	method(System getEnvironmentVariable("UserProfile"))
 ,
 	method(System getEnvironmentVariable("HOME"))
+)
+
+// Unit testing stuff ------
+
+TestRunner := Object clone do(
+	width ::= 70
+
+	init := method(
+		self cases := nil
+		self exceptions := list()
+		self runtime := 0
+	)
+
+	testCount := method(
+		self cases values reduce(n, names, n + names size, 0)
+	)
+
+	name := method(
+		if(self cases size > 1,
+			System launchScript fileName
+		,
+			if(self cases size == 1,
+				self cases keys first
+			,
+				""
+			)
+		)
+	)
+
+	linebreak := method(
+		if(self ?dots, self dots = self dots + 1, self dots := 1)
+		if(dots % width == 0, "\n" print)
+	)
+	success := method("." print; linebreak)
+	error := method(name, exc,
+		exceptions append(list(name, exc))
+		"E" print
+		linebreak
+	)
+
+	run := method(tests,
+		self cases := tests
+		self runtime := Date secondsToRun(
+			tests foreach(name, slots,
+				case := Lobby getSlot(name)
+				slots foreach(slot,
+					case setUp
+					exc := try(case doString(slot))
+					if(exc, error(name .. " " .. slot, exc), success)
+					case tearDown
+				)
+			)
+		)
+		printExceptions
+		printSummary
+	)
+
+	printExceptions := method(
+		"\n" print
+		exceptions foreach(exc,
+			("=" repeated(width) .. "\nFAIL: " .. exc at(0) .. "\n" .. "-" repeated(width)) println
+			exc showStack
+		)
+	)
+	printSummary := method(
+		"-" repeated(width) println
+		("Ran " .. testCount .. " test" .. if(testCount != 1, "s", "") .. " in " .. runtime .. "s\n") println
+		result := if(exceptions isEmpty not, "FAILED (failures #{exceptions size})" interpolate, "OK")
+		(result .. name alignRight(width - result size) .. "\n") println
+	)
+)
+
+RunnerMixIn := Object clone do(
+	run := method(TestRunner clone run(prepare))
+)
+
+UnitTest := Object clone prependProto(RunnerMixIn) do(
+	setUp := method(nil)
+	tearDown := method(nil)
+
+	testSlotNames := method(
+		names := self slotNames select(beginsWithSeq("test"))
+		if(names isEmpty, names, names sortByKey(name, self getSlot(name) message lineNumber))
+	)
+
+	prepare := method(Map with(self type, testSlotNames))
+
+	fail := method(error, Exception raise(if(error, error, "fail")))
+
+	assertEquals := method(a, b, m,
+		m ifNil(m = call message)
+		if(a != b, fail(
+			"'#{m argAt(0)} != #{m argAt(1)}' --> '#{a asSimpleString} != #{b asSimpleString}'" interpolate
+		))
+	)
+	assertNotEquals := method(a, b, m,
+		m ifNil(m = call message)
+		if(a == b, fail(
+			"'#{m argAt(0)} == #{m argAt(1)}' --> '#{a asSimpleString} == #{b asSimpleString}'" interpolate
+		))
+	)
+	assertSame := method(a, b, assertEquals(a uniqueId, b uniqueId, call message))
+	assertNotSame := method(a, b, assertNotEquals(a uniqueId, b uniqueId, call message))
+	assertNil := method(a, assertEquals(a, nil, call message))
+	assertNotNil := method(a, assertNotEquals(a, nil, call message))
+	assertTrue := method(a, assertEquals(a, true, call message))
+	assertFalse := method(a, assertEquals(a, false, call message))
+	assertRaisesException := method(
+		try(call evalArgAt(0)) ifNil(
+			fail("'#{call argAt(0)}' should have raised Exception" interpolate)
+		)
+	)
+	assertEqualsWithinDelta := method(a, b, delta,
+		if((a - b) abs > delta,
+			fail("#{a} expected, but was #{b} (allowed delta: #{delta})")
+		)
+	)
+	knownBug := method(fail("'#{call argAt(0)}' is a known bug" interpolate))
+)
+
+DirectoryCollector := TestSuite := Object clone prependProto(RunnerMixIn) do(
+	path ::= lazySlot(System launchPath)
+	with := method(p, self clone setPath(p))
+	testFiles := method(Directory with(path) files select(name endsWithSeq("Test.io")))
+	prepare := method(
+		testFiles foreach(file, Lobby doString(file contents, file path))
+		FileCollector prepare
+	)
+)
+
+FileCollector := Object clone prependProto(RunnerMixIn) do(
+	prepare := method(
+		cases := Map clone
+		Lobby foreachSlot(name, value,
+			if(getSlot("value") isActivatable not and value isKindOf(UnitTest),
+				cases mergeInPlace(value prepare)
+			)
+		)
+		cases
+	)
 )
 `
