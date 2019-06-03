@@ -976,6 +976,8 @@ List do(
 		if(r size > 40, r exSlice(0, 37) .. "...", r)
 	)
 
+	asJson := method("[" .. self map(asJson) join(",") .. "]")
+
 	asMap := method(
 		m := Map clone
 		foreach(pair, m atPut(pair at(0), pair at(1)))
@@ -1223,6 +1225,7 @@ Date do(
 	) setPassStops(true)
 
 	asAtomDate := method(clone convertToUTC asString("%Y-%m-%dT%H:%M:%SZ"))
+	asJson := method(asString asJson)
 
 	asNumberString := method(asNumber asString alignLeft(27, "0"))
 	timeStampString := method(Date clone now asNumberString)
