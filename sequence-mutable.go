@@ -1575,3 +1575,70 @@ func SequenceSort(vm *VM, target, locals Interface, msg *Message) Interface {
 	}
 	return target
 }
+
+// SequenceZero is a Sequence method.
+//
+// zero sets each element of the receiver to zero.
+func SequenceZero(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	if err := s.CheckMutable("zero"); err != nil {
+		return vm.IoError(err)
+	}
+	switch s.Kind {
+	case SeqMU8:
+		v := s.Value.([]byte)
+		for k := range v {
+			v[k] = 0
+		}
+	case SeqMU16:
+		v := s.Value.([]uint16)
+		for k := range v {
+			v[k] = 0
+		}
+	case SeqMU32:
+		v := s.Value.([]uint32)
+		for k := range v {
+			v[k] = 0
+		}
+	case SeqMU64:
+		v := s.Value.([]uint64)
+		for k := range v {
+			v[k] = 0
+		}
+	case SeqMS8:
+		v := s.Value.([]int8)
+		for k := range v {
+			v[k] = 0
+		}
+	case SeqMS16:
+		v := s.Value.([]int16)
+		for k := range v {
+			v[k] = 0
+		}
+	case SeqMS32:
+		v := s.Value.([]int32)
+		for k := range v {
+			v[k] = 0
+		}
+	case SeqMS64:
+		v := s.Value.([]int64)
+		for k := range v {
+			v[k] = 0
+		}
+	case SeqMF32:
+		v := s.Value.([]float32)
+		for k := range v {
+			v[k] = 0
+		}
+	case SeqMF64:
+		v := s.Value.([]float64)
+		for k := range v {
+			v[k] = 0
+		}
+	case SeqUntyped:
+		panic("use of untyped sequence")
+	default:
+		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+	}
+	return target
+}

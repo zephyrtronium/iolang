@@ -1181,6 +1181,7 @@ func (vm *VM) initSequence() {
 		"setItemsToDouble":    vm.NewTypedCFunction(SequenceSetItemsToDouble, exemplar),
 		"setSize":             vm.NewTypedCFunction(SequenceSetSize, exemplar),
 		"sort":                vm.NewTypedCFunction(SequenceSort, exemplar),
+		"zero":                vm.NewTypedCFunction(SequenceZero, exemplar),
 
 		// sequence-string.go:
 		"appendPathSeq":          vm.NewTypedCFunction(SequenceAppendPathSeq, exemplar),
