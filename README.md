@@ -31,11 +31,16 @@ For a more in-depth introduction to Io, check out [the official guide](http://io
 - Finish implementing CFunctions for existing primitive types:
 	+ File - figure out how/whether to implement popen and reopen.
 	+ Date - fromString requires a robust implementation.
-- Write initialization code/Io methods for all types.
-	+ asJson methods.
-	+ File streamDestination, startStreaming
+- Write remaining initialization code.
+	+ Actor
+	+ Addon, AddonLoader, Importer, ideally supporting Go's `-buildmode=plugin`.
+	+ CLI
+	+ Directory
+	+ File
+	+ Object
+	+ Path
+	+ System
+	+ I'm sure I've missed others.
 - Fix CFunctions that eat control flow signals.
 - Write tests, both in Go and in Io.
-- Importer, and implement Addons, ideally supporting Go's `-buildmode=plugin`.
-- Possibly turn Stop into a real object.
-- Document differences between this implementation and the original.
+- [Document differences between this implementation and the original.](wiki/Implementation-Specific-Behavior)
