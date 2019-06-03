@@ -29,7 +29,6 @@ For a more in-depth introduction to Io, check out [the official guide](http://io
 - Implement primitive (Core) types:
 	+ Compiler
 - Finish implementing CFunctions for existing primitive types:
-	+ Sequence
 	+ File - figure out how/whether to implement popen and reopen.
 	+ Date - fromString requires a robust implementation.
 - Write initialization code/Io methods for all types.
@@ -38,6 +37,7 @@ For a more in-depth introduction to Io, check out [the official guide](http://io
 		* All asJson methods.
 		* Object lazySlot
 		* File streamDestination, startStreaming
+- Fix CFunctions that eat control flow signals.
 - Write tests, both in Go and in Io.
 - Importer, and implement Addons, ideally supporting Go's `-buildmode=plugin`.
 - Possibly turn Stop into a real object.
