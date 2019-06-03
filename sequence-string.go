@@ -756,6 +756,35 @@ func SequenceAsIoPath(vm *VM, target, locals Interface, msg *Message) Interface 
 	return vm.NewString(filepath.ToSlash(s.String()))
 }
 
+// SequenceAsJson is a Sequence method.
+//
+// asJson creates a JSON representation of the sequence.
+func SequenceAsJson(vm *VM, target, locals Interface, msg *Message) Interface {
+	s := target.(*Sequence)
+	var r []byte
+	var err error
+	if s.Code == "number" {
+		// Serialize as an array. We need to avoid the default behavior for
+		// []byte, which is to encode as base64.
+		if s.Kind == SeqMU8 || s.Kind == SeqIU8 {
+			v := s.Value.([]uint8)
+			w := make([]uint16, len(v))
+			for i, x := range v {
+				w[i] = uint16(x)
+			}
+			r, err = json.Marshal(w)
+		} else {
+			r, err = json.Marshal(s.Value)
+		}
+	} else {
+		r, err = json.Marshal(s.String())
+	}
+	if err != nil {
+		return vm.IoError(err)
+	}
+	return vm.NewSequence(r, false, "utf8")
+}
+
 // SequenceAsMessage is a Sequence method.
 //
 // asMessage compiles the sequence to a Message.

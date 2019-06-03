@@ -1188,6 +1188,7 @@ func (vm *VM) initSequence() {
 		"asBase64":               vm.NewTypedCFunction(SequenceAsBase64, exemplar),
 		"asFixedSizeType":        vm.NewTypedCFunction(SequenceAsFixedSizeType, exemplar),
 		"asIoPath":               vm.NewTypedCFunction(SequenceAsIoPath, exemplar),
+		"asJson":                 vm.NewTypedCFunction(SequenceAsJson, exemplar),
 		"asLatin1":               vm.NewTypedCFunction(SequenceAsLatin1, exemplar),
 		"asMessage":              vm.NewTypedCFunction(SequenceAsMessage, exemplar),
 		"asNumber":               vm.NewTypedCFunction(SequenceAsNumber, exemplar),
