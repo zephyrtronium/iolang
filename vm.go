@@ -1393,6 +1393,7 @@ Core tildeExpandsTo := if(System platform == "windows",
 )
 
 // Unit testing stuff ------
+Core do(
 
 TestRunner := Object clone do(
 	width ::= 70
@@ -1530,5 +1531,7 @@ FileCollector := Object clone prependProto(RunnerMixIn) do(
 		)
 		cases
 	)
+)
+
 )
 `
