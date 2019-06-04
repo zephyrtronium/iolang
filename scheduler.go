@@ -43,8 +43,8 @@ type waitpair struct {
 // addon object once it loads.
 type addontriple struct {
 	coro *VM
-	add Addon
-	ch chan Interface
+	add  Addon
+	ch   chan Interface
 }
 
 // Activate returns the scheduler.
@@ -135,7 +135,7 @@ loop:
 			// Create a new coroutine to run the init script for the addon, in
 			// case it ends up waiting on Main.
 			c := a.coro.Clone().(*VM)
-			go func () {
+			go func() {
 				s.start <- waitpair{a.coro, c}
 				s.finish <- c
 				a.ch <- c.reallyLoadAddon(a.add)

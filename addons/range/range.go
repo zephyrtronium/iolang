@@ -30,10 +30,10 @@ func (r *Range) Activate(vm *iolang.VM, target, locals, context iolang.Interface
 func (r *Range) Clone() iolang.Interface {
 	return &Range{
 		Object: iolang.Object{Slots: iolang.Slots{}, Protos: []iolang.Interface{r}},
-		Index: r.Index,
-		Last: r.Last,
-		Start: r.Start,
-		Step: r.Step,
+		Index:  r.Index,
+		Last:   r.Last,
+		Start:  r.Start,
+		Step:   r.Step,
 	}
 }
 
@@ -64,7 +64,7 @@ func (r *Range) SetRange(start, stop, step float64) {
 // Value returns the current value of the range. This succeeds regardless of
 // whether the range cursor is in-bounds.
 func (r *Range) Value() float64 {
-	return r.Start + float64(r.Index) * r.Step
+	return r.Start + float64(r.Index)*r.Step
 }
 
 // Next computes the current range value and increments the cursor. If the value
@@ -101,7 +101,7 @@ func At(vm *iolang.VM, target, locals iolang.Interface, msg *iolang.Message) iol
 	if k < 0 || k > r.Last {
 		return vm.RaiseException("index out of bounds")
 	}
-	return vm.NewNumber(r.Start + float64(k) * r.Step)
+	return vm.NewNumber(r.Start + float64(k)*r.Step)
 }
 
 // Contains is a Range method.

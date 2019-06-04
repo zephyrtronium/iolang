@@ -33,8 +33,8 @@ type Addon interface {
 func (vm *VM) initPlugin() {
 	slots := Slots{
 		"havePlugins": vm.IoBool(havePlugins),
-		"open": vm.NewCFunction(AddonOpen),
-		"type": vm.NewString("Addon"),
+		"open":        vm.NewCFunction(AddonOpen),
+		"type":        vm.NewString("Addon"),
 	}
 	SetSlot(vm.Core, "Addon", vm.ObjectWith(slots))
 }

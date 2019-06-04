@@ -14,18 +14,18 @@ func (rangeAddon) AddonName() string {
 func (rangeAddon) Instance(vm *iolang.VM) iolang.Interface {
 	var r *Range
 	slots := iolang.Slots{
-		"at": vm.NewTypedCFunction(At, r),
+		"at":       vm.NewTypedCFunction(At, r),
 		"contains": vm.NewTypedCFunction(Contains, r),
-		"first": vm.NewTypedCFunction(First, r),
-		"foreach": vm.NewTypedCFunction(Foreach, r),
-		"index": vm.NewTypedCFunction(Index, r),
-		"last": vm.NewTypedCFunction(Last, r),
-		"next": vm.NewTypedCFunction(Next, r),
+		"first":    vm.NewTypedCFunction(First, r),
+		"foreach":  vm.NewTypedCFunction(Foreach, r),
+		"index":    vm.NewTypedCFunction(Index, r),
+		"last":     vm.NewTypedCFunction(Last, r),
+		"next":     vm.NewTypedCFunction(Next, r),
 		"previous": vm.NewTypedCFunction(Previous, r),
-		"rewind": vm.NewTypedCFunction(Rewind, r),
+		"rewind":   vm.NewTypedCFunction(Rewind, r),
 		"setRange": vm.NewTypedCFunction(SetRange, r),
-		"type": vm.NewString("Range"),
-		"value": vm.NewTypedCFunction(Value, r),
+		"type":     vm.NewString("Range"),
+		"value":    vm.NewTypedCFunction(Value, r),
 	}
 	return &Range{Object: *vm.ObjectWith(slots)}
 }
