@@ -177,34 +177,44 @@ func GetSlot(o Interface, slot string) (value, proto Interface) {
 	if o == nil {
 		return nil, nil
 	}
-	return getSlotRecurse(o, slot, map[*Object]struct{}{})
-}
-
-func getSlotRecurse(o Interface, slot string, checked map[*Object]struct{}) (Interface, Interface) {
-	obj := o.SP()
-	if obj.Slots != nil {
+	// Recursion is easy, but it can cause deadlocks, since we need to hold
+	// each proto's lock to check its respective protos. This stack-based
+	// approach is a bit messy, but it allows us to hold each object's lock
+	// only while grabbing its (current) protos.
+	checked := map[*Object]struct{}{}
+	protos := []Interface{o}
+	for len(protos) > 0 {
+		proto = protos[len(protos)-1]
+		protos = protos[:len(protos)-1]
+		var ok bool
+		obj := proto.SP()
 		obj.L.Lock()
-		// This will not unlock until the entire recursive search finishes.
-		// Do we care? Behavior is possibly more predictable this way, but
-		// performance may suffer.
-		defer obj.L.Unlock()
-		// spew.Dump(obj)
-		// fmt.Println(ObjectSlotNames(Debugvm, obj, nil, nil))
-		if s, ok := obj.Slots[slot]; ok {
-			return s, o
+		if value, ok = obj.Slots[slot]; ok {
+			obj.L.Unlock()
+			return value, proto
 		}
+		// The current proto didn't have the slot, so mark it as checked, then
+		// push every unchecked proto onto the stack in reverse order.
 		checked[obj] = struct{}{}
-		for _, proto := range obj.Protos {
-			p := proto.SP()
-			if _, skip := checked[p]; skip {
+		for i := len(obj.Protos) - 1; i >= 0; i-- {
+			p := obj.Protos[i]
+			if _, ok = checked[p.SP()]; ok {
 				continue
 			}
-			if s, pp := getSlotRecurse(p, slot, checked); pp != nil {
-				return s, pp
-			}
+			protos = append(protos, p)
 		}
+		obj.L.Unlock()
 	}
 	return nil, nil
+}
+
+// GetLocalSlot checks only an object's own slots for a slot.
+func GetLocalSlot(o Interface, slot string) (value Interface, ok bool) {
+	obj := o.SP()
+	obj.L.Lock()
+	defer obj.L.Unlock()
+	value, ok = obj.Slots[slot]
+	return value, ok
 }
 
 // SetSlot sets a slot's value on the given Interface, as if using the :=
