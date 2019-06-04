@@ -26,11 +26,25 @@ type Scheduler struct {
 	finish chan *VM
 	// m is a mutex specific to coros.
 	m sync.Mutex
+
+	// addons is a channel to synchronize loading addons.
+	addons chan addontriple
+	// loaded is a set of the names of addons that have been loaded.
+	loaded map[string]struct{}
 }
 
 // waitpair is a pair of coroutines such that a depends on b.
 type waitpair struct {
 	a, b *VM
+}
+
+// addontriple is a triple containing a coroutine waiting for an addon to be
+// loaded, the addon it wants to load, and a channel over which to send the
+// addon object once it loads.
+type addontriple struct {
+	coro *VM
+	add Addon
+	ch chan Interface
 }
 
 // Activate returns the scheduler.
@@ -56,6 +70,8 @@ func (vm *VM) initScheduler() {
 		start:  make(chan waitpair), // TODO: buffer?
 		pause:  make(chan *VM),
 		finish: make(chan *VM),
+		addons: make(chan addontriple),
+		loaded: make(map[string]struct{}),
 	}
 	vm.Sched = sched
 	SetSlot(vm.Core, "Scheduler", sched)
@@ -111,6 +127,20 @@ loop:
 				}
 			}
 			s.m.Unlock()
+		case a := <-s.addons:
+			if _, ok := s.loaded[a.add.AddonName()]; ok {
+				continue
+			}
+			s.loaded[a.add.AddonName()] = struct{}{}
+			// Create a new coroutine to run the init script for the addon, in
+			// case it ends up waiting on Main.
+			c := a.coro.Clone().(*VM)
+			go func () {
+				s.start <- waitpair{a.coro, c}
+				s.finish <- c
+				a.ch <- c.reallyLoadAddon(a.add)
+				close(a.ch)
+			}()
 		}
 	}
 }
