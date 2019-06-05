@@ -1,4 +1,4 @@
-package main
+package iorange
 
 import (
 	"github.com/zephyrtronium/iolang"
