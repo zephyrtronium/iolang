@@ -2,7 +2,7 @@ package iolang
 
 import (
 	"fmt"
-	"github.com/variadico/lctime"
+	"gitlab.com/variadico/lctime"
 	"math"
 	"time"
 )
