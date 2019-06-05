@@ -98,6 +98,7 @@ func NewVM(args ...string) *VM {
 	vm.initScheduler()
 	vm.initCoroutine()
 	vm.initFuture()
+	vm.initPlugin()
 
 	vm.finalInit()
 
@@ -143,6 +144,19 @@ func (vm *VM) CoreInstance(name string) *Object {
 		return &Object{Slots: Slots{}, Protos: []Interface{p}}
 	}
 	panic("iolang: no Core proto named " + name)
+}
+
+// AddonInstance instantiates a type whose default slots are in vm.Addons,
+// returning an Object with that type as its proto. Panics if there is no such
+// type!
+func (vm *VM) AddonInstance(name string) *Object {
+	vm.Addons.L.Lock()
+	p, ok := vm.Addons.Slots[name]
+	vm.Core.L.Unlock()
+	if ok {
+		return &Object{Slots: Slots{}, Protos: []Interface{p}}
+	}
+	panic("iolang: no Addon proto named " + name)
 }
 
 // MemoizeNumber creates a quick-access Number with the given value.
@@ -203,7 +217,7 @@ func (vm *VM) initCore() {
 	// make room for them.
 	vm.Core.Slots = make(Slots, 32)
 	vm.Core.Protos = []Interface{vm.BaseObject}
-	lp := &Object{Slots: Slots{"Core": vm.Core, "Addons": vm.Addons}, Protos: []Interface{vm.Core}}
+	lp := &Object{Slots: Slots{"Core": vm.Core, "Addons": vm.Addons}, Protos: []Interface{vm.Core, vm.Addons}}
 	vm.Lobby.Protos = []Interface{lp}
 	SetSlot(vm.Lobby, "Protos", lp)
 	SetSlot(vm.Lobby, "Lobby", vm.Lobby)
@@ -1390,6 +1404,10 @@ Core tildeExpandsTo := if(System platform == "windows",
 	method(System getEnvironmentVariable("UserProfile"))
 ,
 	method(System getEnvironmentVariable("HOME"))
+)
+
+Addon do(
+	path ::= ""
 )
 
 // Unit testing stuff ------
