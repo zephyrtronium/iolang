@@ -1533,7 +1533,7 @@ func SequenceToBase(vm *VM, target, locals Interface, msg *Message) Interface {
 	return vm.NewString(strconv.FormatInt(x, base))
 }
 
-// SequenceUnscape is a Sequence method.
+// SequenceUnescape is a Sequence method.
 //
 // unescape interprets backslash-escaped codes in the sequence.
 func SequenceUnescape(vm *VM, target, locals Interface, msg *Message) Interface {
