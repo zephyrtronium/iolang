@@ -84,3 +84,71 @@ func TestLobbyProtos(t *testing.T) {
 		t.Errorf("Lobby proto has wrong proto: expected %T@%p (Addons), have %T@%p", testVM.Addons, testVM.Addons, o.Protos[1], o.Protos[1])
 	}
 }
+
+// TestCoreSlots tests that a new VM Core has the slots we expect.
+func TestCoreSlots(t *testing.T) {
+	slots := []string{
+		"Addon",
+		// "AddonLoader",
+		"Block",
+		"CFunction",
+		// "CLI",
+		"Call",
+		"Collector",
+		// "Compiler",
+		"Coroutine",
+		"Date",
+		// "Debugger",
+		"Directory",
+		"DirectoryCollector",
+		// "DummyLine",
+		"Duration",
+		"Error",
+		"Exception",
+		"File",
+		"FileCollector",
+		"Future",
+		"ImmutableSequence",
+		// "Importer",
+		"List",
+		"Locals",
+		"Map",
+		"Message",
+		// "Notifier",
+		"Number",
+		"Object",
+		"OperatorTable",
+		// "Path",
+		// "Profiler",
+		"RunnerMixIn",
+		// "Sandbox",
+		"Scheduler",
+		"Sequence",
+		"String",
+		"System",
+		"TestRunner",
+		"TestSuite",
+		"UnitTest",
+		// "Vector",
+		"false",
+		"nil",
+		"tildeExpandsTo",
+		"true",
+	}
+	CheckSlots(t, testVM.Core, slots)
+}
+
+// TestCoreProtos checks that a new VM Core is an Object type.
+func TestCoreProtos(t *testing.T) {
+	CheckObjectIsProto(t, testVM.Core)
+}
+
+// TestAddonsSlots checks that a new VM Addons has empty slots.
+func TestAddonsSlots(t *testing.T) {
+	CheckSlots(t, testVM.Addons, nil)
+}
+
+// TestAddonsProtos checks that a new VM Addons is an Object type.
+func TestAddonsProtos(t *testing.T) {
+	CheckObjectIsProto(t, testVM.Addons)
+}
