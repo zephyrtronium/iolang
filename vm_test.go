@@ -30,7 +30,7 @@ func TestNewVMAttrs(t *testing.T) {
 	}
 	v := reflect.ValueOf(testVM).Elem()
 	for _, attr := range attrs {
-		t.Run("Attr" + attr, func(t *testing.T) {
+		t.Run("Attr"+attr, func(t *testing.T) {
 			e := v.FieldByName(attr)
 			if !e.IsValid() {
 				t.Fatal("no VM attribute", attr)

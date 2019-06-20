@@ -14,7 +14,7 @@ func CheckSlots(t *testing.T, obj Interface, slots []string) {
 	checked := make(map[string]bool, len(slots))
 	for _, name := range slots {
 		checked[name] = true
-		t.Run("Have_" + name, func(t *testing.T) {
+		t.Run("Have_"+name, func(t *testing.T) {
 			slot, ok := o.Slots[name]
 			if !ok {
 				t.Fatal("no slot", name)
@@ -25,7 +25,7 @@ func CheckSlots(t *testing.T, obj Interface, slots []string) {
 		})
 	}
 	for name := range o.Slots {
-		t.Run("Want_" + name, func(t *testing.T) {
+		t.Run("Want_"+name, func(t *testing.T) {
 			if !checked[name] {
 				t.Fatal("unexpected slot", name)
 			}
