@@ -248,6 +248,10 @@ func lexNumber(src *bufio.Reader, tokens chan<- token, line, col int) (lexFn, in
 	}
 	prelen := len(b)
 	if r == 'x' || r == 'X' {
+		if len(b) != 1 || b[0] != '0' {
+			tokens <- token{Kind: badToken, Value: string(b), Err: fmt.Errorf("invalid numeric literal %s%c", b, r), Line: line, Col: col}
+			return eatSpace, line, ncol
+		}
 		b = append(b, 'x')
 		_, _, err = src.ReadRune()
 		if err != nil {
