@@ -35,7 +35,7 @@ func (vm *VM) parseRecurse(open rune, src *bufio.Reader, tokens chan token, labe
 			// conclude the expression.
 			if open == -1 && !m.Prev.IsTerminator() {
 				m.Text = ";"
-			} else {
+			} else if m.Prev != nil {
 				m.Prev.Next = nil
 			}
 		}
