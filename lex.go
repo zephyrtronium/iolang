@@ -185,9 +185,16 @@ func lexIdent(src *bufio.Reader, tokens chan<- token, line, col int) (lexFn, int
 
 // lexOp lexes an operator, which consists of !$%&'*+-/:<=>?@\^|~
 func lexOp(src *bufio.Reader, tokens chan<- token, line, col int) (lexFn, int, int) {
-	b, _, err := accept(src, func(r rune) bool {
+	var pr1, pr2 rune
+	// This predicate tracks whether a comment starts.
+	pred := func(r rune) bool {
+		if pr1 == '/' && (pr2 == '/' || pr2 == '*') {
+			return false
+		}
+		pr1, pr2 = pr2, r
 		return strings.ContainsRune("!$%&'*+-/:<=>?@\\^|~", r)
-	}, nil)
+	}
+	b, _, err := accept(src, pred, nil)
 	switch string(b) {
 	case "//":
 		return lexSlashSlashComment, line, col
@@ -214,28 +221,28 @@ func lexHashComment(src *bufio.Reader, tokens chan<- token, line, col int) (lexF
 
 // lexSlashStarComment lexes a /* */ comment.
 func lexSlashStarComment(src *bufio.Reader, tokens chan<- token, line, col int) (lexFn, int, int) {
-	var pr rune
 	depth := 1
 	nline := line
 	ncol := col
+	var pr1, pr2 rune
+	// This predicate tracks /* */ comments recursively.
 	pred := func(r rune) bool {
-		if pr == '*' && r == '/' {
+		if pr1 == '*' && pr2 == '/' {
 			depth--
 			if depth <= 0 {
 				return false
 			}
-		} else if pr == '/' && r == '*' {
+		} else if pr1 == '/' && pr2 == '*' {
 			depth++
 		} else if r == '\n' {
 			nline++
 			ncol = 0
 		}
-		pr = r
+		pr1, pr2 = pr2, r
 		ncol++
 		return true
 	}
 	b, _, err := accept(src, pred, []byte("/*"))
-	src.ReadRune() // Re-read the / that accept unreads.
 	return lexsend(err, tokens, token{Kind: commentToken, Value: string(b), Line: line, Col: col}), nline, ncol
 }
 
@@ -252,12 +259,12 @@ func lexNumber(src *bufio.Reader, tokens chan<- token, line, col int) (lexFn, in
 			tokens <- token{Kind: badToken, Value: string(b), Err: fmt.Errorf("invalid numeric literal %s%c", b, r), Line: line, Col: col}
 			return eatSpace, line, ncol
 		}
-		b = append(b, 'x')
+		b = append(b, byte(r))
 		_, _, err = src.ReadRune()
 		if err != nil {
 			return lexsend(err, tokens, token{Kind: badToken, Err: err, Line: line, Col: col}), line, ncol
 		}
-		b, _, err = accept(src, func(r rune) bool {
+		b, r, err = accept(src, func(r rune) bool {
 			return ('0' <= r && r <= '9') || ('a' <= r && r <= 'f') || ('A' <= r && r <= 'F')
 		}, b)
 		ncol += len(b) - prelen
@@ -277,18 +284,16 @@ func lexNumber(src *bufio.Reader, tokens chan<- token, line, col int) (lexFn, in
 		prelen = len(b)
 	}
 	if r == 'e' || r == 'E' {
+		src.ReadRune() // read previously unread 'e'
+		b = append(b, byte(r))
 		r, _, err = src.ReadRune()
 		if err != nil {
 			return lexsend(err, tokens, token{Kind: numberToken, Value: string(b), Line: line, Col: col}), line, ncol
 		}
 		if r == '-' || r == '+' {
-			r, _, err = src.ReadRune()
-			if err != nil {
-				return lexsend(err, tokens, token{Kind: badToken, Err: err, Line: line, Col: col}), line, ncol
-			}
-			b = append(b, 'e', byte(r))
+			b = append(b, byte(r))
 		} else {
-			b = append(b, 'e')
+			src.UnreadRune()
 		}
 		b, _, err = accept(src, func(r rune) bool { return '0' <= r && r <= '9' }, b)
 		ncol += len(b) - prelen
