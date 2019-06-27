@@ -133,3 +133,38 @@ func TestLexSingles(t *testing.T) {
 		})
 	}
 }
+
+// TestLexMulti tests that the lexer obtains the correct sequences of token
+// kinds.
+func TestLexMulti(t *testing.T) {
+	cases := map[string]struct {
+		text  string
+		kinds []tokenKind
+	}{
+		"Idents":             {"a b c", []tokenKind{identToken, identToken, identToken}},
+		"Semis":              {";;;\n\n;;", []tokenKind{semiToken, semiToken, semiToken, semiToken, semiToken, semiToken, semiToken}},
+		"Idents-Semis":       {"a\n b c; d", []tokenKind{identToken, semiToken, identToken, identToken, semiToken, identToken}},
+		"Idents-Ops-Comment": {"a.x=b.y++!x/y//z", []tokenKind{identToken, identToken, identToken, identToken, identToken, identToken, identToken, commentToken}},
+		"Hex-Ident":          {"0xabcdefghi", []tokenKind{hexToken, identToken}},
+		"Multidot":           {"192.168.1.1", []tokenKind{numberToken, numberToken, numberToken}},
+		"Idents-Spaces":      {"a b  c \t d", []tokenKind{identToken, identToken, identToken, identToken}},
+		"Spaces":             {" \t ", []tokenKind{}},
+		// I know there were many more test cases I wanted to write here, but I
+		// can't remember them.
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			ch := make(chan token)
+			go lex(bufio.NewReader(strings.NewReader(c.text)), ch)
+			i := 0
+			for tok := range ch {
+				if i >= len(c.kinds) {
+					t.Errorf("extra token %d: %v", i, tok)
+				} else if tok.Kind != c.kinds[i] {
+					t.Errorf("incorrect token %d: wanted %v, got %v", i, c.kinds[i], tok.Kind)
+				}
+				i++
+			}
+		})
+	}
+}
