@@ -243,6 +243,9 @@ func lexSlashStarComment(src *bufio.Reader, tokens chan<- token, line, col int) 
 		return true
 	}
 	b, _, err := accept(src, pred, []byte("/*"))
+	if !bytes.HasSuffix(b, []byte("*/")) {
+		err = io.ErrUnexpectedEOF
+	}
 	return lexsend(err, tokens, token{Kind: commentToken, Value: string(b), Line: line, Col: col}), nline, ncol
 }
 
