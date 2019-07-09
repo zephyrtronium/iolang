@@ -56,12 +56,55 @@ func TestParseErrors(t *testing.T) {
 		"EmptyFirstArg":     "abc(, e, f)",
 		"EmptyMidArg":       "abc(d, , f)",
 		"EmptyLastArg":      "abc(d, e, )",
+		"UnclosedComment":   "/*",
 	}
 	for name, text := range cases {
 		t.Run(name, func(t *testing.T) {
 			_, err := testVM.Parse(strings.NewReader(text), "TestParseErrors")
 			if err == nil {
 				t.Errorf("%q failed to cause an error", text)
+			}
+		})
+	}
+}
+
+// TestParseComments tests that the parser ignores comments.
+func TestParseComments(t *testing.T) {
+	cases := map[string]struct {
+		text string
+		msgs []string
+	}{
+		"Line//":                   {"abc // def\nghi", []string{"abc", "\n", "ghi", ";"}},
+		"Line////":                 {"abc //// def\nghi", []string{"abc", "\n", "ghi", ";"}},
+		"Line//Comment//":          {"abc // def // ghi\njkl", []string{"abc", "\n", "jkl", ";"}},
+		"Only//":                   {"// abc\ndef", []string{"def", ";"}},
+		"Line///*":                 {"abc // def /* ghi\n*/ jkl", []string{"abc", "\n", "*/", "jkl", ";"}},
+		"Line#":                    {"abc # def\nghi", []string{"abc", "\n", "ghi", ";"}},
+		"Line####":                 {"abc #### def\nghi", []string{"abc", "\n", "ghi", ";"}},
+		"Line#Comment#":            {"abc # def # ghi\njkl", []string{"abc", "\n", "jkl", ";"}},
+		"Only#":                    {"# abc\ndef", []string{"def", ";"}},
+		"Multiline":                {"abc /* def */", []string{"abc", ";"}},
+		"MultilineRecursive":       {"abc /* def /* ghi */ jkl */", []string{"abc", ";"}},
+		"MultilineOnMultipleLines": {"abc /*\ndef\n*/ ghi", []string{"abc", "ghi", ";"}},
+		"OnlyMultiline":            {"/* abc\ndef\nghi */ jkl", []string{"jkl", ";"}},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			msg, err := testVM.Parse(strings.NewReader(c.text), "TestParseComments")
+			if err != nil {
+				t.Errorf("%q caused an error: %v", c.text, err)
+			}
+			m := msg
+			for _, n := range c.msgs {
+				if msg.Name() != n {
+					b := []string{}
+					for m != nil {
+						b = append(b, m.Name())
+						m = m.Next
+					}
+					t.Errorf("%q parsed with the wrong messages; want %v, have %v", c.text, c.msgs, b)
+				}
+				msg = msg.Next
 			}
 		})
 	}
