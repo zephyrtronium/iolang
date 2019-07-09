@@ -73,16 +73,25 @@ func (vm *VM) parseRecurse(open rune, src *bufio.Reader, tokens chan token, labe
 			var atok token
 			var amsg *Message
 			atok, amsg, err = vm.parseRecurse(rune(tok.Value[0]), src, tokens, label)
+			if atok.Kind == commaToken && amsg == nil {
+				err = fmt.Errorf("empty argument")
+			}
 			for atok.Kind == commaToken {
-				if amsg == nil {
-					err = fmt.Errorf("empty argument")
-				}
 				if err != nil {
 					tok = atok
 					return
 				}
 				m.Args = append(m.Args, amsg)
 				atok, amsg, err = vm.parseRecurse(rune(tok.Value[0]), src, tokens, label)
+				if amsg == nil {
+					err = fmt.Errorf("empty argument")
+					tok = atok
+					return
+				}
+			}
+			if atok.Kind != closeToken {
+				err = fmt.Errorf("unclosed brackets")
+				return
 			}
 			if len(m.Args) == 1 {
 				if m.Args[0] == nil {
