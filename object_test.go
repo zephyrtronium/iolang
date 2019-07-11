@@ -6,11 +6,11 @@ import (
 	"testing"
 )
 
-// A SourceTestCase is a test case containing source code and the result it
-// should produce.
+// A SourceTestCase is a test case containing source code and a predicate to
+// check the result.
 type SourceTestCase struct {
 	Source string
-	Result Interface
+	Pass   func(result Interface) bool
 }
 
 // TestFunc returns a test function for the test case.
@@ -23,9 +23,17 @@ func (c SourceTestCase) TestFunc(name string) func(*testing.T) {
 		if err := testVM.OpShuffle(msg); err != nil {
 			t.Fatalf("could not opshuffle %q: %v", c.Source, err)
 		}
-		if r := testVM.DoMessage(msg, testVM.Lobby); r != c.Result {
-			t.Errorf("%q produced wrong result; want %T@%p, got %T@%p", c.Source, c.Result, c.Result, r, r)
+		if r := testVM.DoMessage(msg, testVM.Lobby); !c.Pass(r) {
+			t.Errorf("%q produced wrong result; got %T@%p", c.Source, r, r)
 		}
+	}
+}
+
+// PassEqual returns a Pass function for a SourceTestCase that predicates on
+// equality.
+func PassEqual(want Interface) func(Interface) bool {
+	return func(result Interface) bool {
+		return want == result
 	}
 }
 
@@ -160,13 +168,13 @@ func TestObjectGoActivate(t *testing.T) {
 	o := testVM.ObjectWith(Slots{})
 	SetSlot(testVM.Lobby, "TestObjectActivate", o)
 	cases := map[string]SourceTestCase{
-		"InactiveNoActivate": {`getSlot("TestObjectActivate") removeSlot("activate") setIsActivatable(false)`, o},
-		"InactiveActivate": {`getSlot("TestObjectActivate") do(activate := Lobby) setIsActivatable(false)`, o},
-		"ActiveNoActivate": {`getSlot("TestObjectActivate") removeSlot("activate") setIsActivatable(true)`, o},
-		"ActiveActivate": {`getSlot("TestObjectActivate") do(activate := Lobby) setIsActivatable(true)`, testVM.Lobby},
+		"InactiveNoActivate": {`getSlot("TestObjectActivate") removeSlot("activate") setIsActivatable(false)`, PassEqual(o)},
+		"InactiveActivate":   {`getSlot("TestObjectActivate") do(activate := Lobby) setIsActivatable(false)`, PassEqual(o)},
+		"ActiveNoActivate":   {`getSlot("TestObjectActivate") removeSlot("activate") setIsActivatable(true)`, PassEqual(o)},
+		"ActiveActivate":     {`getSlot("TestObjectActivate") do(activate := Lobby) setIsActivatable(true)`, PassEqual(testVM.Lobby)},
 	}
 	for name, c := range cases {
-		t.Run(name, c.TestFunc("TestObjectActivate/" + name))
+		t.Run(name, c.TestFunc("TestObjectActivate/"+name))
 	}
 	RemoveSlot(testVM.Lobby, "TestObjectActivate")
 }
