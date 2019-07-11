@@ -229,6 +229,17 @@ func SetSlot(o Interface, slot string, value Interface) {
 	obj.Slots[slot] = value
 }
 
+// RemoveSlot removes a slot from the given object's local slots, if it is
+// present.
+func RemoveSlot(o Interface, slot string) {
+	obj := o.SP()
+	obj.L.Lock()
+	defer obj.L.Unlock()
+	if obj.Slots != nil {
+		delete(obj.Slots, slot)
+	}
+}
+
 // TypeName gets the name of the type of an object by activating its type slot.
 // If there is no such slot, the Go type name will be returned.
 func (vm *VM) TypeName(o Interface) string {
@@ -964,10 +975,7 @@ func ObjectRemoveSlot(vm *VM, target, locals Interface, msg *Message) Interface 
 	if stop != nil {
 		return stop
 	}
-	o := target.SP()
-	o.L.Lock()
-	defer o.L.Unlock()
-	delete(o.Slots, s.String())
+	RemoveSlot(target, s.String())
 	return target
 }
 
