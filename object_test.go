@@ -1,9 +1,33 @@
 package iolang
 
 import (
+	"strings"
 	"sync/atomic"
 	"testing"
 )
+
+// A SourceTestCase is a test case containing source code and the result it
+// should produce.
+type SourceTestCase struct {
+	Source string
+	Result Interface
+}
+
+// TestFunc returns a test function for the test case.
+func (c SourceTestCase) TestFunc(name string) func(*testing.T) {
+	return func(t *testing.T) {
+		msg, err := testVM.Parse(strings.NewReader(c.Source), name)
+		if err != nil {
+			t.Fatalf("could not parse %q: %v", c.Source, err)
+		}
+		if err := testVM.OpShuffle(msg); err != nil {
+			t.Fatalf("could not opshuffle %q: %v", c.Source, err)
+		}
+		if r := testVM.DoMessage(msg, testVM.Lobby); r != c.Result {
+			t.Errorf("%q produced wrong result; want %T@%p, got %T@%p", c.Source, c.Result, c.Result, r, r)
+		}
+	}
+}
 
 // CheckSlots is a testing helper to check whether an object has exactly the
 // slots we expect.
@@ -128,4 +152,21 @@ func TestGetLocalSlot(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestObjectGoActivate tests that an Object set to be activatable activates its
+// activate slot when activated.
+func TestObjectGoActivate(t *testing.T) {
+	o := testVM.ObjectWith(Slots{})
+	SetSlot(testVM.Lobby, "TestObjectActivate", o)
+	cases := map[string]SourceTestCase{
+		"InactiveNoActivate": {`getSlot("TestObjectActivate") removeSlot("activate") setIsActivatable(false)`, o},
+		"InactiveActivate": {`getSlot("TestObjectActivate") do(activate := Lobby) setIsActivatable(false)`, o},
+		"ActiveNoActivate": {`getSlot("TestObjectActivate") removeSlot("activate") setIsActivatable(true)`, o},
+		"ActiveActivate": {`getSlot("TestObjectActivate") do(activate := Lobby) setIsActivatable(true)`, testVM.Lobby},
+	}
+	for name, c := range cases {
+		t.Run(name, c.TestFunc("TestObjectActivate/" + name))
+	}
+	RemoveSlot(testVM.Lobby, "TestObjectActivate")
 }
