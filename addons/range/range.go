@@ -181,6 +181,28 @@ func Index(vm *iolang.VM, target, locals iolang.Interface, msg *iolang.Message) 
 	return vm.NewNumber(float64(r.Index))
 }
 
+// IndexOf is a Range method.
+//
+// indexOf returns the index of the range that would produce a particular value,
+// or nil if none would.
+func IndexOf(vm *iolang.VM, target, locals iolang.Interface, msg *iolang.Message) iolang.Interface {
+	r := target.(*Range)
+	v, err := msg.NumberArgAt(vm, locals, 0)
+	if err != nil {
+		return err
+	}
+	var k float64
+	if r.Step > 0 {
+		k = (v.Value - r.Start) / r.Step
+	} else {
+		k = (v.Value + r.Start) / r.Step
+	}
+	if k < 0 || k > float64(r.Last) || k != float64(int64(k)) {
+		return vm.Nil
+	}
+	return vm.NewNumber(k)
+}
+
 // Last is a Range method.
 //
 // last moves the range's cursor to the end and returns its value.
@@ -225,6 +247,19 @@ func Rewind(vm *iolang.VM, target, locals iolang.Interface, msg *iolang.Message)
 	return target
 }
 
+// setIndex is a Range method.
+//
+// setIndex seeks the range to a new index.
+func SetIndex(vm *iolang.VM, target, locals iolang.Interface, msg *iolang.Message) iolang.Interface {
+	r := target.(*Range)
+	k, err := msg.NumberArgAt(vm, locals, 0)
+	if err != nil {
+		return err
+	}
+	r.Index = int64(k.Value)
+	return target
+}
+
 // SetRange is a Range method.
 //
 // setRange sets the range to have the given start, stop, and step values.
@@ -256,6 +291,14 @@ func SetRange(vm *iolang.VM, target, locals iolang.Interface, msg *iolang.Messag
 	}
 	r.SetRange(start, stop, step)
 	return target
+}
+
+// Size is a Range method.
+//
+// size returns the number of steps the range can take.
+func Size(vm *iolang.VM, target, locals iolang.Interface, msg *iolang.Message) iolang.Interface {
+	r := target.(*Range)
+	return vm.NewNumber(float64(r.Last))
 }
 
 // Value is a Range method.

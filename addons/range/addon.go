@@ -19,11 +19,14 @@ func (rangeAddon) Instance(vm *iolang.VM) iolang.Interface {
 		"first":    vm.NewTypedCFunction(First, r),
 		"foreach":  vm.NewTypedCFunction(Foreach, r),
 		"index":    vm.NewTypedCFunction(Index, r),
+		"indexOf":  vm.NewTypedCFunction(IndexOf, r),
 		"last":     vm.NewTypedCFunction(Last, r),
 		"next":     vm.NewTypedCFunction(Next, r),
 		"previous": vm.NewTypedCFunction(Previous, r),
 		"rewind":   vm.NewTypedCFunction(Rewind, r),
+		"setIndex": vm.NewTypedCFunction(SetIndex, r),
 		"setRange": vm.NewTypedCFunction(SetRange, r),
+		"size":     vm.NewTypedCFunction(Size, r),
 		"type":     vm.NewString("Range"),
 		"value":    vm.NewTypedCFunction(Value, r),
 	}
@@ -45,6 +48,16 @@ const script = `
 asList := method(
 	l := list()
 	self foreach(v, l append(v))
+)
+
+map := method(call delegateToMethod(self asList, "mapInPlace"))
+
+select := List getSlot("select")
+
+slice := method(start, stop, step,
+	l := list()
+	step = step ifNilEval(1)
+	for(i, start, stop, step, l append(self at(i)))
 )
 
 Core Number do(
