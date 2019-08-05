@@ -57,31 +57,33 @@ func TestLobbySlots(t *testing.T) {
 func TestLobbyProtos(t *testing.T) {
 	// Lobby's proto is a generic object that has Core and Addon slots and Core
 	// and Addons as protos. Check that this is all correct.
-	switch len(testVM.Lobby.Protos) {
+	protos := testVM.Lobby.(Raw).RawProtos()
+	switch len(protos) {
 	case 0:
 		t.Fatal("Lobby has no protos")
 	case 1: // do nothing
 	default:
-		t.Error("Lobby has too many protos: expected 1, have", len(testVM.Lobby.Protos))
+		t.Error("Lobby has too many protos: expected 1, have", len(protos))
 	}
-	p := testVM.Lobby.Protos[0]
+	p := protos[0]
 	slots := []string{"Core", "Addons"}
 	CheckSlots(t, p, slots)
-	o := p.SP()
-	o.L.Lock()
-	defer o.L.Unlock()
-	switch len(o.Protos) {
+	o := p.(Raw)
+	o.Lock()
+	defer o.Unlock()
+	opro := o.RawProtos()
+	switch len(opro) {
 	case 0, 1:
 		t.Fatal("Lobby proto has too few protos")
 	case 2: // do nothing
 	default:
-		t.Error("Lobby proto has too many protos: expected 2, have", len(o.Protos))
+		t.Error("Lobby proto has too many protos: expected 2, have", len(opro))
 	}
-	if o.Protos[0] != testVM.Core {
-		t.Errorf("Lobby proto has wrong proto: expected %T@%p (Core), have %T@%p", testVM.Core, testVM.Core, o.Protos[0], o.Protos[0])
+	if opro[0] != testVM.Core {
+		t.Errorf("Lobby proto has wrong proto: expected %T@%p (Core), have %T@%p", testVM.Core, testVM.Core, opro, opro)
 	}
-	if o.Protos[1] != testVM.Addons {
-		t.Errorf("Lobby proto has wrong proto: expected %T@%p (Addons), have %T@%p", testVM.Addons, testVM.Addons, o.Protos[1], o.Protos[1])
+	if opro[1] != testVM.Addons {
+		t.Errorf("Lobby proto has wrong proto: expected %T@%p (Addons), have %T@%p", testVM.Addons, testVM.Addons, opro, opro)
 	}
 }
 

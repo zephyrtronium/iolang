@@ -10,7 +10,7 @@ import (
 // check the result.
 type SourceTestCase struct {
 	Source string
-	Pass   func(result Interface) bool
+	Pass   func(result Interface, control Stop) bool
 }
 
 // TestFunc returns a test function for the test case.
@@ -23,17 +23,17 @@ func (c SourceTestCase) TestFunc(name string) func(*testing.T) {
 		if err := testVM.OpShuffle(msg); err != nil {
 			t.Fatalf("could not opshuffle %q: %v", c.Source, err)
 		}
-		if r := testVM.DoMessage(msg, testVM.Lobby); !c.Pass(r) {
-			t.Errorf("%q produced wrong result; got %T@%p", c.Source, r, r)
+		if r, s := testVM.DoMessage(msg, testVM.Lobby); !c.Pass(r, s) {
+			t.Errorf("%q produced wrong result; got %T@%p (%s)", c.Source, r, r, s)
 		}
 	}
 }
 
 // PassEqual returns a Pass function for a SourceTestCase that predicates on
 // equality.
-func PassEqual(want Interface) func(Interface) bool {
-	return func(result Interface) bool {
-		return want == result
+func PassEqual(want Interface) func(Interface, Stop) bool {
+	return func(result Interface, control Stop) bool {
+		return want == result && control == NoStop
 	}
 }
 
@@ -41,14 +41,15 @@ func PassEqual(want Interface) func(Interface) bool {
 // slots we expect.
 func CheckSlots(t *testing.T, obj Interface, slots []string) {
 	t.Helper()
-	o := obj.SP()
-	o.L.Lock()
-	defer o.L.Unlock()
+	o := obj.(Raw)
+	o.Lock()
+	defer o.Unlock()
+	s := o.RawSlots()
 	checked := make(map[string]bool, len(slots))
 	for _, name := range slots {
 		checked[name] = true
 		t.Run("Have_"+name, func(t *testing.T) {
-			slot, ok := o.Slots[name]
+			slot, ok := s[name]
 			if !ok {
 				t.Fatal("no slot", name)
 			}
@@ -57,7 +58,7 @@ func CheckSlots(t *testing.T, obj Interface, slots []string) {
 			}
 		})
 	}
-	for name := range o.Slots {
+	for name := range s {
 		t.Run("Want_"+name, func(t *testing.T) {
 			if !checked[name] {
 				t.Fatal("unexpected slot", name)
@@ -70,49 +71,44 @@ func CheckSlots(t *testing.T, obj Interface, slots []string) {
 // one proto, which is Core Object. obj must come from testVM.
 func CheckObjectIsProto(t *testing.T, obj Interface) {
 	t.Helper()
-	o := obj.SP()
-	o.L.Lock()
-	defer o.L.Unlock()
-	switch len(o.Protos) {
+	o := obj.(Raw)
+	o.Lock()
+	defer o.Unlock()
+	protos := o.RawProtos()
+	switch len(protos) {
 	case 0:
 		t.Fatal("no protos")
 	case 1: // do nothing
 	default:
-		t.Error("incorrect number of protos: expected 1, have", len(o.Protos))
+		t.Error("incorrect number of protos: expected 1, have", len(protos))
 	}
-	if p := o.Protos[0]; p != testVM.BaseObject {
+	if p := protos[0]; p != testVM.BaseObject {
 		t.Errorf("wrong proto: expected %T@%p, have %T@%p", testVM.BaseObject, testVM.BaseObject, p, p)
 	}
 }
 
-// singleLookupObject is a testing object that panics if its SP method is called
-// more than once.
+// singleLookupObject is a testing object that panics if its RawSlots method is
+// called more than once.
 type singleLookupObject struct {
-	o *Object
+	Raw
 	c uint32
 }
 
-func (o *singleLookupObject) SP() *Object {
+func (o *singleLookupObject) Clone() Interface {
+	return &singleLookupObject{Raw: o.Raw.Clone().(Raw)}
+}
+
+func (o *singleLookupObject) RawSlots() Slots {
 	if !atomic.CompareAndSwapUint32(&o.c, 0, 1) {
 		panic("multiple inspections of a single-lookup object")
 	}
-	return o.o
+	return o.Raw.RawSlots()
 }
-
-func (o *singleLookupObject) Activate(vm *VM, target, locals, context Interface, msg *Message) Interface {
-	return o.o.Activate(vm, target, locals, context, msg)
-}
-
-func (o *singleLookupObject) Clone() Interface {
-	return &singleLookupObject{o: o.o.Clone().SP()}
-}
-
-func (o *singleLookupObject) isIoObject() {}
 
 // TestGetSlot tests that GetSlot can find local and ancestor slots, and that no
 // object is checked more than once.
 func TestGetSlot(t *testing.T) {
-	sl := &singleLookupObject{o: testVM.Lobby}
+	sl := &singleLookupObject{Raw: testVM.Lobby.(Raw)}
 	cases := map[string]struct {
 		o, v, p Interface
 		slot    string
@@ -120,13 +116,13 @@ func TestGetSlot(t *testing.T) {
 		"Local":        {testVM.Lobby, testVM.Lobby, testVM.Lobby, "Lobby"},
 		"Ancestor":     {testVM.Lobby, testVM.BaseObject, testVM.Core, "Object"},
 		"Never":        {testVM.Lobby, nil, nil, "fail to find"},
-		"OnceLocal":    {sl, testVM.Lobby, sl, "Lobby"},
-		"OnceAncestor": {&singleLookupObject{o: testVM.Lobby}, testVM.BaseObject, testVM.Core, "Object"},
-		"OnceNever":    {&singleLookupObject{o: testVM.Lobby}, nil, nil, "fail to find"},
+		"OnceLocal":    {sl, testVM.Lobby, testVM.Lobby, "Lobby"},
+		"OnceAncestor": {&singleLookupObject{Raw: testVM.Lobby.(Raw)}, testVM.BaseObject, testVM.Core, "Object"},
+		"OnceNever":    {&singleLookupObject{Raw: testVM.Lobby.(Raw)}, nil, nil, "fail to find"},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
-			v, p := GetSlot(c.o, c.slot)
+			v, p := c.o.GetSlot(c.slot)
 			if v != c.v {
 				t.Errorf("slot %s found wrong object: have %T@%p, want %T@%p", c.slot, v, v, c.v, c.v)
 			}
@@ -151,7 +147,7 @@ func TestGetLocalSlot(t *testing.T) {
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
-			v, ok := GetLocalSlot(c.o, c.slot)
+			v, ok := c.o.GetLocalSlot(c.slot)
 			if ok != c.ok {
 				t.Errorf("slot %s has wrong presence: have %v, want %v", c.slot, ok, c.ok)
 			}
@@ -166,7 +162,7 @@ func TestGetLocalSlot(t *testing.T) {
 // activate slot when activated.
 func TestObjectGoActivate(t *testing.T) {
 	o := testVM.ObjectWith(Slots{})
-	SetSlot(testVM.Lobby, "TestObjectActivate", o)
+	testVM.Lobby.SetSlot("TestObjectActivate", o)
 	cases := map[string]SourceTestCase{
 		"InactiveNoActivate": {`getSlot("TestObjectActivate") removeSlot("activate") setIsActivatable(false)`, PassEqual(o)},
 		"InactiveActivate":   {`getSlot("TestObjectActivate") do(activate := Lobby) setIsActivatable(false)`, PassEqual(o)},
@@ -176,7 +172,7 @@ func TestObjectGoActivate(t *testing.T) {
 	for name, c := range cases {
 		t.Run(name, c.TestFunc("TestObjectActivate/"+name))
 	}
-	RemoveSlot(testVM.Lobby, "TestObjectActivate")
+	testVM.Lobby.RemoveSlot("TestObjectActivate")
 }
 
 // TestObjectSlots tests that a new VM Object has the slots we expect.

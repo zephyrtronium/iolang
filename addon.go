@@ -33,10 +33,10 @@ type Addon interface {
 func (vm *VM) initPlugin() {
 	slots := Slots{
 		"havePlugins": vm.IoBool(havePlugins),
-		"open":        vm.NewCFunction(AddonOpen),
+		"open":        vm.NewCFunction(AddonOpen, nil),
 		"type":        vm.NewString("Addon"),
 	}
-	SetSlot(vm.Core, "Addon", vm.ObjectWith(slots))
+	vm.Core.SetSlot("Addon", vm.ObjectWith(slots))
 }
 
 // LoadAddon loads an addon. It returns a channel over which the addon object
@@ -50,12 +50,12 @@ func (vm *VM) LoadAddon(addon Addon) chan Interface {
 // reallyLoadAddon is the method the scheduler calls to set up an addon proto.
 func (vm *VM) reallyLoadAddon(addon Addon) Interface {
 	p := addon.Instance(vm)
-	SetSlot(vm.Addons, addon.AddonName(), p)
+	vm.Addons.SetSlot(addon.AddonName(), p)
 	m := addon.Script(vm)
 	if m != nil {
-		r, ok := CheckStop(m.Send(vm, p, p), ExceptionStop)
-		if !ok {
-			panic(r.(Stop).Result)
+		r, stop := m.Send(vm, p, p)
+		if stop != NoStop {
+			panic(r)
 		}
 	}
 	return p
@@ -64,8 +64,8 @@ func (vm *VM) reallyLoadAddon(addon Addon) Interface {
 // AddonOpen is an Addon method.
 //
 // open loads the addon at the receiver's path and returns the addon's object.
-func AddonOpen(vm *VM, target, locals Interface, msg *Message) Interface {
-	p, proto := GetSlot(target, "path")
+func AddonOpen(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+	p, proto := target.GetSlot("path")
 	if proto == nil {
 		return vm.RaiseException("addon path unset")
 	}
@@ -86,7 +86,7 @@ func AddonOpen(vm *VM, target, locals Interface, msg *Message) Interface {
 		return vm.RaiseExceptionf("%s is not an iolang addon", path)
 	}
 	ch := vm.LoadAddon(f(vm))
-	return <-ch
+	return <-ch, NoStop
 }
 
 // havePlugins indicates whether Go's plugin system is available on the current

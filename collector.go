@@ -11,12 +11,12 @@ import (
 
 func (vm *VM) initCollector() {
 	slots := Slots{
-		"collect":   vm.NewCFunction(CollectorCollect),
-		"showStats": vm.NewCFunction(CollectorShowStats),
-		"timeUsed":  vm.NewCFunction(CollectorTimeUsed),
+		"collect":   vm.NewCFunction(CollectorCollect, nil),
+		"showStats": vm.NewCFunction(CollectorShowStats, nil),
+		"timeUsed":  vm.NewCFunction(CollectorTimeUsed, nil),
 		"type":      vm.NewString("Collector"),
 	}
-	SetSlot(vm.Core, "Collector", vm.ObjectWith(slots))
+	vm.Core.SetSlot("Collector", vm.ObjectWith(slots))
 }
 
 // CollectorCollect is a Collector method.
@@ -25,19 +25,19 @@ func (vm *VM) initCollector() {
 // objects collected program-wide (not only in the Io VM). This is much slower
 // than allowing collection to happen automatically, as the GC statistics must
 // be recorded twice to retrieve the freed object count.
-func CollectorCollect(vm *VM, target, locals Interface, msg *Message) Interface {
+func CollectorCollect(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	var stats runtime.MemStats
 	runtime.ReadMemStats(&stats)
 	old := stats.Frees
 	runtime.GC()
 	runtime.ReadMemStats(&stats)
-	return vm.NewNumber(float64(stats.Frees - old))
+	return vm.NewNumber(float64(stats.Frees - old)), NoStop
 }
 
 // CollectorShowStats is a Collector method.
 //
 // showStats prints detailed garbage collector information to standard output.
-func CollectorShowStats(vm *VM, target, locals Interface, msg *Message) Interface {
+func CollectorShowStats(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	var s runtime.MemStats
 	runtime.ReadMemStats(&s)
 	if s.NumGC > 0 {
@@ -58,17 +58,17 @@ func CollectorShowStats(vm *VM, target, locals Interface, msg *Message) Interfac
 		s.StackInuse,
 		s.MSpanInuse,
 		s.GCSys)
-	return target
+	return target, NoStop
 }
 
 // CollectorTimeUsed is a Collector method.
 //
 // timeUsed reports the number of seconds spent in stop-the-world garbage
 // collection.
-func CollectorTimeUsed(vm *VM, target, locals Interface, msg *Message) Interface {
+func CollectorTimeUsed(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	var stats runtime.MemStats
 	runtime.ReadMemStats(&stats)
-	return vm.NewNumber(float64(stats.PauseTotalNs) / 1e9)
+	return vm.NewNumber(float64(stats.PauseTotalNs) / 1e9), NoStop
 }
 
 const showStatsFormat = `

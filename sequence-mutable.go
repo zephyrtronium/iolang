@@ -19,26 +19,26 @@ func (s *Sequence) CheckMutable(name string) error {
 // SequenceAsMutable is a Sequence method.
 //
 // asMutable creates a mutable copy of the sequence.
-func SequenceAsMutable(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceAsMutable(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	// This isn't actually a mutable method, but it feels more appropriate
 	// here with them.
 	s := target.(*Sequence)
-	return vm.NewSequence(s.Value, true, s.Code)
+	return vm.NewSequence(s.Value, true, s.Code), NoStop
 }
 
 // SequenceAppend is a Sequence method.
 //
 // append adds numbers to the sequence.
-func SequenceAppend(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceAppend(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckMutable("append"); err != nil {
 		return vm.IoError(err)
 	}
 	v := make([]float64, msg.ArgCount())
 	for i, arg := range msg.Args {
-		r, ok := CheckStop(arg.Eval(vm, locals), LoopStops)
-		if !ok {
-			return r
+		r, stop := arg.Eval(vm, locals)
+		if stop != NoStop {
+			return r, stop
 		}
 		n, ok := r.(*Number)
 		if !ok {
@@ -108,7 +108,7 @@ func SequenceAppend(vm *VM, target, locals Interface, msg *Message) Interface {
 	default:
 		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
 	}
-	return target
+	return target, NoStop
 }
 
 // SequenceAppendSeq is a Sequence method.
@@ -117,62 +117,62 @@ func SequenceAppend(vm *VM, target, locals Interface, msg *Message) Interface {
 // receiver's item size is smaller than that of the argument, then the receiver
 // is converted to the argument's item type; otherwise, the argument's values
 // are converted to the receiver's item type as they are appended.
-func SequenceAppendSeq(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceAppendSeq(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckMutable("appendSeq"); err != nil {
 		return vm.IoError(err)
 	}
 	for i := range msg.Args {
-		other, stop := msg.SequenceArgAt(vm, locals, i)
-		if stop != nil {
-			return stop
+		other, err, stop := msg.SequenceArgAt(vm, locals, i)
+		if stop != NoStop {
+			return err, stop
 		}
 		s.Append(other)
 	}
-	return target
+	return target, NoStop
 }
 
 // SequenceAtInsertSeq is a Sequence method.
 //
 // atInsertSeq inserts at the index given in the first argument the object
 // asString in the second.
-func SequenceAtInsertSeq(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceAtInsertSeq(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckMutable("atInsertSeq"); err != nil {
 		return vm.IoError(err)
 	}
-	n, stop := msg.NumberArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	n, err, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	p := int(n.Value)
 	if p < 0 || p > s.Len() {
 		return vm.RaiseException("index out of bounds")
 	}
-	r, stop := msg.AsStringArgAt(vm, locals, 1)
-	if stop != nil {
-		return stop
+	r, err, stop := msg.AsStringArgAt(vm, locals, 1)
+	if stop != NoStop {
+		return err, stop
 	}
 	s.Insert(r, p)
-	return target
+	return target, NoStop
 }
 
 // SequenceAtPut is a Sequence method.
 //
 // atPut replaces the element at the given position with the given value,
 // growing the sequence if necessary.
-func SequenceAtPut(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceAtPut(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckMutable("atPut"); err != nil {
 		return vm.IoError(err)
 	}
-	n, stop := msg.NumberArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	n, err, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
-	x, stop := msg.NumberArgAt(vm, locals, 1)
-	if stop != nil {
-		return stop
+	x, err, stop := msg.NumberArgAt(vm, locals, 1)
+	if stop != NoStop {
+		return err, stop
 	}
 	p := int(n.Value)
 	if p < 0 {
@@ -186,7 +186,7 @@ func SequenceAtPut(vm *VM, target, locals Interface, msg *Message) Interface {
 	}
 	v.Index(p).Set(reflect.ValueOf(x.Value).Convert(v.Type().Elem()))
 	s.Value = v.Interface()
-	return s
+	return s, NoStop
 }
 
 // SequenceSetItemType is a Sequence method.
@@ -194,14 +194,14 @@ func SequenceAtPut(vm *VM, target, locals Interface, msg *Message) Interface {
 // setItemType effectively reinterprets the bit pattern of the sequence data in
 // the given type, which may be uint8, uint16, uint32, uint64, int8, int16,
 // int32, int64, float32, or float64.
-func SequenceSetItemType(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceSetItemType(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckMutable("setItemType"); err != nil {
 		return vm.IoError(err)
 	}
-	n, stop := msg.StringArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	n, err, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	var kind SeqKind
 	switch strings.ToLower(n.String()) {
@@ -232,102 +232,102 @@ func SequenceSetItemType(vm *VM, target, locals Interface, msg *Message) Interfa
 	s.Value = ns.Value
 	s.Kind = ns.Kind
 	s.Code = ns.Code
-	return target
+	return target, NoStop
 }
 
 // SequenceClipAfterSeq is a Sequence method.
 //
 // clipAfterSeq removes the portion of the sequence which follows the end of
 // the argument sequence.
-func SequenceClipAfterSeq(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceClipAfterSeq(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckMutable("clipAfterSeq"); err != nil {
 		return vm.IoError(err)
 	}
-	other, stop := msg.SequenceArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	other, err, stop := msg.SequenceArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	k := s.Find(other, 0)
 	if k >= 0 {
 		k += other.Len()
 		s.Slice(0, k, 1)
 	}
-	return target
+	return target, NoStop
 }
 
 // SequenceClipAfterStartOfSeq is a Sequence method.
 //
 // clipAfterStartOfSeq removes the portion of the sequence which follows the
 // beginning of the argument sequence.
-func SequenceClipAfterStartOfSeq(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceClipAfterStartOfSeq(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckMutable("clipAfterStartOfSeq"); err != nil {
 		return vm.IoError(err)
 	}
-	other, stop := msg.SequenceArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	other, err, stop := msg.SequenceArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	k := s.Find(other, 0)
 	if k >= 0 {
 		s.Slice(0, k, 1)
 	}
-	return target
+	return target, NoStop
 }
 
 // SequenceClipBeforeEndOfSeq is a Sequence method.
 //
 // clipBeforeEndOfSeq removes the portion of the sequence which precedes the end
 // of the argument sequence.
-func SequenceClipBeforeEndOfSeq(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceClipBeforeEndOfSeq(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckMutable("clipBeforeStartOfSeq"); err != nil {
 		return vm.IoError(err)
 	}
-	other, stop := msg.SequenceArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	other, err, stop := msg.SequenceArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	k := s.Find(other, 0)
 	if k >= 0 {
 		k += other.Len()
 		s.Slice(k, s.Len(), 1)
 	}
-	return target
+	return target, NoStop
 }
 
 // SequenceClipBeforeSeq is a Sequence method.
 //
 // clipBeforeSeq removes the portion of the sequence which precedes the
 // beginning of the argument sequence.
-func SequenceClipBeforeSeq(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceClipBeforeSeq(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckMutable("clipBeforeSeq"); err != nil {
 		return vm.IoError(err)
 	}
-	other, stop := msg.SequenceArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	other, err, stop := msg.SequenceArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	k := s.Find(other, 0)
 	if k >= 0 {
 		s.Slice(k, s.Len(), 1)
 	}
-	return target
+	return target, NoStop
 }
 
 // SequenceConvertToItemType is a Sequence method.
 //
 // convertToItemType changes the item type of the sequence.
-func SequenceConvertToItemType(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceConvertToItemType(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckMutable("convertToItemType"); err != nil {
 		return vm.IoError(err)
 	}
-	n, stop := msg.StringArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	n, err, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	var kind SeqKind
 	switch strings.ToLower(n.String()) {
@@ -358,20 +358,20 @@ func SequenceConvertToItemType(vm *VM, target, locals Interface, msg *Message) I
 	s.Value = ns.Value
 	s.Kind = ns.Kind
 	s.Code = ns.Code
-	return target
+	return target, NoStop
 }
 
 // SequenceCopy is a Sequence method.
 //
 // copy sets the receiver to be a copy of the given sequence.
-func SequenceCopy(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceCopy(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckMutable("copy"); err != nil {
 		return vm.IoError(err)
 	}
-	other, stop := msg.SequenceArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	other, err, stop := msg.SequenceArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	switch other.Kind {
 	case SeqMU8, SeqIU8:
@@ -401,14 +401,14 @@ func SequenceCopy(vm *VM, target, locals Interface, msg *Message) Interface {
 	}
 	s.Kind = other.Kind
 	s.Code = other.Code
-	return target
+	return target, NoStop
 }
 
 // SequenceDuplicateIndexes is a Sequence method.
 //
 // duplicateIndexes inserts a copy of each item in the sequence after its
 // position.
-func SequenceDuplicateIndexes(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceDuplicateIndexes(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	// Did you mean: indices?
 	s := target.(*Sequence)
 	if err := s.CheckMutable("duplicateIndexes"); err != nil {
@@ -490,13 +490,13 @@ func SequenceDuplicateIndexes(vm *VM, target, locals Interface, msg *Message) In
 	default:
 		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
 	}
-	return target
+	return target, NoStop
 }
 
 // SequenceEmpty is a Sequence method.
 //
 // empty zeroes all values in the sequence and sets its length to zero.
-func SequenceEmpty(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceEmpty(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckMutable("empty"); err != nil {
 		return vm.IoError(err)
@@ -567,25 +567,25 @@ func SequenceEmpty(vm *VM, target, locals Interface, msg *Message) Interface {
 	default:
 		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
 	}
-	return target
+	return target, NoStop
 }
 
 // SequenceInsertSeqEvery is a Sequence method.
 //
 // insertSeqEvery inserts the argument sequence into the receiver at every nth
 // position.
-func SequenceInsertSeqEvery(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceInsertSeqEvery(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckMutable("insertSeqEvery"); err != nil {
 		return vm.IoError(err)
 	}
-	other, stop := msg.SequenceArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	other, err, stop := msg.SequenceArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
-	n, stop := msg.NumberArgAt(vm, locals, 1)
-	if stop != nil {
-		return stop
+	n, err, stop := msg.NumberArgAt(vm, locals, 1)
+	if stop != NoStop {
+		return err, stop
 	}
 	k := int(n.Value)
 	if k <= 0 {
@@ -599,7 +599,7 @@ func SequenceInsertSeqEvery(vm *VM, target, locals Interface, msg *Message) Inte
 	}
 	if k == s.Len() {
 		s.Append(other)
-		return target
+		return target, NoStop
 	}
 	switch s.Kind {
 	case SeqMU8:
@@ -737,36 +737,36 @@ func SequenceInsertSeqEvery(vm *VM, target, locals Interface, msg *Message) Inte
 	default:
 		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
 	}
-	return target
+	return target, NoStop
 }
 
 // SequenceLeaveThenRemove is a Sequence method.
 //
 // leaveThenRemove(m, n) keeps the first m items, removes the following n, and
 // repeats this process on the remainder.
-func SequenceLeaveThenRemove(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceLeaveThenRemove(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckMutable("leaveThenRemove"); err != nil {
 		return vm.IoError(err)
 	}
-	mm, stop := msg.NumberArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	mm, err, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	m := int(mm.Value)
 	if m < 0 {
 		return vm.RaiseException("leaveThenRemove arguments must be nonnegative")
 	}
-	nn, stop := msg.NumberArgAt(vm, locals, 1)
-	if stop != nil {
-		return stop
+	nn, err, stop := msg.NumberArgAt(vm, locals, 1)
+	if stop != NoStop {
+		return err, stop
 	}
 	n := int(nn.Value)
 	if n < 0 {
 		return vm.RaiseException("leaveThenRemove arguments must be nonnegative")
 	}
 	if n == 0 {
-		return target
+		return target, NoStop
 	}
 	switch s.Kind {
 	case SeqMU8, SeqIU8:
@@ -884,21 +884,21 @@ func SequenceLeaveThenRemove(vm *VM, target, locals Interface, msg *Message) Int
 	default:
 		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
 	}
-	return target
+	return target, NoStop
 }
 
 // SequencePreallocateToSize is a Sequence method.
 //
 // preallocateToSize ensures that the receiver can grow to be at least n bytes
 // without reallocating.
-func SequencePreallocateToSize(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequencePreallocateToSize(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckMutable("preallocateToSize"); err != nil {
 		return vm.IoError(err)
 	}
-	nn, stop := msg.NumberArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	nn, err, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	n := (int(nn.Value) + s.ItemSize() - 1) / s.ItemSize()
 	v := reflect.ValueOf(s.Value)
@@ -907,13 +907,13 @@ func SequencePreallocateToSize(vm *VM, target, locals Interface, msg *Message) I
 		reflect.Copy(nv, v)
 		s.Value = nv.Interface()
 	}
-	return target
+	return target, NoStop
 }
 
 // SequenceRangeFill is a Sequence method.
 //
 // rangeFill sets each element of the sequence to its index.
-func SequenceRangeFill(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceRangeFill(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckMutable("rangeFill"); err != nil {
 		return vm.IoError(err)
@@ -974,33 +974,33 @@ func SequenceRangeFill(vm *VM, target, locals Interface, msg *Message) Interface
 	default:
 		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
 	}
-	return target
+	return target, NoStop
 }
 
 // SequenceRemoveAt is a Sequence method.
 //
 // removeAt removes the nth element from the sequence.
-func SequenceRemoveAt(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceRemoveAt(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckMutable("removeAt"); err != nil {
 		return vm.IoError(err)
 	}
-	nn, stop := msg.NumberArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	nn, err, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	k := s.FixIndex(int(nn.Value))
 	n := s.Len()
 	if k < n {
 		s.Remove(k, k+1)
 	}
-	return target
+	return target, NoStop
 }
 
 // SequenceRemoveEvenIndexes is a Sequence method.
 //
 // removeEvenIndexes deletes each element whose index in the sequence is even.
-func SequenceRemoveEvenIndexes(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceRemoveEvenIndexes(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckMutable("removeEvenIndexes"); err != nil {
 		return vm.IoError(err)
@@ -1071,14 +1071,14 @@ func SequenceRemoveEvenIndexes(vm *VM, target, locals Interface, msg *Message) I
 	default:
 		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
 	}
-	return target
+	return target, NoStop
 }
 
 // SequenceRemoveLast is a Sequence method.
 //
 // removeLast removes the last element from the sequence and returns the
 // receiver.
-func SequenceRemoveLast(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceRemoveLast(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckMutable("removeLast"); err != nil {
 		return vm.IoError(err)
@@ -1139,13 +1139,13 @@ func SequenceRemoveLast(vm *VM, target, locals Interface, msg *Message) Interfac
 	default:
 		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
 	}
-	return target
+	return target, NoStop
 }
 
 // SequenceRemoveOddIndexes is a Sequence method.
 //
 // removeOddIndexes deletes each element whose index in the sequence is odd.
-func SequenceRemoveOddIndexes(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceRemoveOddIndexes(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckMutable("removeOddIndexes"); err != nil {
 		return vm.IoError(err)
@@ -1216,39 +1216,39 @@ func SequenceRemoveOddIndexes(vm *VM, target, locals Interface, msg *Message) In
 	default:
 		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
 	}
-	return target
+	return target, NoStop
 }
 
 // SequenceRemovePrefix is a Sequence method.
 //
 // removePrefix removes a prefix from the receiver, if present.
-func SequenceRemovePrefix(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceRemovePrefix(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckMutable("removePrefix"); err != nil {
 		return vm.IoError(err)
 	}
-	other, stop := msg.SequenceArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	other, err, stop := msg.SequenceArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	ol := other.Len()
 	if s.findMatch(other, 0, ol) {
 		s.Slice(ol, s.Len(), 1)
 	}
-	return target
+	return target, NoStop
 }
 
 // SequenceRemoveSeq is a Sequence method.
 //
 // removeSeq removes all occurrences of a sequence from the receiver.
-func SequenceRemoveSeq(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceRemoveSeq(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckMutable("removeSeq"); err != nil {
 		return vm.IoError(err)
 	}
-	other, stop := msg.SequenceArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	other, err, stop := msg.SequenceArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	ol := other.Len()
 	for {
@@ -1258,73 +1258,73 @@ func SequenceRemoveSeq(vm *VM, target, locals Interface, msg *Message) Interface
 		}
 		s.Remove(i, i+ol)
 	}
-	return target
+	return target, NoStop
 }
 
 // SequenceRemoveSlice is a Sequence method.
 //
 // removeSlice removes items between the given start and end, inclusive.
-func SequenceRemoveSlice(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceRemoveSlice(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckMutable("removeSlice"); err != nil {
 		return vm.IoError(err)
 	}
-	l, stop := msg.NumberArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	l, err, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
-	r, stop := msg.NumberArgAt(vm, locals, 1)
-	if stop != nil {
-		return stop
+	r, err, stop := msg.NumberArgAt(vm, locals, 1)
+	if stop != NoStop {
+		return err, stop
 	}
 	i := s.FixIndex(int(l.Value))
 	j := s.FixIndex(int(r.Value) + 1)
 	if i < s.Len() {
 		s.Remove(i, j)
 	}
-	return target
+	return target, NoStop
 }
 
 // SequenceRemoveSuffix is a Sequence method.
 //
 // removeSuffix removes a suffix from the receiver, if present.
-func SequenceRemoveSuffix(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceRemoveSuffix(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckMutable("removeSuffix"); err != nil {
 		return vm.IoError(err)
 	}
-	other, stop := msg.SequenceArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	other, err, stop := msg.SequenceArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	ol := other.Len()
 	if s.findMatch(other, s.Len()-ol, ol) {
 		s.Slice(0, s.Len()-ol, 1)
 	}
-	return target
+	return target, NoStop
 }
 
 // SequenceReplaceFirstSeq is a Sequence method.
 //
 // replaceFirstSeq replaces the first instance of a sequence with another.
-func SequenceReplaceFirstSeq(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceReplaceFirstSeq(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckMutable("replaceFirstSeq"); err != nil {
 		return vm.IoError(err)
 	}
-	search, stop := msg.SequenceArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	search, err, stop := msg.SequenceArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
-	repl, stop := msg.SequenceArgAt(vm, locals, 1)
-	if stop != nil {
-		return stop
+	repl, err, stop := msg.SequenceArgAt(vm, locals, 1)
+	if stop != NoStop {
+		return err, stop
 	}
 	k := 0
 	if msg.ArgCount() > 2 {
-		start, stop := msg.NumberArgAt(vm, locals, 2)
-		if stop != nil {
-			return stop
+		start, err, stop := msg.NumberArgAt(vm, locals, 2)
+		if stop != NoStop {
+			return err, stop
 		}
 		k = int(start.Value)
 		if k < 0 {
@@ -1336,24 +1336,24 @@ func SequenceReplaceFirstSeq(vm *VM, target, locals Interface, msg *Message) Int
 		s.Remove(p, p+search.Len())
 		s.Insert(repl, p)
 	}
-	return target
+	return target, NoStop
 }
 
 // SequenceReplaceSeq is a Sequence method.
 //
 // replaceSeq replaces all instances of a sequence with another.
-func SequenceReplaceSeq(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceReplaceSeq(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckMutable("replaceSeq"); err != nil {
 		return vm.IoError(err)
 	}
-	search, stop := msg.SequenceArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	search, err, stop := msg.SequenceArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
-	repl, stop := msg.SequenceArgAt(vm, locals, 1)
-	if stop != nil {
-		return stop
+	repl, err, stop := msg.SequenceArgAt(vm, locals, 1)
+	if stop != NoStop {
+		return err, stop
 	}
 	sl := search.Len()
 	rl := repl.Len()
@@ -1361,13 +1361,13 @@ func SequenceReplaceSeq(vm *VM, target, locals Interface, msg *Message) Interfac
 		s.Remove(k, k+sl)
 		s.Insert(repl, k)
 	}
-	return target
+	return target, NoStop
 }
 
 // SequenceReverseInPlace is a Sequence method.
 //
 // reverseInPlace reverses the elements of the sequence.
-func SequenceReverseInPlace(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceReverseInPlace(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckMutable("reverseInPlace"); err != nil {
 		return vm.IoError(err)
@@ -1428,20 +1428,20 @@ func SequenceReverseInPlace(vm *VM, target, locals Interface, msg *Message) Inte
 	default:
 		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
 	}
-	return target
+	return target, NoStop
 }
 
 // SequenceSetItemsToDouble is a Sequence method.
 //
 // setItemsToDouble sets all items to the given value.
-func SequenceSetItemsToDouble(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceSetItemsToDouble(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckMutable("setItemsToDouble"); err != nil {
 		return vm.IoError(err)
 	}
-	n, stop := msg.NumberArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	n, err, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	x := n.Value
 	switch s.Kind {
@@ -1500,20 +1500,20 @@ func SequenceSetItemsToDouble(vm *VM, target, locals Interface, msg *Message) In
 	default:
 		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
 	}
-	return target
+	return target, NoStop
 }
 
 // SequenceSetSize is a Sequence method.
 //
 // setSize sets the size of the sequence.
-func SequenceSetSize(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceSetSize(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckMutable("setSize"); err != nil {
 		return vm.IoError(err)
 	}
-	nn, stop := msg.NumberArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	nn, err, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	n := int(nn.Value)
 	if n < 0 {
@@ -1526,13 +1526,13 @@ func SequenceSetSize(vm *VM, target, locals Interface, msg *Message) Interface {
 		v := reflect.ValueOf(s.Value)
 		s.Value = reflect.AppendSlice(v, reflect.MakeSlice(v.Type(), n-l, n-l)).Interface()
 	}
-	return target
+	return target, NoStop
 }
 
 // SequenceSort is a Sequence method.
 //
 // sort sorts the elements of the sequence.
-func SequenceSort(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceSort(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckMutable("sort"); err != nil {
 		return vm.IoError(err)
@@ -1573,13 +1573,13 @@ func SequenceSort(vm *VM, target, locals Interface, msg *Message) Interface {
 	default:
 		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
 	}
-	return target
+	return target, NoStop
 }
 
 // SequenceZero is a Sequence method.
 //
 // zero sets each element of the receiver to zero.
-func SequenceZero(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceZero(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckMutable("zero"); err != nil {
 		return vm.IoError(err)
@@ -1640,5 +1640,5 @@ func SequenceZero(vm *VM, target, locals Interface, msg *Message) Interface {
 	default:
 		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
 	}
-	return target
+	return target, NoStop
 }

@@ -20,11 +20,11 @@ type Future struct {
 }
 
 // Activate activates the value if it has been computed, otherwise the Future.
-func (f *Future) Activate(vm *VM, target, locals, context Interface, msg *Message) Interface {
+func (f *Future) Activate(vm *VM, target, locals, context Interface, msg *Message) (Interface, Stop) {
 	if atomic.LoadUint32(&f.M) == 1 {
 		return f.Value.Activate(vm, target, locals, context, msg)
 	}
-	return f
+	return f, NoStop
 }
 
 // Clone returns an empty clone of this future.
@@ -35,17 +35,16 @@ func (f *Future) Clone() Interface {
 }
 
 func (vm *VM) initFuture() {
-	var exemplar *Future
+	var kind *Future
 	slots := Slots{
-		"forward":      vm.NewTypedCFunction(FutureForward, exemplar),
-		"type":         vm.NewString("Future"),
-		"waitOnResult": vm.NewTypedCFunction(FutureWaitOnResult, exemplar),
+		"forward":      vm.NewCFunction(FutureForward, kind),
+		"waitOnResult": vm.NewCFunction(FutureWaitOnResult, kind),
 	}
 	f := Future{Object: Object{
 		Slots:  slots,
 		Protos: []Interface{}, // no protos so we forward where possible
 	}}
-	SetSlot(vm.Core, "Future", &f)
+	vm.Core.SetSlot("Future", &f)
 }
 
 // NewFuture creates a new Future object with its own coroutine and runs it.
@@ -56,10 +55,12 @@ func (vm *VM) NewFuture(target Interface, msg *Message) *Future {
 	}
 	f.Object.Slots["runTarget"] = target
 	f.Object.Slots["runMessage"] = msg
-	SetSlot(f.Coro, "runTarget", target)
-	SetSlot(f.Coro, "runMessage", msg)
-	SetSlot(f.Coro, "runLocals", target)
-	SetSlot(f.Coro, "parentCoroutine", vm)
+	f.Coro.SetSlots(Slots{
+		"runTarget":       target,
+		"runMessage":      msg,
+		"runLocals":       target,
+		"parentCoroutine": vm,
+	})
 	go f.run()
 	return &f
 }
@@ -70,25 +71,25 @@ func (f *Future) run() {
 	vm := f.Coro
 	vm.Sched.Start(f.Coro)
 	defer vm.Sched.Finish(f.Coro)
-	target, _ := GetSlot(f, "runTarget")
-	msg, _ := GetSlot(f, "runMessage")
+	target, _ := f.GetSlot("runTarget")
+	msg, _ := f.GetSlot("runMessage")
 	m, ok := msg.(*Message)
 	if !ok {
 		panic("Future started without a message to run")
 	}
-	r, ok := CheckStop(m.Send(vm, target, target), ReturnStop)
-	if !ok {
+	r, stop := m.Send(vm, target, target)
+	if stop == ExceptionStop {
 		// Exception. Send it to the target's handleActorException slot.
-		m := vm.IdentMessage("handleActorException", vm.CachedMessage(r.(Stop).Result))
-		r, ok = CheckStop(vm.Perform(target, target, m), ReturnStop)
+		m := vm.IdentMessage("handleActorException", vm.CachedMessage(r))
+		r, stop = vm.Perform(target, target, m)
 		if !ok {
 			// Another exception while trying to handle the previous one. Give
 			// up and send the exception back to the coroutine. It's probably
 			// pointless, but there isn't anything else to do.
 			// TODO: indicate that this new exception resulted while handling
 			// the old one
-			SetSlot(f.Coro, "exception", r.(Stop).Result)
-			f.Coro.Stop <- r.(Stop)
+			f.Coro.SetSlot("exception", r)
+			f.Coro.Stop <- RemoteStop{r, stop}
 		}
 	}
 	f.Value = r
@@ -105,23 +106,23 @@ func (f *Future) run() {
 //
 // NOTE: If Wait returns a Stop, then that Stop was sent to the waiting
 // coroutine, not the Future's.
-func (f *Future) Wait(vm *VM) Interface {
+func (f *Future) Wait(vm *VM) (Interface, Stop) {
 	vm.Sched.Await(vm, f.Coro)
 	for atomic.LoadUint32(&f.M) == 0 {
 		select {
 		case stop := <-vm.Stop:
-			switch stop.Status {
+			switch stop.Control {
 			case NoStop, ResumeStop:
 				runtime.Gosched()
 			case ContinueStop, BreakStop, ReturnStop, ExceptionStop:
-				return stop
+				return stop.Result, stop.Control
 			case PauseStop:
 				vm.Sched.pause <- vm
-				for stop.Status != ResumeStop {
-					switch stop = <-vm.Stop; stop.Status {
+				for stop.Control != ResumeStop {
+					switch stop = <-vm.Stop; stop.Control {
 					case NoStop, PauseStop: // do nothing
 					case ContinueStop, BreakStop, ReturnStop, ExceptionStop:
-						return stop
+						return stop.Result, stop.Control
 					case ResumeStop:
 						vm.Sched.Await(vm, f.Coro)
 					default:
@@ -134,21 +135,28 @@ func (f *Future) Wait(vm *VM) Interface {
 		default: // do nothing
 		}
 	}
-	return f.Value
+	return f.Value, NoStop
 }
 
 // FutureForward is a Future method.
 //
 // forward responds to messages to which the Future does not respond by proxying
 // to the evaluated result. This causes a wait.
-func FutureForward(vm *VM, target, locals Interface, msg *Message) Interface {
+func FutureForward(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	f := target.(*Future)
 	if atomic.LoadUint32(&f.M) == 0 {
 		if f.Coro == nil {
-			return vm.RaiseException("cannot use unstarted Future")
+			// This should apply only to Core Future, most likely due to
+			// Core slotSummary or Future slotSummary. Grabbing the slot from
+			// BaseObject is probably reasonable.
+			t, proto := vm.BaseObject.GetSlot(msg.Name())
+			if proto == nil {
+				return vm.RaiseException("cannot use unstarted Future")
+			}
+			return t.Activate(vm, target, locals, proto, msg)
 		}
-		if r, ok := CheckStop(f.Wait(vm), NoStop); !ok {
-			return r
+		if r, stop := f.Wait(vm); stop != NoStop {
+			return r, stop
 		}
 	}
 	return vm.Perform(f.Value, locals, msg)
@@ -157,42 +165,42 @@ func FutureForward(vm *VM, target, locals Interface, msg *Message) Interface {
 // FutureWaitOnResult is a Future method.
 //
 // waitOnResult blocks until the result of the Future is computed. Returns nil.
-func FutureWaitOnResult(vm *VM, target, locals Interface, msg *Message) Interface {
+func FutureWaitOnResult(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	f := target.(*Future)
 	if f.Coro == nil {
 		// Either it hasn't been started yet or it's already finished. In the
 		// latter case, M should already be set.
 		if atomic.LoadUint32(&f.M) == 1 {
-			return vm.Nil
+			return vm.Nil, NoStop
 		}
 		// Technically, it's possible for the coro to have started between the
 		// atomic check and now, but that's probably always an erroneous race.
 		return vm.RaiseException("cannot wait on unstarted Future")
 	}
-	if r, ok := CheckStop(f.Wait(vm), NoStop); !ok {
-		return r
+	if r, stop := f.Wait(vm); stop != NoStop {
+		return r, stop
 	}
-	return vm.Nil
+	return vm.Nil, NoStop
 }
 
 // ObjectAsyncSend is an Object method.
 //
 // asyncSend evaluates a message in a new coroutine.
-func ObjectAsyncSend(vm *VM, target, locals Interface, msg *Message) Interface {
+func ObjectAsyncSend(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	if msg.ArgCount() == 0 {
 		return vm.RaiseException("asyncSend requires an argument")
 	}
 	vm.NewFuture(target, msg.ArgAt(0))
-	return vm.Nil
+	return vm.Nil, NoStop
 }
 
 // ObjectFutureSend is an Object method.
 //
 // futureSend evaluates a message in a new coroutine and returns a Future which
 // will become the result.
-func ObjectFutureSend(vm *VM, target, locals Interface, msg *Message) Interface {
+func ObjectFutureSend(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	if msg.ArgCount() == 0 {
 		return vm.RaiseException("futureSend requires an argument")
 	}
-	return vm.NewFuture(target, msg.ArgAt(0))
+	return vm.NewFuture(target, msg.ArgAt(0)), NoStop
 }

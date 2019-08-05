@@ -8,19 +8,19 @@ import (
 
 func (vm *VM) initSystem() {
 	slots := Slots{
-		"activeCpus":             vm.NewCFunction(SystemActiveCpus),
-		"exit":                   vm.NewCFunction(SystemExit),
-		"getEnvironmentVariable": vm.NewCFunction(SystemGetEnvironmentVariable),
+		"activeCpus":             vm.NewCFunction(SystemActiveCpus, nil),
+		"exit":                   vm.NewCFunction(SystemExit, nil),
+		"getEnvironmentVariable": vm.NewCFunction(SystemGetEnvironmentVariable, nil),
 		"iovmName":               vm.NewString("github.com/zephyrtronium/iolang"),
 		"iospecVersion":          vm.NewString(IoSpecVer),
 		"launchScript":           vm.Nil,
 		"platform":               vm.NewString(runtime.GOOS),
 		"platformVersion":        vm.NewString(platformVersion),
-		"setEnvironmentVariable": vm.NewCFunction(SystemSetEnvironmentVariable),
-		"setLobby":               vm.NewCFunction(SystemSetLobby),
+		"setEnvironmentVariable": vm.NewCFunction(SystemSetEnvironmentVariable, nil),
+		"setLobby":               vm.NewCFunction(SystemSetLobby, nil),
 		// TODO: sleep
 		// TODO: system
-		"thisProcessPid": vm.NewCFunction(SystemThisProcessPid),
+		"thisProcessPid": vm.NewCFunction(SystemThisProcessPid, nil),
 		"type":           vm.NewString("System"),
 		"version":        vm.NewString(IoVersion),
 	}
@@ -52,7 +52,7 @@ func (vm *VM) initSystem() {
 	} else {
 		slots["launchPath"] = vm.Nil
 	}
-	SetSlot(vm.Core, "System", vm.ObjectWith(slots))
+	vm.Core.SetSlot("System", vm.ObjectWith(slots))
 }
 
 func (vm *VM) initArgs(args []string) {
@@ -60,8 +60,8 @@ func (vm *VM) initArgs(args []string) {
 	for i, v := range args {
 		l[i] = vm.NewString(v)
 	}
-	s, _ := GetSlot(vm.Core, "System")
-	SetSlot(s, "args", vm.NewList(l...))
+	s, _ := vm.Core.GetLocalSlot("System")
+	s.SetSlot("args", vm.NewList(l...))
 }
 
 // SetLaunchScript sets the System launchScript slot to the given string, as a
@@ -69,30 +69,30 @@ func (vm *VM) initArgs(args []string) {
 // default System launchScript value is nil, which signifies an interactive
 // session.
 func (vm *VM) SetLaunchScript(path string) {
-	s, proto := GetSlot(vm.Core, "System")
-	if proto == nil {
+	s, ok := vm.Core.GetLocalSlot("System")
+	if !ok {
 		// No System. Is a "DOES NOT COMPUTE" joke sufficiently witty here?
-		return
+		panic("iolang.SetLaunchScript: no Core System")
 	}
-	SetSlot(s, "launchScript", vm.NewString(path))
+	s.SetSlot("launchScript", vm.NewString(path))
 }
 
 // SystemActiveCpus is a System method.
 //
 // activeCpus returns the number of CPUs available for coroutines.
-func SystemActiveCpus(vm *VM, target, locals Interface, msg *Message) Interface {
-	return vm.NewNumber(float64(runtime.GOMAXPROCS(0)))
+func SystemActiveCpus(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+	return vm.NewNumber(float64(runtime.GOMAXPROCS(0))), NoStop
 }
 
 // SystemExit is a System method.
 //
 // exit exits the process with an exit code which defaults to 0.
-func SystemExit(vm *VM, target, locals Interface, msg *Message) Interface {
+func SystemExit(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	code := 0
 	if len(msg.Args) > 0 {
-		n, stop := msg.NumberArgAt(vm, locals, 0)
-		if stop != nil {
-			return stop
+		n, err, stop := msg.NumberArgAt(vm, locals, 0)
+		if stop != NoStop {
+			return err, stop
 		}
 		code = int(n.Value)
 	}
@@ -104,35 +104,35 @@ func SystemExit(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // getEnvironmentVariable returns the value of the environment variable with
 // the given name, or nil if it does not exist.
-func SystemGetEnvironmentVariable(vm *VM, target, locals Interface, msg *Message) Interface {
-	name, stop := msg.StringArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+func SystemGetEnvironmentVariable(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+	name, err, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	s, ok := os.LookupEnv(name.String())
 	if ok {
-		return vm.NewString(s)
+		return vm.NewString(s), NoStop
 	}
-	return vm.Nil
+	return vm.Nil, NoStop
 }
 
 // SystemSetEnvironmentVariable is a System method.
 //
 // setEnvironmentVariable sets the value of an environment variable.
-func SystemSetEnvironmentVariable(vm *VM, target, locals Interface, msg *Message) Interface {
-	name, stop := msg.StringArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+func SystemSetEnvironmentVariable(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+	name, aerr, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return aerr, stop
 	}
-	val, stop := msg.StringArgAt(vm, locals, 1)
-	if stop != nil {
-		return stop
+	val, aerr, stop := msg.StringArgAt(vm, locals, 1)
+	if stop != NoStop {
+		return aerr, stop
 	}
 	err := os.Setenv(name.String(), val.String())
 	if err != nil {
 		return vm.IoError(err)
 	}
-	return target
+	return target, NoStop
 }
 
 // SystemSetLobby is a System method.
@@ -140,18 +140,18 @@ func SystemSetEnvironmentVariable(vm *VM, target, locals Interface, msg *Message
 // setLobby changes the Lobby. This had garbage collection implications in the
 // original Io, but is mostly irrelevant in this implementation due to use of
 // Go's GC.
-func SystemSetLobby(vm *VM, target, locals Interface, msg *Message) Interface {
-	o, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
-	if !ok {
-		return o
+func SystemSetLobby(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+	o, stop := msg.EvalArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return o, stop
 	}
-	vm.Lobby = o.SP()
-	return target
+	vm.Lobby = o
+	return target, NoStop
 }
 
 // SystemThisProcessPid is a System method.
 //
 // thisProcessPid returns the pid of this process.
-func SystemThisProcessPid(vm *VM, target, locals Interface, msg *Message) Interface {
-	return vm.NewNumber(float64(os.Getpid()))
+func SystemThisProcessPid(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+	return vm.NewNumber(float64(os.Getpid())), NoStop
 }

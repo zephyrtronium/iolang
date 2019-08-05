@@ -255,32 +255,32 @@ func (s *Sequence) Reduce(op func(float64, float64) float64, ic float64) float64
 // SeqOrNumArgAt evaluates the given argument, then returns it as a Sequence
 // or Number, or a raised exception if it is neither, or a return or raised
 // exception if one occurs during evaluation.
-func (m *Message) SeqOrNumArgAt(vm *VM, locals Interface, n int) (*Sequence, *Number, Interface) {
-	r, ok := CheckStop(m.EvalArgAt(vm, locals, n), LoopStops)
-	if !ok {
-		return nil, nil, r
+func (m *Message) SeqOrNumArgAt(vm *VM, locals Interface, n int) (*Sequence, *Number, Interface, Stop) {
+	r, stop := m.EvalArgAt(vm, locals, n)
+	if stop != NoStop {
+		return nil, nil, r, stop
 	}
 	switch v := r.(type) {
 	case *Sequence:
-		return v, nil, nil
+		return v, nil, nil, NoStop
 	case *Number:
-		return nil, v, nil
+		return nil, v, nil, NoStop
 	}
-	return nil, nil, vm.RaiseExceptionf("argument %d to %s must be Sequence or Number, not %s", n, m.Name(), vm.TypeName(r))
+	return nil, nil, vm.NewExceptionf("argument %d to %s must be Sequence or Number, not %s", n, m.Name(), vm.TypeName(r)), ExceptionStop
 }
 
 // SequenceStarStarEq is a Sequence method.
 //
 // **= sets each element of the receiver to its value raised to the power of the
 // respective element of the argument.
-func SequenceStarStarEq(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceStarStarEq(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckNumeric("**=", true); err != nil {
 		return vm.IoError(err)
 	}
-	t, n, stop := msg.SeqOrNumArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	t, n, err, stop := msg.SeqOrNumArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	if t != nil {
 		s.MapBinary(math.Pow, t, 1)
@@ -288,21 +288,21 @@ func SequenceStarStarEq(vm *VM, target, locals Interface, msg *Message) Interfac
 		y := n.Value
 		s.MapUnary(func(x float64) float64 { return math.Pow(x, y) })
 	}
-	return target
+	return target, NoStop
 }
 
 // SequenceStarEq is a Sequence method.
 //
 // *= sets each element of the receiver to its value times the respective
 // element of the argument.
-func SequenceStarEq(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceStarEq(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckNumeric("*=", true); err != nil {
 		return vm.IoError(err)
 	}
-	t, n, stop := msg.SeqOrNumArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	t, n, err, stop := msg.SeqOrNumArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	if t != nil {
 		s.MapBinary(func(x, y float64) float64 { return x * y }, t, 1)
@@ -310,21 +310,21 @@ func SequenceStarEq(vm *VM, target, locals Interface, msg *Message) Interface {
 		y := n.Value
 		s.MapUnary(func(x float64) float64 { return x * y })
 	}
-	return target
+	return target, NoStop
 }
 
 // SequencePlusEq is a Sequence method.
 //
 // += sets each element of the receiver to its value plus the respective
 // element of the argument.
-func SequencePlusEq(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequencePlusEq(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckNumeric("+=", true); err != nil {
 		return vm.IoError(err)
 	}
-	t, n, stop := msg.SeqOrNumArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	t, n, err, stop := msg.SeqOrNumArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	if t != nil {
 		s.MapBinary(func(x, y float64) float64 { return x + y }, t, 0)
@@ -332,21 +332,21 @@ func SequencePlusEq(vm *VM, target, locals Interface, msg *Message) Interface {
 		y := n.Value
 		s.MapUnary(func(x float64) float64 { return x + y })
 	}
-	return target
+	return target, NoStop
 }
 
 // SequenceMinusEq is a Sequence method.
 //
 // -= sets each element of the receiver to its value minus the respective
 // element of the argument.
-func SequenceMinusEq(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceMinusEq(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckNumeric("-=", true); err != nil {
 		return vm.IoError(err)
 	}
-	t, n, stop := msg.SeqOrNumArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	t, n, err, stop := msg.SeqOrNumArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	if t != nil {
 		s.MapBinary(func(x, y float64) float64 { return x - y }, t, 0)
@@ -354,21 +354,21 @@ func SequenceMinusEq(vm *VM, target, locals Interface, msg *Message) Interface {
 		y := n.Value
 		s.MapUnary(func(x float64) float64 { return x - y })
 	}
-	return target
+	return target, NoStop
 }
 
 // SequenceSlashEq is a Sequence method.
 //
 // /= sets each element of the receiver to its value divided by the respective
 // element of the argument.
-func SequenceSlashEq(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceSlashEq(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckNumeric("/=", true); err != nil {
 		return vm.IoError(err)
 	}
-	t, n, stop := msg.SeqOrNumArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	t, n, err, stop := msg.SeqOrNumArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	if t != nil {
 		s.MapBinary(func(x, y float64) float64 { return x / y }, t, 1)
@@ -376,97 +376,97 @@ func SequenceSlashEq(vm *VM, target, locals Interface, msg *Message) Interface {
 		y := n.Value
 		s.MapUnary(func(x float64) float64 { return x / y })
 	}
-	return target
+	return target, NoStop
 }
 
 // SequencePairwiseMax is a Sequence method.
 //
 // Max sets each element of the receiver to the greater of the receiver element
 // and the respective argument element.
-func SequencePairwiseMax(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequencePairwiseMax(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckNumeric("Max", true); err != nil {
 		return vm.IoError(err)
 	}
-	t, stop := msg.SequenceArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	t, err, stop := msg.SequenceArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	s.MapBinary(math.Max, t, math.Inf(-1))
-	return target
+	return target, NoStop
 }
 
 // SequencePairwiseMin is a Sequence method.
 //
 // Min sets each element of the receiver to the lesser of the receiver element
 // and the respective argument element.
-func SequencePairwiseMin(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequencePairwiseMin(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckNumeric("Min", true); err != nil {
 		return vm.IoError(err)
 	}
-	t, stop := msg.SequenceArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	t, err, stop := msg.SequenceArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	s.MapBinary(math.Min, t, math.Inf(0))
-	return target
+	return target, NoStop
 }
 
 // SequenceAbs is a Sequence method.
 //
 // abs sets each element of the receiver to its absolute value.
-func SequenceAbs(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceAbs(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckNumeric("abs", true); err != nil {
 		return vm.IoError(err)
 	}
 	s.MapUnary(math.Abs)
-	return s
+	return s, NoStop
 }
 
 // SequenceAcos is a Sequence method.
 //
 // acos sets each element of the receiver to its arc-cosine.
-func SequenceAcos(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceAcos(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckNumeric("acos", true); err != nil {
 		return vm.IoError(err)
 	}
 	s.MapUnary(math.Acos)
-	return s
+	return s, NoStop
 }
 
 // SequenceAsBinaryNumber is a Sequence method.
 //
 // asBinaryNumber reinterprets the first eight bytes of the sequence as an
 // IEEE-754 binary64 floating-point value and returns the appropriate Number.
-func SequenceAsBinaryNumber(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceAsBinaryNumber(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	v := s.Bytes()
 	if len(v) < 8 {
 		return vm.RaiseExceptionf("need 8 bytes in sequence, have only %d", len(v))
 	}
 	x := binary.LittleEndian.Uint64(v)
-	return vm.NewNumber(math.Float64frombits(x))
+	return vm.NewNumber(math.Float64frombits(x)), NoStop
 }
 
 // SequenceAsBinarySignedInteger is a Sequence method.
 //
 // asBinarySignedInteger reinterprets the bytes of the sequence as a signed
 // integer. The byte size of the sequence must be 1, 2, 4, or 8.
-func SequenceAsBinarySignedInteger(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceAsBinarySignedInteger(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	v := s.Bytes()
 	switch len(v) {
 	case 1:
-		return vm.NewNumber(float64(int8(v[0])))
+		return vm.NewNumber(float64(int8(v[0]))), NoStop
 	case 2:
-		return vm.NewNumber(float64(int16(binary.LittleEndian.Uint16(v))))
+		return vm.NewNumber(float64(int16(binary.LittleEndian.Uint16(v)))), NoStop
 	case 4:
-		return vm.NewNumber(float64(int32(binary.LittleEndian.Uint32(v))))
+		return vm.NewNumber(float64(int32(binary.LittleEndian.Uint32(v)))), NoStop
 	case 8:
-		return vm.NewNumber(float64(int64(binary.LittleEndian.Uint64(v))))
+		return vm.NewNumber(float64(int64(binary.LittleEndian.Uint64(v)))), NoStop
 	}
 	return vm.RaiseException("asBinarySignedInteger receiver must be Sequence of 1, 2, 4, or 8 bytes")
 }
@@ -475,18 +475,18 @@ func SequenceAsBinarySignedInteger(vm *VM, target, locals Interface, msg *Messag
 //
 // asBinaryUnsignedInteger reinterprets the bytes of the sequence as an
 // unsigned integer. the byte size of the sequence must be 1, 2, 4, or 8.
-func SequenceAsBinaryUnsignedInteger(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceAsBinaryUnsignedInteger(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	v := s.Bytes()
 	switch len(v) {
 	case 1:
-		return vm.NewNumber(float64(v[0]))
+		return vm.NewNumber(float64(v[0])), NoStop
 	case 2:
-		return vm.NewNumber(float64(binary.LittleEndian.Uint16(v)))
+		return vm.NewNumber(float64(binary.LittleEndian.Uint16(v))), NoStop
 	case 4:
-		return vm.NewNumber(float64(binary.LittleEndian.Uint32(v)))
+		return vm.NewNumber(float64(binary.LittleEndian.Uint32(v))), NoStop
 	case 8:
-		return vm.NewNumber(float64(binary.LittleEndian.Uint64(v)))
+		return vm.NewNumber(float64(binary.LittleEndian.Uint64(v))), NoStop
 	}
 	return vm.RaiseException("asBinaryUnsignedInteger receiver must be Sequence of 1, 2, 4, or 8 bytes")
 }
@@ -494,31 +494,31 @@ func SequenceAsBinaryUnsignedInteger(vm *VM, target, locals Interface, msg *Mess
 // SequenceAsin is a Sequence method.
 //
 // asin sets each element of the receiver to its arcsine.
-func SequenceAsin(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceAsin(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckNumeric("asin", true); err != nil {
 		return vm.IoError(err)
 	}
 	s.MapUnary(math.Asin)
-	return s
+	return s, NoStop
 }
 
 // SequenceAtan is a Sequence method.
 //
 // atan sets each element of the receiver to its arctangent.
-func SequenceAtan(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceAtan(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckNumeric("atan", true); err != nil {
 		return vm.IoError(err)
 	}
 	s.MapUnary(math.Atan)
-	return s
+	return s, NoStop
 }
 
 // SequenceBitCount is a Sequence method.
 //
 // bitCount returns the number of 1 bits in the sequence.
-func SequenceBitCount(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceBitCount(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	n := 0
 	switch s.Kind {
@@ -577,21 +577,21 @@ func SequenceBitCount(vm *VM, target, locals Interface, msg *Message) Interface 
 	default:
 		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
 	}
-	return vm.NewNumber(float64(n))
+	return vm.NewNumber(float64(n)), NoStop
 }
 
 // SequenceBitwiseAnd is a Sequence method.
 //
 // bitwiseAnd sets the receiver to the bitwise AND of its binary representation
 // and that of the argument sequence.
-func SequenceBitwiseAnd(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceBitwiseAnd(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckMutable("bitwiseAnd"); err != nil {
 		return vm.IoError(err)
 	}
-	other, stop := msg.SequenceArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	other, err, stop := msg.SequenceArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	v := s.Bytes()
 	w := other.BytesN(len(v))
@@ -606,14 +606,14 @@ func SequenceBitwiseAnd(vm *VM, target, locals Interface, msg *Message) Interfac
 		v[i] &= w[i]
 	}
 	binary.Read(bytes.NewReader(v), binary.LittleEndian, s.Value)
-	return target
+	return target, NoStop
 }
 
 // SequenceBitwiseNot is a Sequence method.
 //
 // bitwiseNot sets the receiver to the bitwise NOT of its binary representation
 // and that of the argument sequence.
-func SequenceBitwiseNot(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceBitwiseNot(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckMutable("bitwiseNot"); err != nil {
 		return vm.IoError(err)
@@ -628,21 +628,21 @@ func SequenceBitwiseNot(vm *VM, target, locals Interface, msg *Message) Interfac
 		v[i] = ^v[i]
 	}
 	binary.Read(bytes.NewReader(v), binary.LittleEndian, s.Value)
-	return target
+	return target, NoStop
 }
 
 // SequenceBitwiseOr is a Sequence method.
 //
 // bitwiseOr sets the receiver to the bitwise OR of its binary representation
 // and that of the argument sequence.
-func SequenceBitwiseOr(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceBitwiseOr(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckMutable("bitwiseOr"); err != nil {
 		return vm.IoError(err)
 	}
-	other, stop := msg.SequenceArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	other, err, stop := msg.SequenceArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	v := s.Bytes()
 	w := other.BytesN(len(v))
@@ -657,21 +657,21 @@ func SequenceBitwiseOr(vm *VM, target, locals Interface, msg *Message) Interface
 		v[i] |= w[i]
 	}
 	binary.Read(bytes.NewReader(v), binary.LittleEndian, s.Value)
-	return target
+	return target, NoStop
 }
 
 // SequenceBitwiseXor is a Sequence method.
 //
 // bitwiseXor sets the receiver to the bitwise XOR of its binary representation
 // and that of the argument sequence.
-func SequenceBitwiseXor(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceBitwiseXor(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckMutable("bitwiseXor"); err != nil {
 		return vm.IoError(err)
 	}
-	other, stop := msg.SequenceArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	other, err, stop := msg.SequenceArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	v := s.Bytes()
 	w := other.BytesN(len(v))
@@ -686,14 +686,14 @@ func SequenceBitwiseXor(vm *VM, target, locals Interface, msg *Message) Interfac
 		v[i] ^= w[i]
 	}
 	binary.Read(bytes.NewReader(v), binary.LittleEndian, s.Value)
-	return target
+	return target, NoStop
 }
 
 // SequenceCeil is a Sequence method.
 //
 // ceil sets each element of the receiver to the smallest integer greater than
 // its current value. No-op on integer sequences.
-func SequenceCeil(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceCeil(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckNumeric("ceil", true); err != nil {
 		return vm.IoError(err)
@@ -701,31 +701,31 @@ func SequenceCeil(vm *VM, target, locals Interface, msg *Message) Interface {
 	if s.IsFP() {
 		s.MapUnary(math.Ceil)
 	}
-	return s
+	return s, NoStop
 }
 
 // SequenceCos is a Sequence method.
 //
 // cos sets each element of the receiver to its cosine.
-func SequenceCos(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceCos(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckNumeric("cos", true); err != nil {
 		return vm.IoError(err)
 	}
 	s.MapUnary(math.Cos)
-	return s
+	return s, NoStop
 }
 
 // SequenceCosh is a Sequence method.
 //
 // cosh sets each element of the receiver to its hyperbolic cosine.
-func SequenceCosh(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceCosh(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckNumeric("cosh", true); err != nil {
 		return vm.IoError(err)
 	}
 	s.MapUnary(math.Cosh)
-	return s
+	return s, NoStop
 }
 
 // SequenceDistanceTo is a Sequence method.
@@ -733,14 +733,14 @@ func SequenceCosh(vm *VM, target, locals Interface, msg *Message) Interface {
 // distanceTo computes the L2-norm of the vector pointing between the receiver
 // and the argument sequence. Both sequences must be of the same floating-point
 // type and of equal size; otherwise, the result will be 0.
-func SequenceDistanceTo(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceDistanceTo(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	x := target.(*Sequence)
-	y, stop := msg.SequenceArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	y, err, stop := msg.SequenceArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	if x.Kind != y.Kind && x.Kind != -y.Kind {
-		return vm.NewNumber(0)
+		return vm.NewNumber(0), NoStop
 	}
 	switch x.Kind {
 	case SeqMF32, SeqIF32:
@@ -754,7 +754,7 @@ func SequenceDistanceTo(vm *VM, target, locals Interface, msg *Message) Interfac
 			b := a - w[i]
 			sum += b * b
 		}
-		return vm.NewNumber(math.Sqrt(float64(sum)))
+		return vm.NewNumber(math.Sqrt(float64(sum))), NoStop
 	case SeqMF64, SeqIF64:
 		v := x.Value.([]float64)
 		w := y.Value.([]float64)
@@ -766,20 +766,20 @@ func SequenceDistanceTo(vm *VM, target, locals Interface, msg *Message) Interfac
 			b := a - w[i]
 			sum += b * b
 		}
-		return vm.NewNumber(math.Sqrt(sum))
+		return vm.NewNumber(math.Sqrt(sum)), NoStop
 	}
-	return vm.NewNumber(0)
+	return vm.NewNumber(0), NoStop
 }
 
 // SequenceDotProduct is a Sequence method.
 //
 // dotProduct computes the sum of pairwise products between the receiver and
 // argument sequence, up to the length of the shorter of the two.
-func SequenceDotProduct(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceDotProduct(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
-	other, stop := msg.SequenceArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	other, err, stop := msg.SequenceArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	// The original required the receiver to be mutable for no reason, but we
 	// don't. It /would/ be reasonable to require number encoding, but the
@@ -798,14 +798,14 @@ func SequenceDotProduct(vm *VM, target, locals Interface, msg *Message) Interfac
 		sum += x * y
 		i++
 	}
-	return vm.NewNumber(sum)
+	return vm.NewNumber(sum), NoStop
 }
 
 // SequenceFloor is a Sequence method.
 //
 // floor sets each element of the receiver to the largest integer less than its
 // current value. No-op on integer sequences.
-func SequenceFloor(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceFloor(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckNumeric("floor", true); err != nil {
 		return vm.IoError(err)
@@ -813,86 +813,86 @@ func SequenceFloor(vm *VM, target, locals Interface, msg *Message) Interface {
 	if s.IsFP() {
 		s.MapUnary(math.Floor)
 	}
-	return s
+	return s, NoStop
 }
 
 // SequenceLog is a Sequence method.
 //
 // log sets each element of the receiver to its natural logarithm.
-func SequenceLog(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceLog(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckNumeric("log", true); err != nil {
 		return vm.IoError(err)
 	}
 	s.MapUnary(math.Log)
-	return s
+	return s, NoStop
 }
 
 // SequenceLog10 is a Sequence method.
 //
 // log10 sets each element of the receiver to its common logarithm.
-func SequenceLog10(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceLog10(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckNumeric("log10", true); err != nil {
 		return vm.IoError(err)
 	}
 	s.MapUnary(math.Log10)
-	return s
+	return s, NoStop
 }
 
 // SequenceMax is a Sequence method.
 //
 // max returns the maximum element in the sequence.
-func SequenceMax(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceMax(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
-	return vm.NewNumber(s.Reduce(math.Max, math.Inf(-1)))
+	return vm.NewNumber(s.Reduce(math.Max, math.Inf(-1))), NoStop
 }
 
 // SequenceMean is a Sequence method.
 //
 // mean computes the arithmetic mean of the elements in the sequence.
-func SequenceMean(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceMean(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	r := s.Reduce(func(x, y float64) float64 { return x + y }, 0)
-	return vm.NewNumber(r / float64(s.Len()))
+	return vm.NewNumber(r / float64(s.Len())), NoStop
 }
 
 // SequenceMeanSquare is a Sequence method.
 //
 // meanSquare computes the arithmetic mean of the squares of the elements in
 // the sequence.
-func SequenceMeanSquare(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceMeanSquare(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	// This disagrees with Io's meanSquare, which performs the squaring in the
 	// receiver's type.
 	r := s.Reduce(func(x, y float64) float64 { return x + y*y }, 0)
-	return vm.NewNumber(r / float64(s.Len()))
+	return vm.NewNumber(r / float64(s.Len())), NoStop
 }
 
 // SequenceMin is a Sequence method.
 //
 // min returns the minimum element in the sequence.
-func SequenceMin(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceMin(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
-	return vm.NewNumber(s.Reduce(math.Min, math.Inf(0)))
+	return vm.NewNumber(s.Reduce(math.Min, math.Inf(0))), NoStop
 }
 
 // SequenceNegate is a Sequence method.
 //
 // negate sets each element of the receiver to its opposite.
-func SequenceNegate(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceNegate(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckNumeric("negate", true); err != nil {
 		return vm.IoError(err)
 	}
 	s.MapUnary(func(x float64) float64 { return -x })
-	return s
+	return s, NoStop
 }
 
 // SequenceNormalize is a Sequence method.
 //
 // normalize divides each element of the receiver by the sequence's L2 norm.
-func SequenceNormalize(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceNormalize(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	// The original only checks for mutability, not numeric.
 	if err := s.CheckNumeric("normalize", true); err != nil {
@@ -900,93 +900,93 @@ func SequenceNormalize(vm *VM, target, locals Interface, msg *Message) Interface
 	}
 	l2 := math.Sqrt(s.Reduce(func(x, y float64) float64 { return x + y*y }, 0))
 	s.MapUnary(func(x float64) float64 { return x / l2 })
-	return target
+	return target, NoStop
 }
 
 // SequenceProduct is a Sequence method.
 //
 // product returns the product of the elements of the sequence.
-func SequenceProduct(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceProduct(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
-	return vm.NewNumber(s.Reduce(func(x, y float64) float64 { return x * y }, 1))
+	return vm.NewNumber(s.Reduce(func(x, y float64) float64 { return x * y }, 1)), NoStop
 }
 
 // SequenceSin is a Sequence method.
 //
 // sin sets each element of the receiver to its sine.
-func SequenceSin(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceSin(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckNumeric("sin", true); err != nil {
 		return vm.IoError(err)
 	}
 	s.MapUnary(math.Sin)
-	return s
+	return s, NoStop
 }
 
 // SequenceSinh is a Sequence method.
 //
 // sinh sets each element of the receiver to its hyperbolic sine.
-func SequenceSinh(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceSinh(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckNumeric("sinh", true); err != nil {
 		return vm.IoError(err)
 	}
 	s.MapUnary(math.Sinh)
-	return s
+	return s, NoStop
 }
 
 // SequenceSqrt is a Sequence method.
 //
 // sqrt sets each element of the receiver to its square root.
-func SequenceSqrt(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceSqrt(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckNumeric("sqrt", true); err != nil {
 		return vm.IoError(err)
 	}
 	s.MapUnary(math.Sqrt)
-	return s
+	return s, NoStop
 }
 
 // SequenceSquare is a Sequence method.
 //
 // square sets each element of the receiver to its square.
-func SequenceSquare(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceSquare(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckNumeric("square", true); err != nil {
 		return vm.IoError(err)
 	}
 	s.MapUnary(func(x float64) float64 { return x * x })
-	return s
+	return s, NoStop
 }
 
 // SequenceSum is a Sequence method.
 //
 // sum returns the sum of the elements of the sequence.
-func SequenceSum(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceSum(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
-	return vm.NewNumber(s.Reduce(func(x, y float64) float64 { return x + y }, 0))
+	return vm.NewNumber(s.Reduce(func(x, y float64) float64 { return x + y }, 0)), NoStop
 }
 
 // SequenceTan is a Sequence method.
 //
 // tan sets each element of the receiver to its tangent.
-func SequenceTan(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceTan(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckNumeric("tan", true); err != nil {
 		return vm.IoError(err)
 	}
 	s.MapUnary(math.Tan)
-	return s
+	return s, NoStop
 }
 
 // SequenceTanh is a Sequence method.
 //
 // tanh sets each element of the receiver to its hyperbolic tangent.
-func SequenceTanh(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceTanh(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckNumeric("tanh", true); err != nil {
 		return vm.IoError(err)
 	}
 	s.MapUnary(math.Tanh)
-	return s
+	return s, NoStop
 }

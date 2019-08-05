@@ -1,5 +1,6 @@
 package iolang
 
+/*
 // Call contains information on how a Block was activated.
 type Call struct {
 	Object
@@ -34,113 +35,92 @@ func (c *Call) Clone() Interface {
 		Coroutine: c.Coroutine,
 	}
 }
+*/
 
 // NewCall creates a Call object sent from sender to the target's actor using
 // the message msg.
-func (vm *VM) NewCall(sender, actor Interface, msg *Message, target, context Interface) *Call {
-	return &Call{
-		Object:    *vm.CoreInstance("Call"),
-		Sender:    sender,
-		Activated: actor,
-		Msg:       msg,
-		Target:    target,
-		Context:   context,
-		Coroutine: vm,
+func (vm *VM) NewCall(sender, actor Interface, msg *Message, target, context Interface) Interface {
+	c := vm.CoreInstance("Call")
+	c.Slots = Slots{
+		"activated":   actor,
+		"coroutine":   vm,
+		"message":     msg,
+		"sender":      sender,
+		"slotContext": context,
+		"target":      target,
 	}
+	return c
 }
 
 func (vm *VM) initCall() {
-	var exemplar *Call
 	slots := Slots{
-		"activated":   vm.NewTypedCFunction(CallActivated, exemplar),
-		"argAt":       vm.NewTypedCFunction(CallArgAt, exemplar),
-		"argCount":    vm.NewTypedCFunction(CallArgCount, exemplar),
-		"coroutine":   vm.NewTypedCFunction(CallCoroutine, exemplar),
-		"evalArgAt":   vm.NewTypedCFunction(CallEvalArgAt, exemplar),
-		"message":     vm.NewTypedCFunction(CallMessage, exemplar),
-		"sender":      vm.NewTypedCFunction(CallSender, exemplar),
-		"slotContext": vm.NewTypedCFunction(CallSlotContext, exemplar),
-		"target":      vm.NewTypedCFunction(CallTarget, exemplar),
-		"type":        vm.NewString("Call"),
+		"argAt":     vm.NewCFunction(CallArgAt, nil),
+		"argCount":  vm.NewCFunction(CallArgCount, nil),
+		"evalArgAt": vm.NewCFunction(CallEvalArgAt, nil),
+		"type":      vm.NewString("Call"),
 	}
-	SetSlot(vm.Core, "Call", &Call{Object: *vm.ObjectWith(slots)})
-}
-
-// CallActivated is a Call method.
-//
-// activated returns the activated slot.
-func CallActivated(vm *VM, target, locals Interface, msg *Message) Interface {
-	return target.(*Call).Activated
+	vm.Core.SetSlot("Call", vm.ObjectWith(slots))
 }
 
 // CallArgAt is a Call method.
 //
 // argAt returns the nth argument to the call, or nil if n is out of bounds.
 // The argument is returned as the original message and is not evaluated.
-func CallArgAt(vm *VM, target, locals Interface, msg *Message) Interface {
-	m := target.(*Call).Msg
-	v, stop := msg.NumberArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+func CallArgAt(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+	s, proto := target.GetSlot("message")
+	if proto == nil {
+		return vm.RaiseException("no message slot for Call argAt")
+	}
+	m, ok := s.(*Message)
+	if !ok {
+		return vm.RaiseException("call message must be Message, not " + vm.TypeName(s))
+	}
+	v, err, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	r := m.ArgAt(int(v.Value))
 	if r != nil {
-		return r
+		return r, NoStop
 	}
-	return vm.Nil
+	return vm.Nil, NoStop
 }
 
 // CallArgCount is a Call method.
 //
 // argCount returns the number of arguments passed in the call.
-func CallArgCount(vm *VM, target, locals Interface, msg *Message) Interface {
-	return vm.NewNumber(float64(len(target.(*Call).Msg.Args)))
-}
-
-// CallCoroutine is a Call method.
-//
-// coroutine returns the coroutine running this call.
-func CallCoroutine(vm *VM, target, locals Interface, msg *Message) Interface {
-	return target.(*Call).Coroutine
+func CallArgCount(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+	s, proto := target.GetSlot("message")
+	if proto == nil {
+		return vm.RaiseException("no message slot for Call argCount")
+	}
+	m, ok := s.(*Message)
+	if !ok {
+		return vm.RaiseException("call message must be Message, not " + vm.TypeName(s))
+	}
+	return vm.NewNumber(float64(m.ArgCount())), NoStop
 }
 
 // CallEvalArgAt is a Call method.
 //
 // evalArgAt evaluates the nth argument to the call in the context of the
 // sender.
-func CallEvalArgAt(vm *VM, target, locals Interface, msg *Message) Interface {
-	c := target.(*Call)
-	v, stop := msg.NumberArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+func CallEvalArgAt(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+	s, proto := target.GetSlot("message")
+	if proto == nil {
+		return vm.RaiseException("no message slot for Call evalArgAt")
 	}
-	return c.Msg.EvalArgAt(vm, c.Sender, int(v.Value))
-}
-
-// CallMessage is a Call method.
-//
-// message returns the message that caused the call.
-func CallMessage(vm *VM, target, locals Interface, msg *Message) Interface {
-	return target.(*Call).Msg
-}
-
-// CallSender is a Call method.
-//
-// sender returns the object which sent the call.
-func CallSender(vm *VM, target, locals Interface, msg *Message) Interface {
-	return target.(*Call).Sender
-}
-
-// CallSlotContext is a Call method.
-//
-// slotContext returns the object on which the called slot was found.
-func CallSlotContext(vm *VM, target, locals Interface, msg *Message) Interface {
-	return target.(*Call).Context
-}
-
-// CallTarget is a Call method.
-//
-// target is the object which was the target of the call.
-func CallTarget(vm *VM, target, locals Interface, msg *Message) Interface {
-	return target.(*Call).Target
+	m, ok := s.(*Message)
+	if !ok {
+		return vm.RaiseException("call message must be Message, not " + vm.TypeName(s))
+	}
+	snd, proto := target.GetSlot("sender")
+	if proto == nil {
+		return vm.RaiseException("no sender slot for Call evalArgAt")
+	}
+	v, err, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
+	}
+	return m.EvalArgAt(vm, snd, int(v.Value))
 }

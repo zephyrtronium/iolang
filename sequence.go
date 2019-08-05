@@ -1,7 +1,10 @@
 package iolang
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
+	"math"
 	"reflect"
 )
 
@@ -132,9 +135,100 @@ func (vm *VM) NewSequence(value interface{}, mutable bool, encoding string) *Seq
 	}
 }
 
+// SequenceFromBytes makes a Sequence with the given type having the same bit
+// pattern as the given bytes. If the length of b is not a multiple of the item
+// size for the given kind, the extra bytes are ignored. The sequence's
+// encoding will be number unless the kind is uint8, uint16, or int32, in which
+// cases the encoding will be utf8, utf16, or utf32, respectively.
+func (vm *VM) SequenceFromBytes(b []byte, kind SeqKind) *Sequence {
+	if kind == SeqMU8 || kind == SeqIU8 {
+		return vm.NewSequence(b, kind > 0, "utf8")
+	}
+	if kind == SeqMF32 || kind == SeqIF32 {
+		v := make([]float32, 0, len(b)/4)
+		for len(b) >= 4 {
+			c := binary.LittleEndian.Uint32(b)
+			v = append(v, math.Float32frombits(c))
+			b = b[4:]
+		}
+		return vm.NewSequence(v, kind > 0, "number")
+	}
+	if kind == SeqMF64 || kind == SeqIF64 {
+		v := make([]float64, 0, len(b)/8)
+		for len(b) >= 8 {
+			c := binary.LittleEndian.Uint64(b)
+			v = append(v, math.Float64frombits(c))
+			b = b[8:]
+		}
+		return vm.NewSequence(v, kind > 0, "number")
+	}
+	var v interface{}
+	switch kind {
+	case SeqMU16, SeqIU16:
+		v = make([]uint16, len(b)/2)
+	case SeqMU32, SeqIU32:
+		v = make([]uint32, len(b)/4)
+	case SeqMU64, SeqIU64:
+		v = make([]uint64, len(b)/8)
+	case SeqMS8, SeqIS8:
+		v = make([]int8, len(b))
+	case SeqMS16, SeqIS16:
+		v = make([]int16, len(b)/2)
+	case SeqMS32, SeqIS32:
+		v = make([]int32, len(b)/4)
+	case SeqMS64, SeqIS64:
+		v = make([]int64, len(b)/8)
+	case SeqUntyped:
+		panic("cannot create untyped sequence")
+	default:
+		panic(fmt.Sprintf("unknown sequence kind %#v", kind))
+	}
+	binary.Read(bytes.NewReader(b), binary.LittleEndian, v)
+	return vm.NewSequence(v, kind > 0, kind.Encoding())
+}
+
+// StringArgAt evaluates the nth argument and returns it as a Sequence. If a
+// stop occurs during evaluation, the Sequence will be nil, and the stop status
+// and result will be returned. If the evaluated result is not a Sequence, the
+// result will be nil, and an exception will be raised.
+func (m *Message) StringArgAt(vm *VM, locals Interface, n int) (*Sequence, Interface, Stop) {
+	v, s := m.EvalArgAt(vm, locals, n)
+	if s == NoStop {
+		if str, ok := v.(*Sequence); ok {
+			return str, nil, NoStop
+		}
+		// Not the expected type, so return an error.
+		v, s = vm.RaiseExceptionf("argument %d to %s must be Sequence, not %s", n, m.Text, vm.TypeName(v))
+	}
+	return nil, v, s
+}
+
+// SequenceArgAt is a synonym for StringArgAt with nicer spelling.
+func (m *Message) SequenceArgAt(vm *VM, locals Interface, n int) (*Sequence, Interface, Stop) {
+	return m.StringArgAt(vm, locals, n)
+}
+
+// AsStringArgAt evaluates the nth argument, then activates its asString slot
+// for a string representation. If the result is not a string, then the result
+// is nil, and an error is returned.
+func (m *Message) AsStringArgAt(vm *VM, locals Interface, n int) (*Sequence, Interface, Stop) {
+	v, stop := m.EvalArgAt(vm, locals, n)
+	if stop != NoStop {
+		return nil, v, stop
+	}
+	r, stop := vm.Perform(v, locals, vm.IdentMessage("asString"))
+	if stop == NoStop {
+		if s, ok := r.(*Sequence); ok {
+			return s, nil, NoStop
+		}
+		r, stop = vm.RaiseExceptionf("argument %d to %s cannot be converted to string", n, m.Text)
+	}
+	return nil, r, stop
+}
+
 // Activate returns the sequence.
-func (s *Sequence) Activate(vm *VM, target, locals, context Interface, msg *Message) Interface {
-	return s
+func (s *Sequence) Activate(vm *VM, target, locals, context Interface, msg *Message) (Interface, Stop) {
+	return s, NoStop
 }
 
 // Clone returns a new Sequence whose value is a copy of this one's.
@@ -1111,162 +1205,162 @@ func (s *Sequence) Remove(i, j int) {
 }
 
 func (vm *VM) initSequence() {
-	var exemplar *Sequence
+	var kind *Sequence
 	// We can't use vm.NewString until we create the proto after this.
 	slots := Slots{
 		// sequence-immutable.go:
-		"afterSeq":         vm.NewTypedCFunction(SequenceAfterSeq, exemplar),
-		"asList":           vm.NewTypedCFunction(SequenceAsList, exemplar),
-		"asStruct":         vm.NewTypedCFunction(SequenceAsStruct, exemplar),
-		"asSymbol":         vm.NewTypedCFunction(SequenceAsSymbol, exemplar),
-		"at":               vm.NewTypedCFunction(SequenceAt, exemplar),
-		"beforeSeq":        vm.NewTypedCFunction(SequenceBeforeSeq, exemplar),
-		"beginsWithSeq":    vm.NewTypedCFunction(SequenceBeginsWithSeq, exemplar),
-		"between":          vm.NewTypedCFunction(SequenceBetween, exemplar),
-		"bitAt":            vm.NewTypedCFunction(SequenceBitAt, exemplar),
-		"byteAt":           vm.NewTypedCFunction(SequenceByteAt, exemplar),
-		"cloneAppendSeq":   vm.NewTypedCFunction(SequenceCloneAppendSeq, exemplar),
-		"compare":          vm.NewTypedCFunction(SequenceCompare, exemplar),
-		"contains":         vm.NewTypedCFunction(SequenceContains, exemplar),
-		"containsSeq":      vm.NewTypedCFunction(SequenceContainsSeq, exemplar),
-		"endsWithSeq":      vm.NewTypedCFunction(SequenceEndsWithSeq, exemplar),
-		"exSlice":          vm.NewTypedCFunction(SequenceExSlice, exemplar),
-		"findSeq":          vm.NewTypedCFunction(SequenceFindSeq, exemplar),
-		"findSeqs":         vm.NewTypedCFunction(SequenceFindSeqs, exemplar),
-		"foreach":          vm.NewTypedCFunction(SequenceForeach, exemplar),
-		"hash":             vm.NewTypedCFunction(SequenceHash, exemplar),
-		"inSlice":          vm.NewTypedCFunction(SequenceInSlice, exemplar),
-		"isMutable":        vm.NewTypedCFunction(SequenceIsMutable, exemplar),
-		"isZero":           vm.NewTypedCFunction(SequenceIsZero, exemplar),
-		"itemSize":         vm.NewTypedCFunction(SequenceItemSize, exemplar),
-		"itemType":         vm.NewTypedCFunction(SequenceItemType, exemplar),
-		"occurrencesOfSeq": vm.NewTypedCFunction(SequenceOccurrencesOfSeq, exemplar),
-		"pack":             vm.NewCFunction(SequencePack),
-		"reverseFindSeq":   vm.NewTypedCFunction(SequenceReverseFindSeq, exemplar),
-		"size":             vm.NewTypedCFunction(SequenceSize, exemplar),
-		"splitAt":          vm.NewTypedCFunction(SequenceSplitAt, exemplar),
-		"unpack":           vm.NewTypedCFunction(SequenceUnpack, exemplar),
-		"withStruct":       vm.NewCFunction(SequenceWithStruct),
+		"afterSeq":         vm.NewCFunction(SequenceAfterSeq, kind),
+		"asList":           vm.NewCFunction(SequenceAsList, kind),
+		"asStruct":         vm.NewCFunction(SequenceAsStruct, kind),
+		"asSymbol":         vm.NewCFunction(SequenceAsSymbol, kind),
+		"at":               vm.NewCFunction(SequenceAt, kind),
+		"beforeSeq":        vm.NewCFunction(SequenceBeforeSeq, kind),
+		"beginsWithSeq":    vm.NewCFunction(SequenceBeginsWithSeq, kind),
+		"between":          vm.NewCFunction(SequenceBetween, kind),
+		"bitAt":            vm.NewCFunction(SequenceBitAt, kind),
+		"byteAt":           vm.NewCFunction(SequenceByteAt, kind),
+		"cloneAppendSeq":   vm.NewCFunction(SequenceCloneAppendSeq, kind),
+		"compare":          vm.NewCFunction(SequenceCompare, kind),
+		"contains":         vm.NewCFunction(SequenceContains, kind),
+		"containsSeq":      vm.NewCFunction(SequenceContainsSeq, kind),
+		"endsWithSeq":      vm.NewCFunction(SequenceEndsWithSeq, kind),
+		"exSlice":          vm.NewCFunction(SequenceExSlice, kind),
+		"findSeq":          vm.NewCFunction(SequenceFindSeq, kind),
+		"findSeqs":         vm.NewCFunction(SequenceFindSeqs, kind),
+		"foreach":          vm.NewCFunction(SequenceForeach, kind),
+		"hash":             vm.NewCFunction(SequenceHash, kind),
+		"inSlice":          vm.NewCFunction(SequenceInSlice, kind),
+		"isMutable":        vm.NewCFunction(SequenceIsMutable, kind),
+		"isZero":           vm.NewCFunction(SequenceIsZero, kind),
+		"itemSize":         vm.NewCFunction(SequenceItemSize, kind),
+		"itemType":         vm.NewCFunction(SequenceItemType, kind),
+		"occurrencesOfSeq": vm.NewCFunction(SequenceOccurrencesOfSeq, kind),
+		"pack":             vm.NewCFunction(SequencePack, nil),
+		"reverseFindSeq":   vm.NewCFunction(SequenceReverseFindSeq, kind),
+		"size":             vm.NewCFunction(SequenceSize, kind),
+		"splitAt":          vm.NewCFunction(SequenceSplitAt, kind),
+		"unpack":           vm.NewCFunction(SequenceUnpack, kind),
+		"withStruct":       vm.NewCFunction(SequenceWithStruct, nil),
 
 		// sequence-mutable.go:
-		"append":              vm.NewTypedCFunction(SequenceAppend, exemplar),
-		"appendSeq":           vm.NewTypedCFunction(SequenceAppendSeq, exemplar),
-		"asMutable":           vm.NewTypedCFunction(SequenceAsMutable, exemplar),
-		"atInsertSeq":         vm.NewTypedCFunction(SequenceAtInsertSeq, exemplar),
-		"atPut":               vm.NewTypedCFunction(SequenceAtPut, exemplar),
-		"clipAfterSeq":        vm.NewTypedCFunction(SequenceClipAfterSeq, exemplar),
-		"clipAfterStartOfSeq": vm.NewTypedCFunction(SequenceClipAfterStartOfSeq, exemplar),
-		"clipBeforeEndOfSeq":  vm.NewTypedCFunction(SequenceClipBeforeEndOfSeq, exemplar),
-		"clipBeforeSeq":       vm.NewTypedCFunction(SequenceClipBeforeSeq, exemplar),
-		"convertToItemType":   vm.NewTypedCFunction(SequenceConvertToItemType, exemplar),
-		"copy":                vm.NewTypedCFunction(SequenceCopy, exemplar),
-		"duplicateIndexes":    vm.NewTypedCFunction(SequenceDuplicateIndexes, exemplar),
-		"empty":               vm.NewTypedCFunction(SequenceEmpty, exemplar),
-		"insertSeqEvery":      vm.NewTypedCFunction(SequenceInsertSeqEvery, exemplar),
-		"leaveThenRemove":     vm.NewTypedCFunction(SequenceLeaveThenRemove, exemplar),
-		"preallocateToSize":   vm.NewTypedCFunction(SequencePreallocateToSize, exemplar),
-		"rangeFill":           vm.NewTypedCFunction(SequenceRangeFill, exemplar),
-		"removeAt":            vm.NewTypedCFunction(SequenceRemoveAt, exemplar),
-		"removeEvenIndexes":   vm.NewTypedCFunction(SequenceRemoveEvenIndexes, exemplar),
-		"removeLast":          vm.NewTypedCFunction(SequenceRemoveLast, exemplar),
-		"removeOddIndexes":    vm.NewTypedCFunction(SequenceRemoveOddIndexes, exemplar),
-		"removePrefix":        vm.NewTypedCFunction(SequenceRemovePrefix, exemplar),
-		"removeSeq":           vm.NewTypedCFunction(SequenceRemoveSeq, exemplar),
-		"removeSlice":         vm.NewTypedCFunction(SequenceRemoveSlice, exemplar),
-		"removeSuffix":        vm.NewTypedCFunction(SequenceRemoveSuffix, exemplar),
-		"replaceFirstSeq":     vm.NewTypedCFunction(SequenceReplaceFirstSeq, exemplar),
-		"replaceSeq":          vm.NewTypedCFunction(SequenceReplaceSeq, exemplar),
-		"reverseInPlace":      vm.NewTypedCFunction(SequenceReverseInPlace, exemplar),
-		"setItemType":         vm.NewTypedCFunction(SequenceSetItemType, exemplar),
-		"setItemsToDouble":    vm.NewTypedCFunction(SequenceSetItemsToDouble, exemplar),
-		"setSize":             vm.NewTypedCFunction(SequenceSetSize, exemplar),
-		"sort":                vm.NewTypedCFunction(SequenceSort, exemplar),
-		"zero":                vm.NewTypedCFunction(SequenceZero, exemplar),
+		"append":              vm.NewCFunction(SequenceAppend, kind),
+		"appendSeq":           vm.NewCFunction(SequenceAppendSeq, kind),
+		"asMutable":           vm.NewCFunction(SequenceAsMutable, kind),
+		"atInsertSeq":         vm.NewCFunction(SequenceAtInsertSeq, kind),
+		"atPut":               vm.NewCFunction(SequenceAtPut, kind),
+		"clipAfterSeq":        vm.NewCFunction(SequenceClipAfterSeq, kind),
+		"clipAfterStartOfSeq": vm.NewCFunction(SequenceClipAfterStartOfSeq, kind),
+		"clipBeforeEndOfSeq":  vm.NewCFunction(SequenceClipBeforeEndOfSeq, kind),
+		"clipBeforeSeq":       vm.NewCFunction(SequenceClipBeforeSeq, kind),
+		"convertToItemType":   vm.NewCFunction(SequenceConvertToItemType, kind),
+		"copy":                vm.NewCFunction(SequenceCopy, kind),
+		"duplicateIndexes":    vm.NewCFunction(SequenceDuplicateIndexes, kind),
+		"empty":               vm.NewCFunction(SequenceEmpty, kind),
+		"insertSeqEvery":      vm.NewCFunction(SequenceInsertSeqEvery, kind),
+		"leaveThenRemove":     vm.NewCFunction(SequenceLeaveThenRemove, kind),
+		"preallocateToSize":   vm.NewCFunction(SequencePreallocateToSize, kind),
+		"rangeFill":           vm.NewCFunction(SequenceRangeFill, kind),
+		"removeAt":            vm.NewCFunction(SequenceRemoveAt, kind),
+		"removeEvenIndexes":   vm.NewCFunction(SequenceRemoveEvenIndexes, kind),
+		"removeLast":          vm.NewCFunction(SequenceRemoveLast, kind),
+		"removeOddIndexes":    vm.NewCFunction(SequenceRemoveOddIndexes, kind),
+		"removePrefix":        vm.NewCFunction(SequenceRemovePrefix, kind),
+		"removeSeq":           vm.NewCFunction(SequenceRemoveSeq, kind),
+		"removeSlice":         vm.NewCFunction(SequenceRemoveSlice, kind),
+		"removeSuffix":        vm.NewCFunction(SequenceRemoveSuffix, kind),
+		"replaceFirstSeq":     vm.NewCFunction(SequenceReplaceFirstSeq, kind),
+		"replaceSeq":          vm.NewCFunction(SequenceReplaceSeq, kind),
+		"reverseInPlace":      vm.NewCFunction(SequenceReverseInPlace, kind),
+		"setItemType":         vm.NewCFunction(SequenceSetItemType, kind),
+		"setItemsToDouble":    vm.NewCFunction(SequenceSetItemsToDouble, kind),
+		"setSize":             vm.NewCFunction(SequenceSetSize, kind),
+		"sort":                vm.NewCFunction(SequenceSort, kind),
+		"zero":                vm.NewCFunction(SequenceZero, kind),
 
 		// sequence-string.go:
-		"appendPathSeq":          vm.NewTypedCFunction(SequenceAppendPathSeq, exemplar),
-		"asBase64":               vm.NewTypedCFunction(SequenceAsBase64, exemplar),
-		"asFixedSizeType":        vm.NewTypedCFunction(SequenceAsFixedSizeType, exemplar),
-		"asIoPath":               vm.NewTypedCFunction(SequenceAsIoPath, exemplar),
-		"asJson":                 vm.NewTypedCFunction(SequenceAsJson, exemplar),
-		"asLatin1":               vm.NewTypedCFunction(SequenceAsLatin1, exemplar),
-		"asMessage":              vm.NewTypedCFunction(SequenceAsMessage, exemplar),
-		"asNumber":               vm.NewTypedCFunction(SequenceAsNumber, exemplar),
-		"asOSPath":               vm.NewTypedCFunction(SequenceAsOSPath, exemplar),
-		"asUTF16":                vm.NewTypedCFunction(SequenceAsUTF16, exemplar),
-		"asUTF32":                vm.NewTypedCFunction(SequenceAsUTF32, exemplar),
-		"asUTF8":                 vm.NewTypedCFunction(SequenceAsUTF8, exemplar),
-		"capitalize":             vm.NewTypedCFunction(SequenceCapitalize, exemplar),
-		"cloneAppendPath":        vm.NewTypedCFunction(SequenceCloneAppendPath, exemplar),
-		"convertToFixedSizeType": vm.NewTypedCFunction(SequenceConvertToFixedSizeType, exemplar),
-		"encoding":               vm.NewTypedCFunction(SequenceEncoding, exemplar),
-		"escape":                 vm.NewTypedCFunction(SequenceEscape, exemplar),
-		"fromBase":               vm.NewTypedCFunction(SequenceFromBase, exemplar),
-		"fromBase64":             vm.NewTypedCFunction(SequenceFromBase64, exemplar),
-		"interpolate":            vm.NewTypedCFunction(SequenceInterpolate, exemplar),
-		"isLowercase":            vm.NewTypedCFunction(SequenceIsLowercase, exemplar),
-		"isUppercase":            vm.NewTypedCFunction(SequenceIsUppercase, exemplar),
-		"lastPathComponent":      vm.NewTypedCFunction(SequenceLastPathComponent, exemplar),
-		"lowercase":              vm.NewTypedCFunction(SequenceLowercase, exemplar),
-		"lstrip":                 vm.NewTypedCFunction(SequenceLstrip, exemplar),
-		"setEncoding":            vm.NewTypedCFunction(SequenceSetEncoding, exemplar),
-		"parseJson":              vm.NewTypedCFunction(SequenceParseJson, exemplar),
-		"pathComponent":          vm.NewTypedCFunction(SequencePathComponent, exemplar),
-		"pathExtension":          vm.NewTypedCFunction(SequencePathExtension, exemplar),
-		"percentDecoded":         vm.NewTypedCFunction(SequencePercentDecoded, exemplar),
-		"percentEncoded":         vm.NewTypedCFunction(SequencePercentEncoded, exemplar),
-		"rstrip":                 vm.NewTypedCFunction(SequenceRstrip, exemplar),
-		"split":                  vm.NewTypedCFunction(SequenceSplit, exemplar),
-		"strip":                  vm.NewTypedCFunction(SequenceStrip, exemplar),
-		"toBase":                 vm.NewTypedCFunction(SequenceToBase, exemplar),
-		"unescape":               vm.NewTypedCFunction(SequenceUnescape, exemplar),
-		"uppercase":              vm.NewTypedCFunction(SequenceUppercase, exemplar),
-		"urlDecoded":             vm.NewTypedCFunction(SequenceUrlDecoded, exemplar),
-		"urlEncoded":             vm.NewTypedCFunction(SequenceUrlEncoded, exemplar),
-		"validEncodings":         vm.NewCFunction(SequenceValidEncodings),
+		"appendPathSeq":          vm.NewCFunction(SequenceAppendPathSeq, kind),
+		"asBase64":               vm.NewCFunction(SequenceAsBase64, kind),
+		"asFixedSizeType":        vm.NewCFunction(SequenceAsFixedSizeType, kind),
+		"asIoPath":               vm.NewCFunction(SequenceAsIoPath, kind),
+		"asJson":                 vm.NewCFunction(SequenceAsJson, kind),
+		"asLatin1":               vm.NewCFunction(SequenceAsLatin1, kind),
+		"asMessage":              vm.NewCFunction(SequenceAsMessage, kind),
+		"asNumber":               vm.NewCFunction(SequenceAsNumber, kind),
+		"asOSPath":               vm.NewCFunction(SequenceAsOSPath, kind),
+		"asUTF16":                vm.NewCFunction(SequenceAsUTF16, kind),
+		"asUTF32":                vm.NewCFunction(SequenceAsUTF32, kind),
+		"asUTF8":                 vm.NewCFunction(SequenceAsUTF8, kind),
+		"capitalize":             vm.NewCFunction(SequenceCapitalize, kind),
+		"cloneAppendPath":        vm.NewCFunction(SequenceCloneAppendPath, kind),
+		"convertToFixedSizeType": vm.NewCFunction(SequenceConvertToFixedSizeType, kind),
+		"encoding":               vm.NewCFunction(SequenceEncoding, kind),
+		"escape":                 vm.NewCFunction(SequenceEscape, kind),
+		"fromBase":               vm.NewCFunction(SequenceFromBase, kind),
+		"fromBase64":             vm.NewCFunction(SequenceFromBase64, kind),
+		"interpolate":            vm.NewCFunction(SequenceInterpolate, kind),
+		"isLowercase":            vm.NewCFunction(SequenceIsLowercase, kind),
+		"isUppercase":            vm.NewCFunction(SequenceIsUppercase, kind),
+		"lastPathComponent":      vm.NewCFunction(SequenceLastPathComponent, kind),
+		"lowercase":              vm.NewCFunction(SequenceLowercase, kind),
+		"lstrip":                 vm.NewCFunction(SequenceLstrip, kind),
+		"setEncoding":            vm.NewCFunction(SequenceSetEncoding, kind),
+		"parseJson":              vm.NewCFunction(SequenceParseJson, kind),
+		"pathComponent":          vm.NewCFunction(SequencePathComponent, kind),
+		"pathExtension":          vm.NewCFunction(SequencePathExtension, kind),
+		"percentDecoded":         vm.NewCFunction(SequencePercentDecoded, kind),
+		"percentEncoded":         vm.NewCFunction(SequencePercentEncoded, kind),
+		"rstrip":                 vm.NewCFunction(SequenceRstrip, kind),
+		"split":                  vm.NewCFunction(SequenceSplit, kind),
+		"strip":                  vm.NewCFunction(SequenceStrip, kind),
+		"toBase":                 vm.NewCFunction(SequenceToBase, kind),
+		"unescape":               vm.NewCFunction(SequenceUnescape, kind),
+		"uppercase":              vm.NewCFunction(SequenceUppercase, kind),
+		"urlDecoded":             vm.NewCFunction(SequenceUrlDecoded, kind),
+		"urlEncoded":             vm.NewCFunction(SequenceUrlEncoded, kind),
+		"validEncodings":         vm.NewCFunction(SequenceValidEncodings, nil),
 
 		// sequence-math.go:
-		"**=":                     vm.NewTypedCFunction(SequenceStarStarEq, exemplar),
-		"*=":                      vm.NewTypedCFunction(SequenceStarEq, exemplar),
-		"+=":                      vm.NewTypedCFunction(SequencePlusEq, exemplar),
-		"-=":                      vm.NewTypedCFunction(SequenceMinusEq, exemplar),
-		"/=":                      vm.NewTypedCFunction(SequenceSlashEq, exemplar),
-		"Max":                     vm.NewTypedCFunction(SequencePairwiseMax, exemplar),
-		"Min":                     vm.NewTypedCFunction(SequencePairwiseMin, exemplar),
-		"abs":                     vm.NewTypedCFunction(SequenceAbs, exemplar),
-		"acos":                    vm.NewTypedCFunction(SequenceAcos, exemplar),
-		"asBinaryNumber":          vm.NewTypedCFunction(SequenceAsBinaryNumber, exemplar),
-		"asBinarySignedInteger":   vm.NewTypedCFunction(SequenceAsBinarySignedInteger, exemplar),
-		"asBinaryUnsignedInteger": vm.NewTypedCFunction(SequenceAsBinaryUnsignedInteger, exemplar),
-		"asin":                    vm.NewTypedCFunction(SequenceAsin, exemplar),
-		"atan":                    vm.NewTypedCFunction(SequenceAtan, exemplar),
-		"bitCount":                vm.NewTypedCFunction(SequenceBitCount, exemplar),
-		"bitwiseAnd":              vm.NewTypedCFunction(SequenceBitwiseAnd, exemplar),
-		"bitwiseNot":              vm.NewTypedCFunction(SequenceBitwiseNot, exemplar),
-		"bitwiseOr":               vm.NewTypedCFunction(SequenceBitwiseOr, exemplar),
-		"bitwiseXor":              vm.NewTypedCFunction(SequenceBitwiseXor, exemplar),
-		"ceil":                    vm.NewTypedCFunction(SequenceCeil, exemplar),
-		"cos":                     vm.NewTypedCFunction(SequenceCos, exemplar),
-		"cosh":                    vm.NewTypedCFunction(SequenceCosh, exemplar),
-		"distanceTo":              vm.NewTypedCFunction(SequenceDistanceTo, exemplar),
-		"dotProduct":              vm.NewTypedCFunction(SequenceDotProduct, exemplar),
-		"floor":                   vm.NewTypedCFunction(SequenceFloor, exemplar),
-		"log":                     vm.NewTypedCFunction(SequenceLog, exemplar),
-		"log10":                   vm.NewTypedCFunction(SequenceLog10, exemplar),
-		"max":                     vm.NewTypedCFunction(SequenceMax, exemplar),
-		"mean":                    vm.NewTypedCFunction(SequenceMean, exemplar),
-		"meanSquare":              vm.NewTypedCFunction(SequenceMeanSquare, exemplar),
-		"min":                     vm.NewTypedCFunction(SequenceMin, exemplar),
-		"negate":                  vm.NewTypedCFunction(SequenceNegate, exemplar),
-		"normalize":               vm.NewTypedCFunction(SequenceNormalize, exemplar),
-		"product":                 vm.NewTypedCFunction(SequenceProduct, exemplar),
-		"sin":                     vm.NewTypedCFunction(SequenceSin, exemplar),
-		"sinh":                    vm.NewTypedCFunction(SequenceSinh, exemplar),
-		"sqrt":                    vm.NewTypedCFunction(SequenceSqrt, exemplar),
-		"sum":                     vm.NewTypedCFunction(SequenceSum, exemplar),
-		"square":                  vm.NewTypedCFunction(SequenceSquare, exemplar),
-		"tan":                     vm.NewTypedCFunction(SequenceTan, exemplar),
-		"tanh":                    vm.NewTypedCFunction(SequenceTanh, exemplar),
+		"**=":                     vm.NewCFunction(SequenceStarStarEq, kind),
+		"*=":                      vm.NewCFunction(SequenceStarEq, kind),
+		"+=":                      vm.NewCFunction(SequencePlusEq, kind),
+		"-=":                      vm.NewCFunction(SequenceMinusEq, kind),
+		"/=":                      vm.NewCFunction(SequenceSlashEq, kind),
+		"Max":                     vm.NewCFunction(SequencePairwiseMax, kind),
+		"Min":                     vm.NewCFunction(SequencePairwiseMin, kind),
+		"abs":                     vm.NewCFunction(SequenceAbs, kind),
+		"acos":                    vm.NewCFunction(SequenceAcos, kind),
+		"asBinaryNumber":          vm.NewCFunction(SequenceAsBinaryNumber, kind),
+		"asBinarySignedInteger":   vm.NewCFunction(SequenceAsBinarySignedInteger, kind),
+		"asBinaryUnsignedInteger": vm.NewCFunction(SequenceAsBinaryUnsignedInteger, kind),
+		"asin":                    vm.NewCFunction(SequenceAsin, kind),
+		"atan":                    vm.NewCFunction(SequenceAtan, kind),
+		"bitCount":                vm.NewCFunction(SequenceBitCount, kind),
+		"bitwiseAnd":              vm.NewCFunction(SequenceBitwiseAnd, kind),
+		"bitwiseNot":              vm.NewCFunction(SequenceBitwiseNot, kind),
+		"bitwiseOr":               vm.NewCFunction(SequenceBitwiseOr, kind),
+		"bitwiseXor":              vm.NewCFunction(SequenceBitwiseXor, kind),
+		"ceil":                    vm.NewCFunction(SequenceCeil, kind),
+		"cos":                     vm.NewCFunction(SequenceCos, kind),
+		"cosh":                    vm.NewCFunction(SequenceCosh, kind),
+		"distanceTo":              vm.NewCFunction(SequenceDistanceTo, kind),
+		"dotProduct":              vm.NewCFunction(SequenceDotProduct, kind),
+		"floor":                   vm.NewCFunction(SequenceFloor, kind),
+		"log":                     vm.NewCFunction(SequenceLog, kind),
+		"log10":                   vm.NewCFunction(SequenceLog10, kind),
+		"max":                     vm.NewCFunction(SequenceMax, kind),
+		"mean":                    vm.NewCFunction(SequenceMean, kind),
+		"meanSquare":              vm.NewCFunction(SequenceMeanSquare, kind),
+		"min":                     vm.NewCFunction(SequenceMin, kind),
+		"negate":                  vm.NewCFunction(SequenceNegate, kind),
+		"normalize":               vm.NewCFunction(SequenceNormalize, kind),
+		"product":                 vm.NewCFunction(SequenceProduct, kind),
+		"sin":                     vm.NewCFunction(SequenceSin, kind),
+		"sinh":                    vm.NewCFunction(SequenceSinh, kind),
+		"sqrt":                    vm.NewCFunction(SequenceSqrt, kind),
+		"sum":                     vm.NewCFunction(SequenceSum, kind),
+		"square":                  vm.NewCFunction(SequenceSquare, kind),
+		"tan":                     vm.NewCFunction(SequenceTan, kind),
+		"tanh":                    vm.NewCFunction(SequenceTanh, kind),
 	}
 	slots["addEquals"] = slots["+="]
 	slots["asBuffer"] = slots["asMutable"]
@@ -1283,15 +1377,12 @@ func (vm *VM) initSequence() {
 	}
 	is := ms.Clone().(*Sequence)
 	is.Kind = SeqIU8
-	SetSlot(vm.Core, "Sequence", ms)
-	SetSlot(vm.Core, "ImmutableSequence", is)
-	SetSlot(vm.Core, "String", is)
+	vm.Core.SetSlots(Slots{
+		"Sequence":          ms,
+		"ImmutableSequence": is,
+		"String":            is,
+	})
 	// Now that we have the String proto, we can use vm.NewString.
-	SetSlot(ms, "type", vm.NewString("Sequence"))
-	SetSlot(is, "type", vm.NewString("ImmutableSequence"))
-}
-
-// SequenceArgAt is a synonym for StringArgAt with nicer spelling.
-func (m *Message) SequenceArgAt(vm *VM, locals Interface, n int) (*Sequence, Interface) {
-	return m.StringArgAt(vm, locals, n)
+	ms.SetSlot("type", vm.NewString("Sequence"))
+	is.SetSlot("type", vm.NewString("ImmutableSequence"))
 }

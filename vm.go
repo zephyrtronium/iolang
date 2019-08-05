@@ -11,7 +11,7 @@ type VM struct {
 	Object
 
 	// Lobby is the default target of messages.
-	Lobby *Object
+	Lobby Interface
 	// Core is the object containing the basic types of Io.
 	Core *Object
 	// Addons is the object which will contain imported addons.
@@ -27,11 +27,10 @@ type VM struct {
 	// Sched is the scheduler for this VM and all related coroutines.
 	Sched *Scheduler
 	// Stop is a buffered channel for remote control of this coroutine. The
-	// evaluator checks this between each message. Stops with NoStop status
-	// tell the coroutine to yield, ones with ExceptionStop status are returned
-	// directly, and all other statuses cause the current evaluated result to
-	// be returned.
-	Stop chan Stop
+	// evaluator checks this between each message. NoStop stops tell the
+	// coroutine to yield, ExceptionStops have their results returned, and all
+	// other statuses cause the current evaluated result to be returned.
+	Stop chan RemoteStop
 
 	// StartTime is the time at which VM initialization began, used for the
 	// Date clock method.
@@ -55,7 +54,7 @@ func NewVM(args ...string) *VM {
 		False:      &Object{},
 		Nil:        &Object{},
 
-		Stop: make(chan Stop, 1),
+		Stop: make(chan RemoteStop, 1),
 
 		// TODO: should this be since program start instead to match Io?
 		StartTime: time.Now(),
@@ -106,8 +105,8 @@ func NewVM(args ...string) *VM {
 }
 
 // Activate returns the VM (coroutine).
-func (vm *VM) Activate(vm2 *VM, target, locals, context Interface, msg *Message) Interface {
-	return vm
+func (vm *VM) Activate(vm2 *VM, target, locals, context Interface, msg *Message) (Interface, Stop) {
+	return vm, NoStop
 }
 
 // Clone creates a new, inactive coroutine cloned from this one.
@@ -123,7 +122,7 @@ func (vm *VM) Clone() Interface {
 		Nil:        vm.Nil,
 		Operators:  vm.Operators,
 		Sched:      vm.Sched,
-		Stop:       make(chan Stop, 1),
+		Stop:       make(chan RemoteStop, 1),
 		StartTime:  vm.StartTime,
 		NumberMemo: vm.NumberMemo,
 	}
@@ -134,12 +133,7 @@ func (vm *VM) Clone() Interface {
 // returning an Object with that type as its proto. Panics if there is no such
 // type!
 func (vm *VM) CoreInstance(name string) *Object {
-	// We only want to check vm.Core, not any of its protos (which includes
-	// Object, so it would be a long search), so we have to do the lookup
-	// manually.
-	vm.Core.L.Lock()
-	p, ok := vm.Core.Slots[name]
-	vm.Core.L.Unlock()
+	p, ok := vm.Core.GetLocalSlot(name)
 	if ok {
 		return &Object{Slots: Slots{}, Protos: []Interface{p}}
 	}
@@ -150,9 +144,7 @@ func (vm *VM) CoreInstance(name string) *Object {
 // returning an Object with that type as its proto. Panics if there is no such
 // type!
 func (vm *VM) AddonInstance(name string) *Object {
-	vm.Addons.L.Lock()
-	p, ok := vm.Addons.Slots[name]
-	vm.Core.L.Unlock()
+	p, ok := vm.Addons.GetLocalSlot(name)
 	if ok {
 		return &Object{Slots: Slots{}, Protos: []Interface{p}}
 	}
@@ -178,16 +170,9 @@ func (vm *VM) AsBool(obj Interface) bool {
 	if obj == nil {
 		obj = vm.Nil
 	}
-	o := obj.SP()
-	isTrue, proto := GetSlot(o, "isTrue")
-	if proto == nil {
-		return true
-	}
-	r := vm.SimpleActivate(isTrue, obj, obj, "isTrue")
-	if a, ok := r.(*Object); ok {
-		if a == vm.False || a == vm.Nil {
-			return false
-		}
+	isTrue, _ := vm.Perform(obj, obj, vm.IdentMessage("isTrue"))
+	if isTrue == vm.False || isTrue == vm.Nil {
+		return false
 	}
 	return true
 }
@@ -201,9 +186,7 @@ func (vm *VM) AsString(obj Interface) string {
 	if obj == nil {
 		obj = vm.Nil
 	}
-	if asString, proto := GetSlot(obj, "asString"); proto != nil {
-		obj = vm.SimpleActivate(asString, obj, obj, "asString")
-	}
+	obj, _ = vm.Perform(obj, obj, vm.IdentMessage("asString"))
 	if s, ok := obj.(fmt.Stringer); ok {
 		return s.String()
 	}
@@ -215,14 +198,14 @@ func (vm *VM) AsString(obj Interface) string {
 func (vm *VM) initCore() {
 	// Other init* functions will set up Core slots, but it is courteous to
 	// make room for them.
-	vm.Core.Slots = make(Slots, 32)
+	vm.Core.Slots = make(Slots, 46)
 	vm.Core.Protos = []Interface{vm.BaseObject}
 	vm.Addons.Slots = Slots{}
 	vm.Addons.Protos = []Interface{vm.BaseObject}
 	lp := &Object{Slots: Slots{"Core": vm.Core, "Addons": vm.Addons}, Protos: []Interface{vm.Core, vm.Addons}}
-	vm.Lobby.Protos = []Interface{lp}
-	SetSlot(vm.Lobby, "Protos", lp)
-	SetSlot(vm.Lobby, "Lobby", vm.Lobby)
+	vm.Lobby.(Raw).RawSetProtos([]Interface{lp})
+	vm.Lobby.SetSlot("Protos", lp)
+	vm.Lobby.SetSlot("Lobby", vm.Lobby)
 }
 
 func (vm *VM) finalInit() {
@@ -248,10 +231,6 @@ Object do(
 		a append(getSlot("self"))
 		getSlot("self") protos foreach(ancestors(a))
 		a
-	)
-	isKindOf := method(proto,
-		// Lazy method, building the entire list of ancestors.
-		getSlot("self") ancestors contains(proto)
 	)
 
 	proto := method(protos first)

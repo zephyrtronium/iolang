@@ -48,8 +48,8 @@ type addontriple struct {
 }
 
 // Activate returns the scheduler.
-func (s *Scheduler) Activate(vm *VM, target, locals, context Interface, msg *Message) Interface {
-	return s
+func (s *Scheduler) Activate(vm *VM, target, locals, context Interface, msg *Message) (Interface, Stop) {
+	return s, NoStop
 }
 
 // Clone returns the scheduler. In this implementation, the scheduler is a
@@ -61,7 +61,7 @@ func (s *Scheduler) Clone() Interface {
 func (vm *VM) initScheduler() {
 	slots := Slots{
 		"type":          vm.NewString("Scheduler"),
-		"yieldingCoros": vm.NewCFunction(SchedulerYieldingCoros),
+		"yieldingCoros": vm.NewCFunction(SchedulerYieldingCoros, nil),
 	}
 	sched := &Scheduler{
 		Object: Object{Slots: slots, Protos: []Interface{vm.BaseObject}},
@@ -74,7 +74,7 @@ func (vm *VM) initScheduler() {
 		loaded: make(map[string]struct{}),
 	}
 	vm.Sched = sched
-	SetSlot(vm.Core, "Scheduler", sched)
+	vm.Core.SetSlot("Scheduler", sched)
 	go sched.schedule()
 }
 
@@ -105,7 +105,7 @@ loop:
 				for c := s.coros[w.b]; c != nil; c = s.coros[c] {
 					if c == w.a {
 						s.m.Unlock()
-						w.a.Stop <- w.a.RaiseException("deadlock").(Stop)
+						w.a.Stop <- RemoteStop{w.a.NewException("deadlock"), ExceptionStop}
 						continue loop
 					}
 				}
@@ -149,7 +149,7 @@ loop:
 //
 // yieldingCoros returns a list of all coroutines which are waiting on another
 // coroutine.
-func SchedulerYieldingCoros(vm *VM, target, locals Interface, msg *Message) Interface {
+func SchedulerYieldingCoros(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	var l []Interface
 	vm.Sched.m.Lock()
 	for a, b := range vm.Sched.coros {
@@ -158,5 +158,5 @@ func SchedulerYieldingCoros(vm *VM, target, locals Interface, msg *Message) Inte
 		}
 	}
 	vm.Sched.m.Unlock()
-	return vm.NewList(l...)
+	return vm.NewList(l...), NoStop
 }

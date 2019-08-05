@@ -41,6 +41,5 @@ For a more in-depth introduction to Io, check out [the official guide](http://io
 	+ Path
 	+ System
 	+ I'm sure I've missed others.
-- Fix CFunctions that eat control flow signals.
 - Write tests, both in Go and in Io.
 - [Document differences between this implementation and the original.](https://github.com/zephyrtronium/iolang/wiki/Implementation-Specific-Behavior)

@@ -23,8 +23,8 @@ func (vm *VM) NewMap(value map[string]Interface) *Map {
 }
 
 // Activate returns the map.
-func (m *Map) Activate(vm *VM, target, locals, context Interface, msg *Message) Interface {
-	return m
+func (m *Map) Activate(vm *VM, target, locals, context Interface, msg *Message) (Interface, Stop) {
+	return m, NoStop
 }
 
 // Clone creates a clone of the map.
@@ -40,36 +40,36 @@ func (m *Map) Clone() Interface {
 }
 
 func (vm *VM) initMap() {
-	var exemplar *Map
+	var kind *Map
 	slots := Slots{
-		"at":            vm.NewTypedCFunction(MapAt, exemplar),
-		"atIfAbsentPut": vm.NewTypedCFunction(MapAtIfAbsentPut, exemplar),
-		"atPut":         vm.NewTypedCFunction(MapAtPut, exemplar),
-		"empty":         vm.NewTypedCFunction(MapEmpty, exemplar),
-		"foreach":       vm.NewTypedCFunction(MapForeach, exemplar),
-		"hasKey":        vm.NewTypedCFunction(MapHasKey, exemplar),
-		"keys":          vm.NewTypedCFunction(MapKeys, exemplar),
-		"removeAt":      vm.NewTypedCFunction(MapRemoveAt, exemplar),
-		"size":          vm.NewTypedCFunction(MapSize, exemplar),
+		"at":            vm.NewCFunction(MapAt, kind),
+		"atIfAbsentPut": vm.NewCFunction(MapAtIfAbsentPut, kind),
+		"atPut":         vm.NewCFunction(MapAtPut, kind),
+		"empty":         vm.NewCFunction(MapEmpty, kind),
+		"foreach":       vm.NewCFunction(MapForeach, kind),
+		"hasKey":        vm.NewCFunction(MapHasKey, kind),
+		"keys":          vm.NewCFunction(MapKeys, kind),
+		"removeAt":      vm.NewCFunction(MapRemoveAt, kind),
+		"size":          vm.NewCFunction(MapSize, kind),
 		"type":          vm.NewString("Map"),
-		"values":        vm.NewTypedCFunction(MapValues, exemplar),
+		"values":        vm.NewCFunction(MapValues, kind),
 	}
-	SetSlot(vm.Core, "Map", &Map{Object: *vm.ObjectWith(slots), Value: map[string]Interface{}})
+	vm.Core.SetSlot("Map", &Map{Object: *vm.ObjectWith(slots), Value: map[string]Interface{}})
 }
 
 // MapAt is a Map method.
 //
 // at returns the value at the given key, or the default value if it is
 // missing.
-func MapAt(vm *VM, target, locals Interface, msg *Message) Interface {
+func MapAt(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	m := target.(*Map)
-	k, stop := msg.StringArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	k, err, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	v, ok := m.Value[k.String()]
 	if ok {
-		return v
+		return v, NoStop
 	}
 	return msg.EvalArgAt(vm, locals, 1)
 }
@@ -78,137 +78,134 @@ func MapAt(vm *VM, target, locals Interface, msg *Message) Interface {
 //
 // atIfAbsentPut sets the given key if it is not already in the map and returns
 // the value at the key if it is.
-func MapAtIfAbsentPut(vm *VM, target, locals Interface, msg *Message) Interface {
+func MapAtIfAbsentPut(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	m := target.(*Map)
-	kk, stop := msg.StringArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	kk, err, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	k := kk.String()
 	v, ok := m.Value[k]
 	if ok {
-		return v
+		return v, NoStop
 	}
-	v, ok = CheckStop(msg.EvalArgAt(vm, locals, 1), LoopStops)
-	if !ok {
-		return v
+	v, stop = msg.EvalArgAt(vm, locals, 1)
+	if stop != NoStop {
+		return v, stop
 	}
 	m.Value[k] = v
-	return v
+	return v, NoStop
 }
 
 // MapAtPut is a Map method.
 //
 // atPut sets the value of the given string key.
-func MapAtPut(vm *VM, target, locals Interface, msg *Message) Interface {
+func MapAtPut(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	m := target.(*Map)
-	k, stop := msg.StringArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	k, err, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
-	v, ok := CheckStop(msg.EvalArgAt(vm, locals, 1), LoopStops)
-	if !ok {
-		return v
+	v, stop := msg.EvalArgAt(vm, locals, 1)
+	if stop != NoStop {
+		return v, stop
 	}
 	m.Value[k.String()] = v
-	return target
+	return target, NoStop
 }
 
 // MapEmpty is a Map method.
 //
 // empty removes all items from the map.
-func MapEmpty(vm *VM, target, locals Interface, msg *Message) Interface {
+func MapEmpty(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	m := target.(*Map)
 	m.Value = map[string]Interface{}
-	return target
+	return target, NoStop
 }
 
 // MapForeach is a Map method.
 //
 // foreach performs a loop on each key of the map in random order, setting
 // key and value variables, with the key variable being optional.
-func MapForeach(vm *VM, target, locals Interface, msg *Message) (result Interface) {
+func MapForeach(vm *VM, target, locals Interface, msg *Message) (result Interface, control Stop) {
 	kn, vn, hkn, _, ev := ForeachArgs(msg)
 	if !hkn {
 		return vm.RaiseException("foreach requires 2 or 3 args")
 	}
 	m := target.(*Map)
 	for k, v := range m.Value {
-		SetSlot(locals, vn, v)
+		locals.SetSlot(vn, v)
 		if hkn {
-			SetSlot(locals, kn, vm.NewString(k))
+			locals.SetSlot(kn, vm.NewString(k))
 		}
-		result = ev.Eval(vm, locals)
-		if rr, ok := CheckStop(result, NoStop); !ok {
-			switch s := rr.(Stop); s.Status {
-			case ContinueStop:
-				result = s.Result
-			case BreakStop:
-				return s.Result
-			case ReturnStop, ExceptionStop:
-				return rr
-			default:
-				panic(fmt.Sprintf("iolang: invalid Stop: %#v", rr))
-			}
+		result, control = ev.Eval(vm, locals)
+		switch control {
+		case NoStop, ContinueStop: // do nothing
+		case BreakStop:
+			return result, NoStop
+		case ReturnStop, ExceptionStop:
+			return result, control
+		default:
+			panic(fmt.Sprintf("iolang: invalid Stop: %v", control))
 		}
 	}
-	return result
+	return result, NoStop
 }
 
 // MapHasKey is a Map method.
 //
 // hasKey returns true if the key exists in the map.
-func MapHasKey(vm *VM, target, locals Interface, msg *Message) Interface {
+func MapHasKey(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	m := target.(*Map)
-	k, stop := msg.StringArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	k, err, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	_, ok := m.Value[k.String()]
-	return vm.IoBool(ok)
+	return vm.IoBool(ok), NoStop
 }
 
 // MapKeys is a Map method.
 //
 // keys returns a list of all keys in the map in random order.
-func MapKeys(vm *VM, target, locals Interface, msg *Message) Interface {
+func MapKeys(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	m := target.(*Map)
 	l := make([]Interface, 0, len(m.Value))
 	for k := range m.Value {
 		l = append(l, vm.NewString(k))
 	}
-	return vm.NewList(l...)
+	return vm.NewList(l...), NoStop
 }
 
 // MapRemoveAt is a Map method.
 //
 // removeAt removes a key from the map if it exists.
-func MapRemoveAt(vm *VM, target, locals Interface, msg *Message) Interface {
+func MapRemoveAt(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	m := target.(*Map)
-	k, stop := msg.StringArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	k, err, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	delete(m.Value, k.String())
-	return target
+	return target, NoStop
 }
 
 // MapSize is a Map method.
 //
 // size returns the number of values in the map.
-func MapSize(vm *VM, target, locals Interface, msg *Message) Interface {
+func MapSize(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	m := target.(*Map)
-	return vm.NewNumber(float64(len(m.Value)))
+	return vm.NewNumber(float64(len(m.Value))), NoStop
 }
 
 // MapValues is a Map method.
 //
 // values returns a list of all values in the map in random order.
-func MapValues(vm *VM, target, locals Interface, msg *Message) Interface {
+func MapValues(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	m := target.(*Map)
 	l := make([]Interface, 0, len(m.Value))
 	for _, v := range m.Value {
 		l = append(l, v)
 	}
-	return vm.NewList(l...)
+	return vm.NewList(l...), NoStop
 }

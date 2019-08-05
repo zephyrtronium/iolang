@@ -3,6 +3,8 @@ package iorange
 import (
 	"github.com/zephyrtronium/iolang"
 	"strings"
+
+	. "github.com/zephyrtronium/iolang/addons"
 )
 
 type rangeAddon struct{}
@@ -11,29 +13,29 @@ func (rangeAddon) AddonName() string {
 	return "Range"
 }
 
-func (rangeAddon) Instance(vm *iolang.VM) iolang.Interface {
-	var r *Range
+func (rangeAddon) Instance(vm *VM) Interface {
+	var kind *Range
 	slots := iolang.Slots{
-		"at":       vm.NewTypedCFunction(At, r),
-		"contains": vm.NewTypedCFunction(Contains, r),
-		"first":    vm.NewTypedCFunction(First, r),
-		"foreach":  vm.NewTypedCFunction(Foreach, r),
-		"index":    vm.NewTypedCFunction(Index, r),
-		"indexOf":  vm.NewTypedCFunction(IndexOf, r),
-		"last":     vm.NewTypedCFunction(Last, r),
-		"next":     vm.NewTypedCFunction(Next, r),
-		"previous": vm.NewTypedCFunction(Previous, r),
-		"rewind":   vm.NewTypedCFunction(Rewind, r),
-		"setIndex": vm.NewTypedCFunction(SetIndex, r),
-		"setRange": vm.NewTypedCFunction(SetRange, r),
-		"size":     vm.NewTypedCFunction(Size, r),
+		"at":       vm.NewCFunction(At, kind),
+		"contains": vm.NewCFunction(Contains, kind),
+		"first":    vm.NewCFunction(First, kind),
+		"foreach":  vm.NewCFunction(Foreach, kind),
+		"index":    vm.NewCFunction(Index, kind),
+		"indexOf":  vm.NewCFunction(IndexOf, kind),
+		"last":     vm.NewCFunction(Last, kind),
+		"next":     vm.NewCFunction(Next, kind),
+		"previous": vm.NewCFunction(Previous, kind),
+		"rewind":   vm.NewCFunction(Rewind, kind),
+		"setIndex": vm.NewCFunction(SetIndex, kind),
+		"setRange": vm.NewCFunction(SetRange, kind),
+		"size":     vm.NewCFunction(Size, kind),
 		"type":     vm.NewString("Range"),
-		"value":    vm.NewTypedCFunction(Value, r),
+		"value":    vm.NewCFunction(Value, kind),
 	}
 	return &Range{Object: *vm.ObjectWith(slots)}
 }
 
-func (rangeAddon) Script(vm *iolang.VM) *iolang.Message {
+func (rangeAddon) Script(vm *VM) *Message {
 	msg, err := vm.Parse(strings.NewReader(script), "<init Range>")
 	if err != nil {
 		panic(err)
@@ -67,6 +69,6 @@ Core Number do(
 `
 
 // OpenAddon returns an object to load the addon.
-func OpenAddon(vm *iolang.VM) iolang.Addon {
+func OpenAddon(vm *VM) iolang.Addon {
 	return rangeAddon{}
 }

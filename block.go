@@ -18,16 +18,16 @@ type Block struct {
 
 // Activate performs the messages in this block if the block is activatable.
 // Otherwise, this block is returned.
-func (b *Block) Activate(vm *VM, target, locals, context Interface, msg *Message) Interface {
+func (b *Block) Activate(vm *VM, target, locals, context Interface, msg *Message) (Interface, Stop) {
 	// If this block isn't actually activatable, then it should be the result
 	// of activation.
 	if !b.Activatable {
-		return b
+		return b, NoStop
 	}
 	return b.reallyActivate(vm, target, locals, context, msg)
 }
 
-func (b *Block) reallyActivate(vm *VM, target, locals, context Interface, msg *Message) Interface {
+func (b *Block) reallyActivate(vm *VM, target, locals, context Interface, msg *Message) (Interface, Stop) {
 	scope := b.Self
 	if scope == nil {
 		scope = target
@@ -35,18 +35,17 @@ func (b *Block) reallyActivate(vm *VM, target, locals, context Interface, msg *M
 	call := vm.NewCall(locals, b, msg, target, context)
 	blkLocals := vm.NewLocals(scope, call)
 	for i, arg := range b.ArgNames {
-		x, ok := CheckStop(msg.EvalArgAt(vm, locals, i), LoopStops)
-		if !ok {
-			return x
+		x, stop := msg.EvalArgAt(vm, locals, i)
+		if stop != NoStop {
+			return x, stop
 		}
-		SetSlot(blkLocals, arg, x)
+		blkLocals.SetSlot(arg, x)
 	}
-	upto := ReturnStop
-	if b.PassStops {
-		upto = NoStop
+	result, stop := b.Message.Eval(vm, blkLocals)
+	if b.PassStops || stop == ExceptionStop {
+		return result, stop
 	}
-	result, _ := CheckStop(b.Message.Eval(vm, blkLocals), upto)
-	return result
+	return result, NoStop
 }
 
 // Clone creates a clone of the block with a deep copy of its message.
@@ -64,29 +63,29 @@ func (b *Block) Clone() Interface {
 // NewLocals instantiates a Locals object for a block activation.
 func (vm *VM) NewLocals(self, call Interface) *Object {
 	lc := vm.CoreInstance("Locals")
-	SetSlot(lc, "self", self)
-	SetSlot(lc, "call", call)
+	lc.SetSlot("self", self)
+	lc.SetSlot("call", call)
 	return lc
 }
 
 func (vm *VM) initBlock() {
-	var exemplar *Block
+	var kind *Block
 	slots := Slots{
-		"argumentNames":    vm.NewTypedCFunction(BlockArgumentNames, exemplar),
-		"asString":         vm.NewTypedCFunction(BlockAsString, exemplar),
-		"call":             vm.NewTypedCFunction(BlockCall, exemplar),
-		"message":          vm.NewTypedCFunction(BlockMessage, exemplar),
-		"passStops":        vm.NewTypedCFunction(BlockPassStops, exemplar),
-		"performOn":        vm.NewTypedCFunction(BlockPerformOn, exemplar),
-		"scope":            vm.NewTypedCFunction(BlockScope, exemplar),
-		"setArgumentNames": vm.NewTypedCFunction(BlockSetArgumentNames, exemplar),
-		"setMessage":       vm.NewTypedCFunction(BlockSetMessage, exemplar),
-		"setPassStops":     vm.NewTypedCFunction(BlockSetPassStops, exemplar),
-		"setScope":         vm.NewTypedCFunction(BlockSetScope, exemplar),
+		"argumentNames":    vm.NewCFunction(BlockArgumentNames, kind),
+		"asString":         vm.NewCFunction(BlockAsString, kind),
+		"call":             vm.NewCFunction(BlockCall, kind),
+		"message":          vm.NewCFunction(BlockMessage, kind),
+		"passStops":        vm.NewCFunction(BlockPassStops, kind),
+		"performOn":        vm.NewCFunction(BlockPerformOn, kind),
+		"scope":            vm.NewCFunction(BlockScope, kind),
+		"setArgumentNames": vm.NewCFunction(BlockSetArgumentNames, kind),
+		"setMessage":       vm.NewCFunction(BlockSetMessage, kind),
+		"setPassStops":     vm.NewCFunction(BlockSetPassStops, kind),
+		"setScope":         vm.NewCFunction(BlockSetScope, kind),
 		"type":             vm.NewString("Block"),
 	}
 	slots["code"] = slots["asString"]
-	SetSlot(vm.Core, "Block", &Block{Object: *vm.ObjectWith(slots)})
+	vm.Core.SetSlot("Block", &Block{Object: *vm.ObjectWith(slots)})
 }
 
 func (vm *VM) initLocals() {
@@ -96,9 +95,9 @@ func (vm *VM) initLocals() {
 	for k, v := range vm.BaseObject.Slots {
 		slots[k] = v
 	}
-	slots["forward"] = vm.NewCFunction(LocalsForward)
-	slots["updateSlot"] = vm.NewCFunction(LocalsUpdateSlot)
-	SetSlot(vm.Core, "Locals", &Object{Slots: slots, Protos: []Interface{}})
+	slots["forward"] = vm.NewCFunction(LocalsForward, nil)
+	slots["updateSlot"] = vm.NewCFunction(LocalsUpdateSlot, nil)
+	vm.Core.SetSlot("Locals", &Object{Slots: slots, Protos: []Interface{}})
 }
 
 // ObjectBlock is an Object method.
@@ -111,13 +110,13 @@ func (vm *VM) initLocals() {
 //   block(x, x +(1))
 //   io> succ call(3)
 //   4
-func ObjectBlock(vm *VM, target, locals Interface, msg *Message) Interface {
+func ObjectBlock(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	if msg.ArgCount() == 0 {
 		return &Block{
 			Object:  *vm.CoreInstance("Block"),
 			Message: vm.CachedMessage(vm.Nil),
 			Self:    locals,
-		}
+		}, NoStop
 	}
 	blk := Block{
 		Object:   *vm.CoreInstance("Block"),
@@ -128,7 +127,7 @@ func ObjectBlock(vm *VM, target, locals Interface, msg *Message) Interface {
 	for i, arg := range msg.Args[:len(msg.Args)-1] {
 		blk.ArgNames[i] = arg.Name()
 	}
-	return &blk
+	return &blk, NoStop
 }
 
 // ObjectMethod is an Object method, which is less redundant than it sounds.
@@ -142,29 +141,30 @@ func ObjectBlock(vm *VM, target, locals Interface, msg *Message) Interface {
 //   method(+(1))
 //   io> 3 succ
 //   4
-func ObjectMethod(vm *VM, target, locals Interface, msg *Message) Interface {
-	blk := ObjectBlock(vm, target, locals, msg).(*Block)
+func ObjectMethod(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+	r, _ := ObjectBlock(vm, target, locals, msg)
+	blk := r.(*Block)
 	blk.Activatable = true
 	blk.Self = nil
-	return blk
+	return blk, NoStop
 }
 
 // BlockArgumentNames is a Block method.
 //
 // argumentNames returns a list of the argument names of the block.
-func BlockArgumentNames(vm *VM, target, locals Interface, msg *Message) Interface {
+func BlockArgumentNames(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	blk := target.(*Block)
 	l := make([]Interface, len(blk.ArgNames))
 	for i, n := range blk.ArgNames {
 		l[i] = vm.NewString(n)
 	}
-	return vm.NewList(l...)
+	return vm.NewList(l...), NoStop
 }
 
 // BlockAsString is a Block method.
 //
 // asString creates a string representation of an object.
-func BlockAsString(vm *VM, target, locals Interface, msg *Message) Interface {
+func BlockAsString(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	blk := target.(*Block)
 	b := bytes.Buffer{}
 	if blk.Self == nil {
@@ -179,60 +179,61 @@ func BlockAsString(vm *VM, target, locals Interface, msg *Message) Interface {
 	b.WriteByte('\n')
 	blk.Message.stringRecurse(vm, &b)
 	b.WriteString("\n)")
-	return vm.NewString(b.String())
+	return vm.NewString(b.String()), NoStop
 }
 
 // BlockCall is a Block method.
 //
 // call activates a block.
-func BlockCall(vm *VM, target, locals Interface, msg *Message) Interface {
+func BlockCall(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	return target.(*Block).reallyActivate(vm, target, locals, locals, msg)
 }
 
 // BlockMessage is a Block method.
 //
 // message returns the block's message.
-func BlockMessage(vm *VM, target, locals Interface, msg *Message) Interface {
-	return target.(*Block).Message
+func BlockMessage(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+	return target.(*Block).Message, NoStop
 }
 
 // BlockPassStops is a Block method.
 //
 // passStops returns whether the block returns control flow signals upward.
-func BlockPassStops(vm *VM, target, locals Interface, msg *Message) Interface {
-	return vm.IoBool(target.(*Block).PassStops)
+func BlockPassStops(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+	return vm.IoBool(target.(*Block).PassStops), NoStop
 }
 
 // BlockPerformOn is a Block method.
 //
 // performOn executes the block in the context of the argument. Optional
 // arguments may be supplied to give non-default locals and message.
-func BlockPerformOn(vm *VM, target, locals Interface, msg *Message) Interface {
+func BlockPerformOn(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	blk := target.(*Block)
-	nt, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
-	if !ok {
-		return nt
+	nt, stop := msg.EvalArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return nt, stop
 	}
 	nl := locals
 	nm := msg
 	nc := nt
-	if len(msg.Args) > 1 {
-		nl, ok = CheckStop(msg.EvalArgAt(vm, locals, 1), LoopStops)
-		if !ok {
-			return nl
+	if msg.ArgCount() > 1 {
+		nl, stop = msg.EvalArgAt(vm, locals, 1)
+		if stop != NoStop {
+			return nl, stop
 		}
-		if len(msg.Args) > 2 {
-			r, ok := CheckStop(msg.EvalArgAt(vm, locals, 2), LoopStops)
-			if !ok {
-				return r
+		if msg.ArgCount() > 2 {
+			r, stop := msg.EvalArgAt(vm, locals, 2)
+			if stop != NoStop {
+				return r, stop
 			}
+			var ok bool
 			if nm, ok = r.(*Message); !ok {
 				return vm.RaiseException("argument 2 to performOn must evaluate to a Message")
 			}
 			if msg.ArgCount() > 3 {
-				nc, ok = CheckStop(msg.EvalArgAt(vm, locals, 3), LoopStops)
-				if !ok {
-					return nc
+				nc, stop = msg.EvalArgAt(vm, locals, 3)
+				if stop != NoStop {
+					return nc, stop
 				}
 			}
 		}
@@ -243,12 +244,12 @@ func BlockPerformOn(vm *VM, target, locals Interface, msg *Message) Interface {
 // BlockScope is a Block method.
 //
 // scope returns the scope of the block, or nil if the block is a method.
-func BlockScope(vm *VM, target, locals Interface, msg *Message) Interface {
+func BlockScope(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	blk := target.(*Block)
 	if blk.Self == nil {
-		return vm.Nil
+		return vm.Nil, NoStop
 	}
-	return blk.Self
+	return blk.Self, NoStop
 }
 
 // BlockSetArgumentNames is a Block method.
@@ -256,109 +257,104 @@ func BlockScope(vm *VM, target, locals Interface, msg *Message) Interface {
 // setArgumentNames changes the names of the arguments of the block. This does
 // not modify the block code, so some arguments might change to context lookups
 // and vice-versa.
-func BlockSetArgumentNames(vm *VM, target, locals Interface, msg *Message) Interface {
+func BlockSetArgumentNames(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	blk := target.(*Block)
 	l := make([]string, len(msg.Args))
 	for i := range msg.Args {
-		s, stop := msg.StringArgAt(vm, locals, i)
-		if stop != nil {
+		s, _, stop := msg.StringArgAt(vm, locals, i)
+		if stop != NoStop {
 			return vm.RaiseException("all arguments to setArgumentNames must be strings")
 		}
 		l[i] = s.String()
 	}
 	blk.ArgNames = l
-	return target
+	return target, NoStop
 }
 
 // BlockSetMessage is a Block method.
 //
 // setMessage changes the message executed by the block.
-func BlockSetMessage(vm *VM, target, locals Interface, msg *Message) Interface {
+func BlockSetMessage(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	blk := target.(*Block)
-	r, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
-	if !ok {
-		return r
+	r, stop := msg.EvalArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return r, stop
 	}
 	m, ok := r.(*Message)
 	if !ok {
 		return vm.RaiseException("argument to setMessage must evaluate to a Message")
 	}
 	blk.Message = m
-	return target
+	return target, NoStop
 }
 
 // BlockSetPassStops is a Block method.
 //
 // setPassStops changes whether the block allows control flow signals to
 // propagate out to the block's caller.
-func BlockSetPassStops(vm *VM, target, locals Interface, msg *Message) Interface {
+func BlockSetPassStops(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	blk := target.(*Block)
-	r, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
-	if !ok {
-		return r
+	r, stop := msg.EvalArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return r, stop
 	}
 	blk.PassStops = vm.AsBool(r)
-	return target
+	return target, NoStop
 }
 
 // BlockSetScope is a Block method.
 //
 // setScope changes the context of the block. If nil, the block becomes a
 // method.
-func BlockSetScope(vm *VM, target, locals Interface, msg *Message) Interface {
+func BlockSetScope(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	blk := target.(*Block)
-	r, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
-	if !ok {
-		return r
+	r, stop := msg.EvalArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return r, stop
 	}
 	if r == vm.Nil {
 		blk.Self = nil
 	} else {
 		blk.Self = r
 	}
-	return target
+	return target, NoStop
 }
 
 // LocalsForward is a Locals method.
 //
 // forward handles messages to which the object does not respond.
-func LocalsForward(vm *VM, target, locals Interface, msg *Message) Interface {
-	// We do not want a proto's self, so do the lookup manually.
-	lc := target.SP()
-	lc.L.Lock()
-	self, ok := lc.Slots["self"]
-	lc.L.Unlock()
+func LocalsForward(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+	self, ok := target.GetLocalSlot("self")
 	if ok && self != target {
 		return vm.Perform(self, locals, msg)
 	}
-	return vm.Nil
+	return vm.Nil, NoStop
 }
 
 // LocalsUpdateSlot is a Locals method.
 //
 // updateSlot changes the value of an existing slot.
-func LocalsUpdateSlot(vm *VM, target, locals Interface, msg *Message) Interface {
-	name, stop := msg.StringArgAt(vm, locals, 0)
-	if stop != nil {
-		return name
+func LocalsUpdateSlot(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+	name, err, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	slot := name.String()
-	_, proto := GetSlot(target, slot)
+	_, proto := target.GetSlot(slot)
 	if proto != nil {
 		// The slot exists on the locals object.
-		v, ok := CheckStop(msg.EvalArgAt(vm, locals, 1), LoopStops)
-		if !ok {
-			return v
+		v, stop := msg.EvalArgAt(vm, locals, 1)
+		if stop != NoStop {
+			return v, stop
 		}
-		SetSlot(target, slot, v)
-		return v
+		target.SetSlot(slot, v)
+		return v, NoStop
 	}
 	// If the slot doesn't exist on the locals, forward to self, which is the
 	// block scope or method receiver.
-	self, proto := GetSlot(target, "self")
+	self, proto := target.GetSlot("self")
 	if proto != nil {
-		v, _ := CheckStop(vm.Perform(self, locals, msg), LoopStops)
-		return v
+		return vm.Perform(self, locals, msg)
 	}
 	return vm.RaiseExceptionf("no slot named %s in %s", slot, vm.TypeName(target))
 }

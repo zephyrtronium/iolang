@@ -190,12 +190,12 @@ func (vm *VM) parseRecurse(open rune, src *bufio.Reader, tokens chan token, labe
 }
 
 // DoString parses and executes a string.
-func (vm *VM) DoString(src string, label string) Interface {
+func (vm *VM) DoString(src string, label string) (Interface, Stop) {
 	return vm.DoReader(strings.NewReader(src), label)
 }
 
 // DoReader parses and executes an io.Reader.
-func (vm *VM) DoReader(src io.Reader, label string) Interface {
+func (vm *VM) DoReader(src io.Reader, label string) (Interface, Stop) {
 	msg, err := vm.Parse(src, label)
 	if err != nil {
 		return vm.IoError(err)
@@ -207,10 +207,8 @@ func (vm *VM) DoReader(src io.Reader, label string) Interface {
 }
 
 // DoMessage evaluates a message.
-func (vm *VM) DoMessage(msg *Message, locals Interface) Interface {
-	// r, _ := CheckStop(msg.Eval(vm, locals), ExceptionStop)
-	r := msg.Eval(vm, locals)
-	return r
+func (vm *VM) DoMessage(msg *Message, locals Interface) (Interface, Stop) {
+	return msg.Eval(vm, locals)
 }
 
 // MustDoString parses and executes a string, panicking if the result is a
@@ -224,9 +222,9 @@ func (vm *VM) MustDoString(src string) Interface {
 	if err := vm.OpShuffle(msg); err != nil {
 		panic(err)
 	}
-	v, ok := CheckStop(msg.Eval(vm, vm.Lobby), ReturnStop)
-	if !ok {
-		panic(v.(Stop).Result)
+	v, stop := msg.Eval(vm, vm.Lobby)
+	if stop == ExceptionStop {
+		panic(v)
 	}
 	return v
 }

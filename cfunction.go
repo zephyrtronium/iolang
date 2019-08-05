@@ -8,7 +8,7 @@ import (
 
 // An Fn is a statically compiled function which can be executed in the context
 // of an Io VM.
-type Fn func(vm *VM, self, locals Interface, msg *Message) Interface
+type Fn func(vm *VM, self, locals Interface, msg *Message) (result Interface, control Stop)
 
 // A CFunction is an Io object representing a compiled function.
 type CFunction struct {
@@ -18,32 +18,30 @@ type CFunction struct {
 	Name     string
 }
 
-// NewCFunction creates a new CFunction wrapping f.
-func (vm *VM) NewCFunction(f Fn) *CFunction {
+// NewCFunction creates a new CFunction wrapping f. If kind is not nil, then
+// the CFunction will raise an exception when called on a target of a different
+// concrete type than that of kind.
+func (vm *VM) NewCFunction(f Fn, kind Interface) *CFunction {
 	u := reflect.ValueOf(f).Pointer()
+	name := path.Base(runtime.FuncForPC(u).Name())
+	if kind != nil {
+		typ := reflect.TypeOf(kind)
+		return &CFunction{
+			Object: *vm.CoreInstance("CFunction"),
+			Function: func(vm *VM, target, locals Interface, msg *Message) (result Interface, control Stop) {
+				if ttyp := reflect.TypeOf(target); ttyp != typ {
+					return vm.RaiseExceptionf("receiver of %s must be %v, not %v", name, typ, ttyp)
+				}
+				return f(vm, target, locals, msg)
+			},
+			Type: typ,
+			Name: name,
+		}
+	}
 	return &CFunction{
 		Object:   *vm.CoreInstance("CFunction"),
 		Function: f,
 		Name:     path.Base(runtime.FuncForPC(u).Name()),
-	}
-}
-
-// NewTypedCFunction creates a new CFunction that raises an exception when
-// called on a target of a type different from that of the exemplar.
-func (vm *VM) NewTypedCFunction(f Fn, exemplar Interface) *CFunction {
-	u := reflect.ValueOf(f).Pointer()
-	name := path.Base(runtime.FuncForPC(u).Name())
-	typ := reflect.TypeOf(exemplar)
-	return &CFunction{
-		Object: *vm.CoreInstance("CFunction"),
-		Function: func(vm *VM, target, locals Interface, msg *Message) (result Interface) {
-			if ttyp := reflect.TypeOf(target); ttyp != typ {
-				return vm.RaiseExceptionf("receiver of %s must be %v, not %v", name, typ, ttyp)
-			}
-			return f(vm, target, locals, msg)
-		},
-		Type: typ,
-		Name: name,
 	}
 }
 
@@ -58,7 +56,7 @@ func (f *CFunction) Clone() Interface {
 }
 
 // Activate calls the wrapped function.
-func (f *CFunction) Activate(vm *VM, target, locals, context Interface, msg *Message) Interface {
+func (f *CFunction) Activate(vm *VM, target, locals, context Interface, msg *Message) (Interface, Stop) {
 	return f.Function(vm, target, locals, msg)
 }
 
@@ -70,80 +68,78 @@ func (f *CFunction) String() string {
 func (vm *VM) initCFunction() {
 	// We can't use NewCFunction yet because the proto doesn't exist. We also
 	// want Core CFunction to be a CFunction, but one that won't panic if it's
-	// used. Therefore, our exemplar that is normally just used for its
-	// reflected type can also be a fake-ish thisContext for the Core slot.
+	// used. Therefore, our kind that is normally just used for its reflected
+	// type can also be a fake-ish thisContext for the Core slot.
 	slots := Slots{}
-	exemplar := &CFunction{
+	kind := &CFunction{
 		Object:   Object{Slots: slots, Protos: []Interface{vm.BaseObject}},
 		Function: ObjectThisContext,
 	}
-	SetSlot(vm.Core, "CFunction", exemplar)
+	vm.Core.SetSlot("CFunction", kind)
 	// Now we can create CFunctions.
-	slots["=="] = vm.NewTypedCFunction(CFunctionEqual, exemplar)
-	slots["asString"] = vm.NewTypedCFunction(CFunctionAsString, exemplar)
+	slots["=="] = vm.NewCFunction(CFunctionEqual, kind)
+	slots["asString"] = vm.NewCFunction(CFunctionAsString, kind)
 	slots["asSimpleString"] = slots["asString"]
-	slots["id"] = vm.NewTypedCFunction(CFunctionID, exemplar)
+	slots["id"] = vm.NewCFunction(CFunctionID, kind)
 	slots["name"] = slots["asString"]
-	slots["performOn"] = vm.NewTypedCFunction(CFunctionPerformOn, exemplar)
-	slots["typeName"] = vm.NewTypedCFunction(CFunctionTypeName, exemplar)
-	slots["uniqueName"] = vm.NewTypedCFunction(CFunctionUniqueName, exemplar)
+	slots["performOn"] = vm.NewCFunction(CFunctionPerformOn, kind)
+	slots["typeName"] = vm.NewCFunction(CFunctionTypeName, kind)
+	slots["uniqueName"] = vm.NewCFunction(CFunctionUniqueName, kind)
 }
 
 // CFunctionAsString is a CFunction method.
 //
 // asString returns a string representation of the object.
-func CFunctionAsString(vm *VM, target, locals Interface, msg *Message) Interface {
-	return vm.NewString(target.(*CFunction).Name)
+func CFunctionAsString(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+	return vm.NewString(target.(*CFunction).Name), NoStop
 }
 
 // CFunctionEqual is a CFunction method.
 //
 // == returns whether the two CFunctions hold the same internal function.
-func CFunctionEqual(vm *VM, target, locals Interface, msg *Message) Interface {
+func CFunctionEqual(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	f := target.(*CFunction)
-	r, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
-	if !ok {
-		return r
+	r, stop := msg.EvalArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return r, stop
 	}
 	other, ok := r.(*CFunction)
 	if !ok {
 		return vm.RaiseException("argument 0 to == must be CFunction, not " + vm.TypeName(r))
 	}
-	return vm.IoBool(reflect.ValueOf(f.Function).Pointer() == reflect.ValueOf(other.Function).Pointer())
+	return vm.IoBool(reflect.ValueOf(f.Function).Pointer() == reflect.ValueOf(other.Function).Pointer()), NoStop
 }
 
 // CFunctionID is a CFunction method.
 //
 // id returns a unique number for the function invoked by the CFunction.
-func CFunctionID(vm *VM, target, locals Interface, msg *Message) Interface {
+func CFunctionID(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	f := target.(*CFunction)
 	u := reflect.ValueOf(f.Function).Pointer()
-	return vm.NewNumber(float64(u))
+	return vm.NewNumber(float64(u)), NoStop
 }
 
 // CFunctionPerformOn is a CFunction method.
 //
 // performOn activates the CFunction using the supplied settings.
-func CFunctionPerformOn(vm *VM, target, locals Interface, msg *Message) Interface {
+func CFunctionPerformOn(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	f := target.(*CFunction)
-	nt, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
-	if !ok {
-		return nt
+	nt, stop := msg.EvalArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return nt, stop
 	}
 	nl := locals
 	nm := msg
 	if msg.ArgCount() > 1 {
-		nl, ok = CheckStop(msg.EvalArgAt(vm, locals, 1), LoopStops)
-		if !ok {
-			return nl
+		nl, stop = msg.EvalArgAt(vm, locals, 1)
+		if stop != NoStop {
+			return nl, stop
 		}
 		if msg.ArgCount() > 2 {
-			r, ok := CheckStop(msg.EvalArgAt(vm, locals, 2), LoopStops)
-			if !ok {
-				return nm
-			}
-			if nm, ok = r.(*Message); !ok {
-				return vm.RaiseException("argument 2 to performOn must be Message, not " + vm.TypeName(r))
+			var err Interface
+			nm, err, stop = msg.MessageArgAt(vm, locals, 2)
+			if stop != NoStop {
+				return err, stop
 			}
 		}
 	}
@@ -155,17 +151,17 @@ func CFunctionPerformOn(vm *VM, target, locals Interface, msg *Message) Interfac
 // CFunctionTypeName is a CFunction method.
 //
 // typeName returns the name of the type to which the CFunction is assigned.
-func CFunctionTypeName(vm *VM, target, locals Interface, msg *Message) Interface {
+func CFunctionTypeName(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	f := target.(*CFunction)
 	if f.Type == nil {
-		return vm.Nil
+		return vm.Nil, NoStop
 	}
-	return vm.NewString(f.Type.String())
+	return vm.NewString(f.Type.String()), NoStop
 }
 
 // CFunctionUniqueName is a CFunction method.
 //
 // uniqueName returns the name of the function.
-func CFunctionUniqueName(vm *VM, target, locals Interface, msg *Message) Interface {
-	return vm.NewString(target.(*CFunction).Name)
+func CFunctionUniqueName(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+	return vm.NewString(target.(*CFunction).Name), NoStop
 }

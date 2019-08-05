@@ -51,15 +51,13 @@ func (vm *VM) initOpTable() {
 		"type":                 vm.NewString("OperatorTable"),
 	}
 	vm.Operators = vm.ObjectWith(slots)
-	SetSlot(vm.Core, "OperatorTable", vm.Operators)
+	vm.Core.SetSlot("OperatorTable", vm.Operators)
 	// This method can be called post-initialization if both Core's and
 	// Core Message's OperatorTable slots are removed. In that case, we want to
 	// set the slot on both of those.
-	vm.Core.L.Lock()
-	msg, ok := vm.Core.Slots["Message"]
-	vm.Core.L.Unlock()
+	msg, ok := vm.Core.GetLocalSlot("Message")
 	if ok {
-		SetSlot(msg, "OperatorTable", vm.Operators)
+		msg.SetSlot("OperatorTable", vm.Operators)
 	}
 }
 
@@ -308,21 +306,19 @@ func (vm *VM) OpShuffle(m *Message) (err *Exception) {
 		// happen because the message begins with __noShuffling__. :)
 		return nil
 	}
-	operators, proto := GetSlot(m, "OperatorTable")
+	operators, proto := m.GetSlot("OperatorTable")
 	if proto == nil {
 		operators = vm.Operators
 	}
 	var ops, asgn *Map
 	for {
-		opsx, _ := GetSlot(operators, "operators")
-		asgnx, _ := GetSlot(operators, "assignOperators")
+		opsx, _ := operators.GetSlot("operators")
+		asgnx, _ := operators.GetSlot("assignOperators")
 		ops, _ = opsx.(*Map)
 		asgn, _ = asgnx.(*Map)
 		if ops == nil || asgn == nil {
 			vm.initOpTable()
-			vm.Core.L.Lock()
-			operators = vm.Core.Slots["OperatorTable"]
-			vm.Core.L.Unlock()
+			operators, _ = vm.Core.GetLocalSlot("OperatorTable")
 		} else {
 			break
 		}

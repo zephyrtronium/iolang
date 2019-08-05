@@ -31,8 +31,8 @@ type Message struct {
 }
 
 // Activate returns the message.
-func (m *Message) Activate(vm *VM, target, locals, context Interface, msg *Message) Interface {
-	return m
+func (m *Message) Activate(vm *VM, target, locals, context Interface, msg *Message) (Interface, Stop) {
+	return m, NoStop
 }
 
 // Clone returns a clone of the message with the same text only.
@@ -138,90 +138,41 @@ func (m *Message) ArgAt(n int) *Message {
 	return m.Args[n]
 }
 
-// NumberArgAt evaluates the nth argument and returns it as a Number. If a
-// return expression or an exception occurs during evaluation, the result will
-// be nil, and the control flow object will be returned. If the evaluated
-// result is not a Number, the result will be nil and an exception will be
-// returned.
-func (m *Message) NumberArgAt(vm *VM, locals Interface, n int) (*Number, Interface) {
-	v, ok := CheckStop(m.EvalArgAt(vm, locals, n), LoopStops)
-	if !ok {
-		return nil, v
-	}
-	if num, ok := v.(*Number); ok {
-		return num, nil
-	}
-	// Not the expected type, so return an error.
-	return nil, vm.RaiseExceptionf("argument %d to %s must be Number, not %s", n, m.Text, vm.TypeName(v))
-}
-
-// StringArgAt evaluates the nth argument and returns it as a Sequence. If a
-// return expression or an exception occurs during evaluation, the result will
-// be nil, and the control flow object will be returned. If the evaluated
-// result is not a Sequence, the result will be nil and an exception will be
-// returned.
-func (m *Message) StringArgAt(vm *VM, locals Interface, n int) (*Sequence, Interface) {
-	v, ok := CheckStop(m.EvalArgAt(vm, locals, n), LoopStops)
-	if !ok {
-		return nil, v
-	}
-	if str, ok := v.(*Sequence); ok {
-		return str, nil
-	}
-	// Not the expected type, so return an error.
-	return nil, vm.RaiseExceptionf("argument %d to %s must be Sequence, not %s", n, m.Text, vm.TypeName(v))
-}
-
-// ListArgAt evaluates the nth argument and returns it as a List. If a return
-// expression or an exception occurs during evaluation, the result will be nil,
-// and the control flow object will be returned. If the evaluated result is not
-// a List, the result will be nil, and an exception will be returned.
-func (m *Message) ListArgAt(vm *VM, locals Interface, n int) (*List, Interface) {
-	v, ok := CheckStop(m.EvalArgAt(vm, locals, n), LoopStops)
-	if !ok {
-		return nil, v
-	}
-	if lst, ok := v.(*List); ok {
-		return lst, nil
-	}
-	// Not the expected type, so return an error.
-	return nil, vm.RaiseExceptionf("argument %d to %s must be List, not %s", n, m.Text, vm.TypeName(v))
-}
-
-// AsStringArgAt evaluates the nth argument, then activates its asString slot
-// for a string representation. If the result is not a string, then the result
-// is nil, and an error is returned.
-func (m *Message) AsStringArgAt(vm *VM, locals Interface, n int) (*Sequence, Interface) {
-	v := m.EvalArgAt(vm, locals, n)
-	r, ok := CheckStop(vm.Perform(v, locals, vm.IdentMessage("asString")), LoopStops)
-	if ok {
-		if s, ok := r.(*Sequence); ok {
-			return s, nil
+// MessageArgAt evaluates the nth argument and returns it as a Message. If a
+// stop occurs during evaluation, the Message will be nil, and the stop status
+// and result will be returned. If the evaluated result is not a Message, the
+// result will be nil, and an exception will be raised.
+func (m *Message) MessageArgAt(vm *VM, locals Interface, n int) (*Message, Interface, Stop) {
+	v, s := m.EvalArgAt(vm, locals, n)
+	if s == NoStop {
+		if m, ok := v.(*Message); ok {
+			return m, nil, NoStop
 		}
-		return nil, vm.RaiseExceptionf("argument %d to %s cannot be converted to string", n, m.Text)
+		// Not the expected type, so return an error.
+		v, s = vm.RaiseExceptionf("argument %d to %s must be List, not %s", n, m.Text, vm.TypeName(v))
 	}
-	return nil, r
+	return nil, v, s
 }
 
 // EvalArgAt evaluates the nth argument.
-func (m *Message) EvalArgAt(vm *VM, locals Interface, n int) Interface {
+func (m *Message) EvalArgAt(vm *VM, locals Interface, n int) (result Interface, control Stop) {
 	return m.ArgAt(n).Eval(vm, locals)
 }
 
 // Eval evaluates a message in the context of the given VM. This is a proxy to
 // Send using locals as the target.
-func (m *Message) Eval(vm *VM, locals Interface) (result Interface) {
+func (m *Message) Eval(vm *VM, locals Interface) (result Interface, control Stop) {
 	return m.Send(vm, locals, locals)
 }
 
 // Send evaluates a message in the context of the given VM, targeting an
 // object.
-func (m *Message) Send(vm *VM, target, locals Interface) (result Interface) {
+func (m *Message) Send(vm *VM, target, locals Interface) (result Interface, control Stop) {
 	firstTarget := target
 	for m != nil {
 		select {
 		case stop := <-vm.Stop:
-			switch stop.Status {
+			switch stop.Control {
 			case NoStop, ResumeStop:
 				// Yield.
 				runtime.Gosched()
@@ -230,23 +181,23 @@ func (m *Message) Send(vm *VM, target, locals Interface) (result Interface) {
 				if result == nil {
 					result = vm.Nil
 				}
-				return result
+				return result, NoStop
 			case ExceptionStop:
 				// Return the exception itself.
-				return stop
+				return stop.Result, stop.Control
 			case PauseStop:
 				// Pause until we receive a ResumeStop.
 				vm.Sched.pause <- vm
-				for stop.Status != ResumeStop {
-					switch stop = <-vm.Stop; stop.Status {
+				for stop.Control != ResumeStop {
+					switch stop = <-vm.Stop; stop.Control {
 					case NoStop, PauseStop: // do nothing
 					case ContinueStop, BreakStop, ReturnStop:
 						if result == nil {
 							result = vm.Nil
 						}
-						return result
+						return result, NoStop
 					case ExceptionStop:
-						return stop
+						return stop.Result, stop.Control
 					case ResumeStop:
 						// Add ourselves back into the scheduler.
 						vm.Sched.Start(vm)
@@ -265,12 +216,14 @@ func (m *Message) Send(vm *VM, target, locals Interface) (result Interface) {
 			result = m.Memo
 			target = result
 		} else if !m.IsTerminator() {
-			var ok bool
-			result, ok = CheckStop(vm.Perform(target, locals, m), NoStop)
-			if !ok {
-				stop := result.(Stop)
-				stop.Stack = append(stop.Stack, m)
-				return stop
+			result, control = vm.Perform(target, locals, m)
+			if control != NoStop {
+				if control == ExceptionStop {
+					if e, ok := result.(*Exception); ok {
+						e.Stack = append(e.Stack, m)
+					}
+				}
+				return result, control
 			}
 			target = result
 		} else {
@@ -281,24 +234,24 @@ func (m *Message) Send(vm *VM, target, locals Interface) (result Interface) {
 	if result == nil {
 		result = vm.Nil
 	}
-	return result
+	return result, NoStop
 }
 
 // Perform executes a single message. The result may be a Stop.
-func (vm *VM) Perform(target, locals Interface, msg *Message) Interface {
-	if v, proto := GetSlot(target, msg.Name()); proto != nil {
-		x := v.Activate(vm, target, locals, proto, msg)
+func (vm *VM) Perform(target, locals Interface, msg *Message) (result Interface, control Stop) {
+	if v, proto := target.GetSlot(msg.Name()); proto != nil {
+		x, s := v.Activate(vm, target, locals, proto, msg)
 		if x != nil {
-			return x
+			return x, s
 		}
-		return vm.Nil
+		return vm.Nil, s
 	}
-	if forward, fp := GetSlot(target, "forward"); fp != nil {
-		x := forward.Activate(vm, target, locals, fp, msg)
+	if forward, fp := target.GetSlot("forward"); fp != nil {
+		x, s := forward.Activate(vm, target, locals, fp, msg)
 		if x != nil {
-			return x
+			return x, s
 		}
-		return vm.Nil
+		return vm.Nil, s
 	}
 	return vm.RaiseExceptionf("%s does not respond to %s", vm.TypeName(target), msg.Name())
 }
@@ -367,138 +320,134 @@ func (m *Message) stringRecurse(vm *VM, b *bytes.Buffer) {
 }
 
 func (vm *VM) initMessage() {
-	var exemplar *Message
+	var kind *Message
 	slots := Slots{
-		"appendArg":                  vm.NewTypedCFunction(MessageAppendArg, exemplar),
-		"appendCachedArg":            vm.NewTypedCFunction(MessageAppendCachedArg, exemplar),
-		"argAt":                      vm.NewTypedCFunction(MessageArgAt, exemplar),
-		"argCount":                   vm.NewTypedCFunction(MessageArgCount, exemplar),
-		"argsEvaluatedIn":            vm.NewTypedCFunction(MessageArgsEvaluatedIn, exemplar),
-		"arguments":                  vm.NewTypedCFunction(MessageArguments, exemplar),
-		"asMessageWithEvaluatedArgs": vm.NewTypedCFunction(MessageAsMessageWithEvaluatedArgs, exemplar),
-		"asString":                   vm.NewTypedCFunction(MessageAsString, exemplar),
-		"cachedResult":               vm.NewTypedCFunction(MessageCachedResult, exemplar),
-		"characterNumber":            vm.NewTypedCFunction(MessageCharacterNumber, exemplar),
-		"clone":                      vm.NewTypedCFunction(MessageClone, exemplar),
-		"doInContext":                vm.NewTypedCFunction(MessageDoInContext, exemplar),
-		"fromString":                 vm.NewCFunction(MessageFromString),
-		"hasCachedResult":            vm.NewTypedCFunction(MessageHasCachedResult, exemplar),
-		"isEndOfLine":                vm.NewTypedCFunction(MessageIsEndOfLine, exemplar),
-		"label":                      vm.NewTypedCFunction(MessageLabel, exemplar),
-		"last":                       vm.NewTypedCFunction(MessageLast, exemplar),
-		"lastBeforeEndOfLine":        vm.NewTypedCFunction(MessageLastBeforeEndOfLine, exemplar),
-		"lineNumber":                 vm.NewTypedCFunction(MessageLineNumber, exemplar),
-		"name":                       vm.NewTypedCFunction(MessageName, exemplar),
-		"next":                       vm.NewTypedCFunction(MessageNext, exemplar),
-		"nextIgnoreEndOfLines":       vm.NewTypedCFunction(MessageNextIgnoreEndOfLines, exemplar),
-		"opShuffle":                  vm.NewTypedCFunction(MessageOpShuffle, exemplar),
-		"previous":                   vm.NewTypedCFunction(MessagePrevious, exemplar),
-		"removeCachedResult":         vm.NewTypedCFunction(MessageRemoveCachedResult, exemplar),
-		"setArguments":               vm.NewTypedCFunction(MessageSetArguments, exemplar),
-		"setCachedResult":            vm.NewTypedCFunction(MessageSetCachedResult, exemplar),
-		"setCharacterNumber":         vm.NewTypedCFunction(MessageSetCharacterNumber, exemplar),
-		"setLabel":                   vm.NewTypedCFunction(MessageSetLabel, exemplar),
-		"setLineNumber":              vm.NewTypedCFunction(MessageSetLineNumber, exemplar),
-		"setName":                    vm.NewTypedCFunction(MessageSetName, exemplar),
-		"setNext":                    vm.NewTypedCFunction(MessageSetNext, exemplar),
+		"appendArg":                  vm.NewCFunction(MessageAppendArg, kind),
+		"appendCachedArg":            vm.NewCFunction(MessageAppendCachedArg, kind),
+		"argAt":                      vm.NewCFunction(MessageArgAt, kind),
+		"argCount":                   vm.NewCFunction(MessageArgCount, kind),
+		"argsEvaluatedIn":            vm.NewCFunction(MessageArgsEvaluatedIn, kind),
+		"arguments":                  vm.NewCFunction(MessageArguments, kind),
+		"asMessageWithEvaluatedArgs": vm.NewCFunction(MessageAsMessageWithEvaluatedArgs, kind),
+		"asString":                   vm.NewCFunction(MessageAsString, kind),
+		"cachedResult":               vm.NewCFunction(MessageCachedResult, kind),
+		"characterNumber":            vm.NewCFunction(MessageCharacterNumber, kind),
+		"clone":                      vm.NewCFunction(MessageClone, kind),
+		"doInContext":                vm.NewCFunction(MessageDoInContext, kind),
+		"fromString":                 vm.NewCFunction(MessageFromString, nil),
+		"hasCachedResult":            vm.NewCFunction(MessageHasCachedResult, kind),
+		"isEndOfLine":                vm.NewCFunction(MessageIsEndOfLine, kind),
+		"label":                      vm.NewCFunction(MessageLabel, kind),
+		"last":                       vm.NewCFunction(MessageLast, kind),
+		"lastBeforeEndOfLine":        vm.NewCFunction(MessageLastBeforeEndOfLine, kind),
+		"lineNumber":                 vm.NewCFunction(MessageLineNumber, kind),
+		"name":                       vm.NewCFunction(MessageName, kind),
+		"next":                       vm.NewCFunction(MessageNext, kind),
+		"nextIgnoreEndOfLines":       vm.NewCFunction(MessageNextIgnoreEndOfLines, kind),
+		"opShuffle":                  vm.NewCFunction(MessageOpShuffle, kind),
+		"previous":                   vm.NewCFunction(MessagePrevious, kind),
+		"removeCachedResult":         vm.NewCFunction(MessageRemoveCachedResult, kind),
+		"setArguments":               vm.NewCFunction(MessageSetArguments, kind),
+		"setCachedResult":            vm.NewCFunction(MessageSetCachedResult, kind),
+		"setCharacterNumber":         vm.NewCFunction(MessageSetCharacterNumber, kind),
+		"setLabel":                   vm.NewCFunction(MessageSetLabel, kind),
+		"setLineNumber":              vm.NewCFunction(MessageSetLineNumber, kind),
+		"setName":                    vm.NewCFunction(MessageSetName, kind),
+		"setNext":                    vm.NewCFunction(MessageSetNext, kind),
 		"type":                       vm.NewString("Message"),
 	}
 	slots["opShuffleC"] = slots["opShuffle"]
-	SetSlot(vm.Core, "Message", &Message{Object: *vm.ObjectWith(slots)})
+	vm.Core.SetSlot("Message", &Message{Object: *vm.ObjectWith(slots)})
 }
 
 // MessageAppendArg is a Message method.
 //
 // appendArg adds a message as an argument to the message.
-func MessageAppendArg(vm *VM, target, locals Interface, msg *Message) Interface {
+func MessageAppendArg(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	m := target.(*Message)
-	r, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
-	if !ok {
-		return r
-	}
-	nm, ok := r.(*Message)
-	if !ok {
-		return vm.RaiseException("argument 0 to appendArg must be Message, not " + vm.TypeName(r))
+	nm, err, stop := msg.MessageArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	m.Args = append(m.Args, nm)
-	return target
+	return target, NoStop
 }
 
 // MessageAppendCachedArg is a Message method.
 //
 // appendCachedArg adds a value as an argument to the message.
-func MessageAppendCachedArg(vm *VM, target, locals Interface, msg *Message) Interface {
+func MessageAppendCachedArg(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	m := target.(*Message)
-	r, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
-	if !ok {
-		return r
+	r, stop := msg.EvalArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return r, stop
 	}
 	m.Args = append(m.Args, vm.CachedMessage(r))
-	return target
+	return target, NoStop
 }
 
 // MessageArgAt is a Message method.
 //
 // argAt returns the nth argument, or nil if out of bounds.
-func MessageArgAt(vm *VM, target, locals Interface, msg *Message) Interface {
+func MessageArgAt(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	m := target.(*Message)
-	n, stop := msg.NumberArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	n, err, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	r := m.ArgAt(int(n.Value))
 	if r != nil {
-		return r
+		return r, NoStop
 	}
-	return vm.Nil
+	return vm.Nil, NoStop
 }
 
 // MessageArgCount is a Message method.
 //
 // argCount returns the number of arguments to the message.
-func MessageArgCount(vm *VM, target, locals Interface, msg *Message) Interface {
+func MessageArgCount(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	m := target.(*Message)
-	return vm.NewNumber(float64(m.ArgCount()))
+	return vm.NewNumber(float64(m.ArgCount())), NoStop
 }
 
 // MessageArgsEvaluatedIn is a Message method.
 //
 // argsEvaluatedIn returns a list containing the message arguments evaluated in
 // the context of the given object.
-func MessageArgsEvaluatedIn(vm *VM, target, locals Interface, msg *Message) Interface {
+func MessageArgsEvaluatedIn(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	m := target.(*Message)
-	ctx, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
-	if !ok {
-		return ctx
+	ctx, stop := msg.EvalArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return ctx, stop
 	}
 	l := make([]Interface, m.ArgCount())
 	for k, v := range m.Args {
-		r, ok := CheckStop(v.Eval(vm, ctx), LoopStops)
-		if !ok {
-			return r
+		r, stop := v.Eval(vm, ctx)
+		if stop != NoStop {
+			return r, stop
 		}
 		l[k] = r
 	}
-	return vm.NewList(l...)
+	return vm.NewList(l...), NoStop
 }
 
 // MessageArguments is a Message method.
 //
 // arguments returns a list of the arguments to the message as messages.
-func MessageArguments(vm *VM, target, locals Interface, msg *Message) Interface {
+func MessageArguments(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	m := target.(*Message)
 	l := make([]Interface, m.ArgCount())
 	for k, v := range m.Args {
 		l[k] = v
 	}
-	return vm.NewList(l...)
+	return vm.NewList(l...), NoStop
 }
 
 // MessageAsMessageWithEvaluatedArgs is a Message method.
 //
 // asMessageWithEvaluatedArgs creates a copy of the message with its arguments
 // evaluated.
-func MessageAsMessageWithEvaluatedArgs(vm *VM, target, locals Interface, msg *Message) Interface {
+func MessageAsMessageWithEvaluatedArgs(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	m := target.(*Message)
 	nm := &Message{
 		Object: *vm.CoreInstance("Message"),
@@ -508,56 +457,56 @@ func MessageAsMessageWithEvaluatedArgs(vm *VM, target, locals Interface, msg *Me
 		Prev:   m.Prev,
 	}
 	if msg.ArgCount() > 0 {
-		r, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
-		if !ok {
-			return r
+		r, stop := msg.EvalArgAt(vm, locals, 0)
+		if stop != NoStop {
+			return r, stop
 		}
 		locals = r
 	}
 	for k, v := range m.Args {
-		r, ok := CheckStop(v.Eval(vm, locals), LoopStops)
-		if !ok {
-			return r
+		r, stop := v.Eval(vm, locals)
+		if stop != NoStop {
+			return r, stop
 		}
 		nm.Args[k] = vm.CachedMessage(r)
 	}
-	return nm
+	return nm, NoStop
 }
 
 // MessageAsString is a Message method.
 //
 // asString creates a string representation of an object.
-func MessageAsString(vm *VM, target, locals Interface, msg *Message) Interface {
+func MessageAsString(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	b := bytes.Buffer{}
 	target.(*Message).stringRecurse(vm, &b)
-	return vm.NewString(b.String())
+	return vm.NewString(b.String()), NoStop
 }
 
 // MessageCachedResult is a Message method.
 //
 // cachedResult returns the cached value to which the message evaluates, or nil
 // if there is not one, though this may also mean that nil is cached.
-func MessageCachedResult(vm *VM, target, locals Interface, msg *Message) Interface {
+func MessageCachedResult(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	m := target.(*Message)
 	if m.Memo == nil {
-		return vm.Nil
+		return vm.Nil, NoStop
 	}
-	return m.Memo
+	return m.Memo, NoStop
 }
 
 // MessageCharacterNumber is a Message method.
 //
 // characterNumber returns the column number of the character within the line
 // at which the message was parsed.
-func MessageCharacterNumber(vm *VM, target, locals Interface, msg *Message) Interface {
-	return vm.NewNumber(float64(target.(*Message).Col))
+func MessageCharacterNumber(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+	return vm.NewNumber(float64(target.(*Message).Col)), NoStop
 }
 
 // MessageClone is a Message method.
 //
 // clone creates a deep copy of the message.
-func MessageClone(vm *VM, target, locals Interface, msg *Message) Interface {
-	return target.(*Message).DeepCopy()
+func MessageClone(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+	return target.(*Message).DeepCopy(), NoStop
 }
 
 // MessageDoInContext is a Message method.
@@ -565,31 +514,30 @@ func MessageClone(vm *VM, target, locals Interface, msg *Message) Interface {
 // doInContext evaluates the message in the context of the given object,
 // optionally with a given locals. If the locals aren't given, the context is
 // the locals.
-func MessageDoInContext(vm *VM, target, locals Interface, msg *Message) Interface {
+func MessageDoInContext(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	m := target.(*Message)
-	ctx, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
-	if !ok {
-		return ctx
+	ctx, stop := msg.EvalArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return ctx, stop
 	}
 	if msg.ArgCount() > 1 {
-		locals, ok = CheckStop(msg.EvalArgAt(vm, locals, 1), LoopStops)
-		if !ok {
-			return locals
+		locals, stop = msg.EvalArgAt(vm, locals, 1)
+		if stop != NoStop {
+			return locals, stop
 		}
 	} else {
 		locals = ctx
 	}
-	r, _ := CheckStop(m.Send(vm, ctx, locals), LoopStops)
-	return r
+	return m.Send(vm, ctx, locals)
 }
 
 // MessageFromString is a Message method.
 //
 // fromString parses the string into a message chain.
-func MessageFromString(vm *VM, target, locals Interface, msg *Message) Interface {
-	s, stop := msg.StringArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+func MessageFromString(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+	s, aerr, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return aerr, stop
 	}
 	m, err := vm.Parse(strings.NewReader(s.String()), "<string>")
 	if err != nil {
@@ -598,140 +546,140 @@ func MessageFromString(vm *VM, target, locals Interface, msg *Message) Interface
 	if err := vm.OpShuffle(m); err != nil {
 		return err.Raise()
 	}
-	return m
+	return m, NoStop
 }
 
 // MessageHasCachedResult is a Message method.
 //
 // hasCachedResult returns whether the message has a cached value to which the
 // message will evaluate.
-func MessageHasCachedResult(vm *VM, target, locals Interface, msg *Message) Interface {
-	return vm.IoBool(target.(*Message).Memo != nil)
+func MessageHasCachedResult(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+	return vm.IoBool(target.(*Message).Memo != nil), NoStop
 }
 
 // MessageIsEndOfLine is a Message method.
 //
 // isEndOfLine returns whether the message is a terminator.
-func MessageIsEndOfLine(vm *VM, target, locals Interface, msg *Message) Interface {
-	return vm.IoBool(target.(*Message).IsTerminator())
+func MessageIsEndOfLine(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+	return vm.IoBool(target.(*Message).IsTerminator()), NoStop
 }
 
 // MessageLabel is a Message method.
 //
 // label returns the message's label, typically the name of the file from which
 // it was parsed.
-func MessageLabel(vm *VM, target, locals Interface, msg *Message) Interface {
-	return vm.NewString(target.(*Message).Label)
+func MessageLabel(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+	return vm.NewString(target.(*Message).Label), NoStop
 }
 
 // MessageLast is a Message method.
 //
 // last returns the last message in the chain.
-func MessageLast(vm *VM, target, locals Interface, msg *Message) Interface {
+func MessageLast(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	m := target.(*Message)
 	for m.Next != nil {
 		m = m.Next
 	}
-	return m
+	return m, NoStop
 }
 
 // MessageLastBeforeEndOfLine is a Message method.
 //
 // lastBeforeEndOfLine returns the last message in the chain before a
 // terminator.
-func MessageLastBeforeEndOfLine(vm *VM, target, locals Interface, msg *Message) Interface {
+func MessageLastBeforeEndOfLine(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	m := target.(*Message)
 	for !m.Next.IsTerminator() {
 		m = m.Next
 	}
-	return m
+	return m, NoStop
 }
 
 // MessageLineNumber is a Message method.
 //
 // lineNumber returns the line number at which the message was parsed.
-func MessageLineNumber(vm *VM, target, locals Interface, msg *Message) Interface {
-	return vm.NewNumber(float64(target.(*Message).Line))
+func MessageLineNumber(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+	return vm.NewNumber(float64(target.(*Message).Line)), NoStop
 }
 
 // MessageName is a Message method.
 //
 // name returns the name of the message.
-func MessageName(vm *VM, target, locals Interface, msg *Message) Interface {
+func MessageName(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	m := target.(*Message)
-	return vm.NewString(m.Name())
+	return vm.NewString(m.Name()), NoStop
 }
 
 // MessageNext is a Message method.
 //
 // next returns the next message in the chain, or nil if this is the last one.
-func MessageNext(vm *VM, target, locals Interface, msg *Message) Interface {
+func MessageNext(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	m := target.(*Message)
 	if m.Next != nil {
-		return m.Next
+		return m.Next, NoStop
 	}
-	return vm.Nil
+	return vm.Nil, NoStop
 }
 
 // MessageNextIgnoreEndOfLines is a Message method.
 //
 // nextIgnoreEndOfLines returns the next message in the chain, skipping
 // terminators, or nil if this is the last such message.
-func MessageNextIgnoreEndOfLines(vm *VM, target, locals Interface, msg *Message) Interface {
+func MessageNextIgnoreEndOfLines(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	m := target.(*Message)
 	// I think the original returns the terminator at the end of the chain if
 	// that is encountered, but that seems like a breach of contract.
 	for m.Next.IsTerminator() {
 		if m.Next == nil {
-			return vm.Nil
+			return vm.Nil, NoStop
 		}
 		m = m.Next
 	}
-	return m
+	return m, NoStop
 }
 
 // MessageOpShuffle is a Message method.
 //
 // opShuffle performs operator precedence shuffling on the message using the
 // message's OperatorTable.
-func MessageOpShuffle(vm *VM, target, locals Interface, msg *Message) Interface {
+func MessageOpShuffle(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	m := target.(*Message)
 	if err := vm.OpShuffle(m); err != nil {
 		return err.Raise()
 	}
-	return m
+	return m, NoStop
 }
 
 // MessagePrevious is a Message method.
 //
 // previous returns the previous message in the chain.
-func MessagePrevious(vm *VM, target, locals Interface, msg *Message) Interface {
+func MessagePrevious(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	m := target.(*Message)
 	if m.Prev == nil {
-		return vm.Nil
+		return vm.Nil, NoStop
 	}
-	return m.Prev
+	return m.Prev, NoStop
 }
 
 // MessageRemoveCachedResult is a Message method.
 //
 // removeCachedResult removes the cached value to which the message will
 // evaluate, causing it to send to its receiver normally.
-func MessageRemoveCachedResult(vm *VM, target, locals Interface, msg *Message) Interface {
+func MessageRemoveCachedResult(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	m := target.(*Message)
 	m.Memo = nil
-	return target
+	return target, NoStop
 }
 
 // MessageSetArguments is a Message method.
 //
 // setArguments sets the message's arguments to deep copies of the messages in
 // the list argument.
-func MessageSetArguments(vm *VM, target, locals Interface, msg *Message) Interface {
+func MessageSetArguments(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	m := target.(*Message)
-	l, stop := msg.ListArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	l, err, stop := msg.ListArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	args := make([]*Message, len(l.Value))
 	for k, v := range l.Value {
@@ -742,89 +690,89 @@ func MessageSetArguments(vm *VM, target, locals Interface, msg *Message) Interfa
 		args[k] = arg
 	}
 	m.Args = args
-	return m
+	return m, NoStop
 }
 
 // MessageSetCachedResult is a Message method.
 //
 // setCachedResult sets the message's cached value, causing it to evaluate to
 // that value instead of sending to its receiver.
-func MessageSetCachedResult(vm *VM, target, locals Interface, msg *Message) Interface {
+func MessageSetCachedResult(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	m := target.(*Message)
-	r, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
-	if !ok {
-		return r
+	r, stop := msg.EvalArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return r, stop
 	}
 	m.Memo = r
-	return m
+	return m, NoStop
 }
 
 // MessageSetCharacterNumber is a Message method.
 //
 // setCharacterNumber sets the character number of the message, typically the
 // column number within the line at which the message was parsed.
-func MessageSetCharacterNumber(vm *VM, target, locals Interface, msg *Message) Interface {
+func MessageSetCharacterNumber(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	m := target.(*Message)
-	n, stop := msg.NumberArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	n, err, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	m.Col = int(n.Value)
-	return target
+	return target, NoStop
 }
 
 // MessageSetLabel is a Message method.
 //
 // setLabel sets the label of the message to the given string.
-func MessageSetLabel(vm *VM, target, locals Interface, msg *Message) Interface {
+func MessageSetLabel(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	m := target.(*Message)
-	s, stop := msg.StringArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	s, err, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	m.Label = s.String()
-	return target
+	return target, NoStop
 }
 
 // MessageSetLineNumber is a Message method.
 //
 // setLineNumber sets the line number of the message to the given integer.
-func MessageSetLineNumber(vm *VM, target, locals Interface, msg *Message) Interface {
+func MessageSetLineNumber(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	m := target.(*Message)
-	n, stop := msg.NumberArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	n, err, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	m.Line = int(n.Value)
-	return target
+	return target, NoStop
 }
 
 // MessageSetName is a Message method.
 //
 // setName sets the message name to the given string.
-func MessageSetName(vm *VM, target, locals Interface, msg *Message) Interface {
+func MessageSetName(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	m := target.(*Message)
-	s, stop := msg.StringArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	s, err, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	m.Text = s.String()
-	return m
+	return m, NoStop
 }
 
 // MessageSetNext is a Message method.
 //
 // setNext sets the next message in the chain. That message's previous link
 // will be set to this message, if non-nil.
-func MessageSetNext(vm *VM, target, locals Interface, msg *Message) Interface {
+func MessageSetNext(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	m := target.(*Message)
-	r, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
-	if !ok {
-		return r
+	r, stop := msg.EvalArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return r, stop
 	}
 	if r == vm.Nil {
 		m.Next = nil
-		return target
+		return target, NoStop
 	}
 	nm, ok := r.(*Message)
 	if !ok {
@@ -832,5 +780,5 @@ func MessageSetNext(vm *VM, target, locals Interface, msg *Message) Interface {
 	}
 	m.Next = nm
 	nm.Prev = m
-	return target
+	return target, NoStop
 }

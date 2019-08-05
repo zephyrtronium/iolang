@@ -13,7 +13,7 @@ import (
 // FileLastAccessDate is a File method.
 //
 // lastAccessDate returns the date at which the file was last accessed.
-func FileLastAccessDate(vm *VM, target, locals Interface, msg *Message) Interface {
+func FileLastAccessDate(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	f := target.(*File)
 	fi, err := os.Stat(f.Path)
 	if err != nil {
@@ -24,14 +24,14 @@ func FileLastAccessDate(vm *VM, target, locals Interface, msg *Message) Interfac
 	if !ok {
 		panic(fmt.Sprintf("iolang: %T.Sys() returned wrong type %T", fi, si))
 	}
-	return vm.NewDate(time.Unix(s.Atim.Unix()))
+	return vm.NewDate(time.Unix(s.Atim.Unix())), NoStop
 }
 
 // FileLastInfoChangeDate is a File method.
 //
 // lastInfoChangeDate returns the date at which the file's metadata was last
 // changed.
-func FileLastInfoChangeDate(vm *VM, target, locals Interface, msg *Message) Interface {
+func FileLastInfoChangeDate(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	f := target.(*File)
 	fi, err := os.Stat(f.Path)
 	if err != nil {
@@ -42,5 +42,5 @@ func FileLastInfoChangeDate(vm *VM, target, locals Interface, msg *Message) Inte
 	if !ok {
 		panic(fmt.Sprintf("iolang: %T.Sys() returned wrong type %T", fi, si))
 	}
-	return vm.NewDate(time.Unix(s.Ctim.Unix()))
+	return vm.NewDate(time.Unix(s.Ctim.Unix())), NoStop
 }

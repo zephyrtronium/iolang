@@ -143,7 +143,7 @@ package iolang
 
 // IoVersion is the interpreter version, used for the System version slot. It
 // bears no relation to versions of the original implementation.
-const IoVersion = "0"
+const IoVersion = "1"
 
 // IoSpecVer is the Io language version, used for the System iospecVersion
 // slot.

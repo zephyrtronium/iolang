@@ -9,8 +9,8 @@ type Exception struct {
 }
 
 // Activate returns the exception.
-func (e *Exception) Activate(vm *VM, target, locals, context Interface, msg *Message) Interface {
-	return e
+func (e *Exception) Activate(vm *VM, target, locals, context Interface, msg *Message) (Interface, Stop) {
+	return e, NoStop
 }
 
 // Clone creates a clone of the exception.
@@ -33,146 +33,125 @@ func (vm *VM) NewExceptionf(format string, args ...interface{}) *Exception {
 }
 
 // RaiseException returns NewException(msg).Raise().
-func (vm *VM) RaiseException(msg string) Interface {
+func (vm *VM) RaiseException(msg string) (Interface, Stop) {
 	return vm.NewException(msg).Raise()
 }
 
 // RaiseExceptionf returns NewExceptionf(format, args...).Raise().
-func (vm *VM) RaiseExceptionf(format string, args ...interface{}) Interface {
+func (vm *VM) RaiseExceptionf(format string, args ...interface{}) (Interface, Stop) {
 	return vm.NewExceptionf(format, args...).Raise()
 }
 
 // String returns the error message.
 func (e *Exception) String() string {
-	s, _ := GetSlot(e, "error")
+	s, _ := e.GetSlot("error")
 	return fmt.Sprint(s)
 }
 
 // Error returns the error message.
 func (e *Exception) Error() string {
-	s, _ := GetSlot(e, "error")
+	s, _ := e.GetSlot("error")
 	return fmt.Sprint(s)
 }
 
 // Raise returns the exception in a Stop, so that the interpreter will treat it
 // as an exception, rather than as an object.
-func (e *Exception) Raise() Interface {
-	return Stop{Status: ExceptionStop, Result: e}
-}
-
-// IsIoError returns true if the given object is an exception produced by Io.
-func IsIoError(err interface{}) bool {
-	switch e := err.(type) {
-	case *Exception:
-		return true
-	case Stop:
-		return e.Status == ExceptionStop
-	default:
-		return false
-	}
+func (e *Exception) Raise() (Interface, Stop) {
+	return e, ExceptionStop
 }
 
 // IoError converts an error to a raising Io exception. If it is already an Io
-// exception, it will be used unchanged. If it is already an Io exception being
-// raised, the same object will be returned. If it is not an error, panic.
-func (vm *VM) IoError(err interface{}) Interface {
+// object, it will be used unchanged. Otherwise, if it is not an error, panic.
+func (vm *VM) IoError(err interface{}) (Interface, Stop) {
 	switch e := err.(type) {
-	case *Exception:
-		return e.Raise()
-	case Stop:
-		if e.Status != ExceptionStop {
-			panic(fmt.Sprintf("iolang.IoError: not an error: %#v", err))
-		}
-		return e
-	default:
-		return vm.RaiseException(e.(error).Error())
+	case Interface:
+		return e, ExceptionStop
+	case error:
+		return vm.RaiseException(e.Error())
 	}
+	panic(fmt.Sprintf("iolang.IoError: not an error: %#v", err))
 }
 
 // Must panics if the argument is an error and otherwise returns it.
 func Must(v Interface) Interface {
-	if e, ok := v.(error); ok {
-		panic(e)
-	} else if s, _ := v.(Stop); s.Status == ExceptionStop {
-		panic(s.Result)
+	if _, ok := v.(error); ok {
+		panic(v)
 	}
 	return v
 }
 
 func (vm *VM) initException() {
-	var exemplar *Exception
+	var kind *Exception
 	slots := Slots{
 		"caughtMessage":   vm.Nil,
 		"error":           vm.Nil,
 		"nestedException": vm.Nil,
 		"originalCall":    vm.Nil,
-		"pass":            vm.NewTypedCFunction(ExceptionPass, exemplar),
-		"raise":           vm.NewCFunction(ExceptionRaise),
-		"raiseFrom":       vm.NewCFunction(ExceptionRaiseFrom),
-		"stack":           vm.NewTypedCFunction(ExceptionStack, exemplar),
+		"pass":            vm.NewCFunction(ExceptionPass, kind),
+		"raise":           vm.NewCFunction(ExceptionRaise, nil),
+		"raiseFrom":       vm.NewCFunction(ExceptionRaiseFrom, nil),
+		"stack":           vm.NewCFunction(ExceptionStack, kind),
 		"type":            vm.NewString("Exception"),
 	}
-	SetSlot(vm.Core, "Exception", &Exception{Object: *vm.ObjectWith(slots)})
+	vm.Core.SetSlot("Exception", &Exception{Object: *vm.ObjectWith(slots)})
 }
 
 // ExceptionPass is an Exception method.
 //
 // pass re-raises a caught exception.
-func ExceptionPass(vm *VM, target, locals Interface, msg *Message) Interface {
+func ExceptionPass(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	return target.(*Exception).Raise()
 }
 
 // ExceptionRaise is an Exception method.
 //
 // raise creates an exception with the given error message and raises it.
-func ExceptionRaise(vm *VM, target, locals Interface, msg *Message) Interface {
-	s, stop := msg.StringArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+func ExceptionRaise(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+	s, err, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
-	nested, ok := CheckStop(msg.EvalArgAt(vm, locals, 1), LoopStops)
-	if !ok {
-		return nested
+	nested, stop := msg.EvalArgAt(vm, locals, 1)
+	if stop != NoStop {
+		return nested, stop
 	}
 	e := &Exception{Object: *vm.CoreInstance("Exception")}
-	SetSlot(e, "error", s)
-	SetSlot(e, "nestedException", nested)
+	e.SetSlot("error", s)
+	e.SetSlot("nestedException", nested)
 	return e.Raise()
 }
 
 // ExceptionRaiseFrom is an Exception method.
 //
 // raiseFrom raises an exception from the given call site.
-func ExceptionRaiseFrom(vm *VM, target, locals Interface, msg *Message) Interface {
-	call, ok := CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
-	if !ok {
-		return call
+func ExceptionRaiseFrom(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+	call, stop := msg.EvalArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return call, stop
 	}
-	s, stop := msg.StringArgAt(vm, locals, 1)
-	if stop != nil {
-		return stop
+	s, err, stop := msg.StringArgAt(vm, locals, 1)
+	if stop != NoStop {
+		return err, stop
 	}
-	nested, ok := CheckStop(msg.EvalArgAt(vm, locals, 2), LoopStops)
-	if !ok {
-		return nested
+	nested, stop := msg.EvalArgAt(vm, locals, 2)
+	if stop != NoStop {
+		return nested, stop
 	}
 	e := &Exception{Object: *vm.CoreInstance("Exception")}
-	SetSlot(e, "error", s)
-	SetSlot(e, "nestedException", nested)
-	SetSlot(e, "originalCall", call)
+	e.SetSlot("error", s)
+	e.SetSlot("nestedException", nested)
+	e.SetSlot("originalCall", call)
 	return e.Raise()
 }
 
 // ExceptionStack is an Exception method.
 //
-// stack returns the message stack of the exception. The Object try method
-// transfers the control flow stack to the exception object, so the result will
-// be an empty list except for caught exceptions.
-func ExceptionStack(vm *VM, target, locals Interface, msg *Message) Interface {
+// stack returns the message stack of the exception.
+func ExceptionStack(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	e := target.(*Exception)
 	l := make([]Interface, len(e.Stack))
 	for i, m := range e.Stack {
 		l[i] = m
 	}
-	return vm.NewList(l...)
+	return vm.NewList(l...), NoStop
 }

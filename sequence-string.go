@@ -289,58 +289,6 @@ func (s *Sequence) BytesN(n int) []byte {
 	return b[:n]
 }
 
-// SequenceFromBytes makes a Sequence with the given type having the same bit
-// pattern as the given bytes. If the length of b is not a multiple of the item
-// size for the given kind, the extra bytes are ignored. The sequence's
-// encoding will be number unless the kind is uint8, uint16, or int32, in which
-// cases the encoding will be utf8, utf16, or utf32, respectively.
-func (vm *VM) SequenceFromBytes(b []byte, kind SeqKind) *Sequence {
-	if kind == SeqMU8 || kind == SeqIU8 {
-		return vm.NewSequence(b, kind > 0, "utf8")
-	}
-	if kind == SeqMF32 || kind == SeqIF32 {
-		v := make([]float32, 0, len(b)/4)
-		for len(b) >= 4 {
-			c := binary.LittleEndian.Uint32(b)
-			v = append(v, math.Float32frombits(c))
-			b = b[4:]
-		}
-		return vm.NewSequence(v, kind > 0, "number")
-	}
-	if kind == SeqMF64 || kind == SeqIF64 {
-		v := make([]float64, 0, len(b)/8)
-		for len(b) >= 8 {
-			c := binary.LittleEndian.Uint64(b)
-			v = append(v, math.Float64frombits(c))
-			b = b[8:]
-		}
-		return vm.NewSequence(v, kind > 0, "number")
-	}
-	var v interface{}
-	switch kind {
-	case SeqMU16, SeqIU16:
-		v = make([]uint16, len(b)/2)
-	case SeqMU32, SeqIU32:
-		v = make([]uint32, len(b)/4)
-	case SeqMU64, SeqIU64:
-		v = make([]uint64, len(b)/8)
-	case SeqMS8, SeqIS8:
-		v = make([]int8, len(b))
-	case SeqMS16, SeqIS16:
-		v = make([]int16, len(b)/2)
-	case SeqMS32, SeqIS32:
-		v = make([]int32, len(b)/4)
-	case SeqMS64, SeqIS64:
-		v = make([]int64, len(b)/8)
-	case SeqUntyped:
-		panic("cannot create untyped sequence")
-	default:
-		panic(fmt.Sprintf("unknown sequence kind %#v", kind))
-	}
-	binary.Read(bytes.NewReader(b), binary.LittleEndian, v)
-	return vm.NewSequence(v, kind > 0, kind.Encoding())
-}
-
 // SetString sets the sequence's value to the given string, using the
 // sequence's current encoding. If the encoding is number, the sequence will be
 // each rune of sv converted to the sequence's type; otherwise, the value will
@@ -565,9 +513,9 @@ func (vm *VM) CheckEncoding(encoding string) bool {
 // SequenceEncoding is a Sequence method.
 //
 // encoding returns the sequence's encoding.
-func SequenceEncoding(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceEncoding(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
-	return vm.NewString(s.Code)
+	return vm.NewString(s.Code), NoStop
 }
 
 // SequenceSetEncoding is a Sequence method.
@@ -575,42 +523,42 @@ func SequenceEncoding(vm *VM, target, locals Interface, msg *Message) Interface 
 // setEncoding sets the sequence's encoding. The sequence must be mutable.
 // The requested encoding, converted to lower case, must be in the
 // validEncodings list.
-func SequenceSetEncoding(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceSetEncoding(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckMutable("setEncoding"); err != nil {
 		return vm.IoError(err)
 	}
-	arg, stop := msg.StringArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	arg, err, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	enc := strings.ToLower(arg.String())
 	if !vm.CheckEncoding(enc) {
 		return vm.RaiseExceptionf("invalid encoding %q", enc)
 	}
 	s.Code = enc
-	return target
+	return target, NoStop
 }
 
 // SequenceValidEncodings is a Sequence method.
 //
 // validEncodings returns a list of valid encoding names.
-func SequenceValidEncodings(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceValidEncodings(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	encs := make([]Interface, len(validEncodings))
 	for k, v := range validEncodings {
 		encs[k] = vm.NewString(v)
 	}
-	return vm.NewList(encs...)
+	return vm.NewList(encs...), NoStop
 }
 
 // SequenceAsLatin1 is a Sequence method.
 //
 // asLatin1 creates a Sequence encoding the receiver in Latin-1 (Windows-1252).
 // Unrepresentable characters will be encoded as a byte with the value 0x1A.
-func SequenceAsLatin1(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceAsLatin1(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if (s.Code == "ascii" || s.Code == "latin1") && (s.Kind == SeqMU8 || s.Kind == SeqIU8) {
-		return vm.NewSequence(s.Value, s.IsMutable(), "latin1")
+		return vm.NewSequence(s.Value, s.IsMutable(), "latin1"), NoStop
 	}
 	v := s.String()
 	// Using the Windows-1252 encoder's Bytes method fails entirely if an
@@ -621,69 +569,69 @@ func SequenceAsLatin1(vm *VM, target, locals Interface, msg *Message) Interface 
 		ec, _ := encLatin1.EncodeRune(c)
 		r = append(r, ec)
 	}
-	return vm.NewSequence(r, s.IsMutable(), "latin1")
+	return vm.NewSequence(r, s.IsMutable(), "latin1"), NoStop
 }
 
 // SequenceAsUTF8 is a Sequence method.
 //
 // asUTF8 creates a Sequence encoding the receiver in UTF-8.
-func SequenceAsUTF8(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceAsUTF8(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if s.Code == "utf8" && (s.Kind == SeqMU8 || s.Kind == SeqIU8) {
-		return vm.NewSequence(s.Value, s.IsMutable(), "utf8")
+		return vm.NewSequence(s.Value, s.IsMutable(), "utf8"), NoStop
 	}
 	// s.String already does what we want. We could duplicate its logic to
 	// avoid extra allocations, but that would make more work if/when we
 	// support more encodings.
 	v := s.String()
-	return vm.NewSequence([]byte(v), s.IsMutable(), "utf8")
+	return vm.NewSequence([]byte(v), s.IsMutable(), "utf8"), NoStop
 }
 
 // SequenceAsUTF16 is a Sequence method.
 //
 // asUTF16 creates a Sequence encoding the receiver in UTF-16.
-func SequenceAsUTF16(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceAsUTF16(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if s.Code == "utf16" && (s.Kind == SeqMU16 || s.Kind == SeqIU16) {
-		return vm.NewSequence(s.Value, s.IsMutable(), "utf16")
+		return vm.NewSequence(s.Value, s.IsMutable(), "utf16"), NoStop
 	}
 	// Again, we could duplicate s.String to skip extra copies, but :effort:.
 	v := []rune(s.String())
-	return vm.NewSequence(utf16.Encode(v), s.IsMutable(), "utf16")
+	return vm.NewSequence(utf16.Encode(v), s.IsMutable(), "utf16"), NoStop
 }
 
 // SequenceAsUTF32 is a Sequence method.
 //
 // asUTF32 creates a Sequence encoding the receiver in UTF-32.
-func SequenceAsUTF32(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceAsUTF32(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if s.Code == "utf32" && (s.Kind == SeqMS32 || s.Kind == SeqIS32) {
-		return vm.NewSequence(s.Value, s.IsMutable(), "utf32")
+		return vm.NewSequence(s.Value, s.IsMutable(), "utf32"), NoStop
 	}
 	v := s.String()
-	return vm.NewSequence([]rune(v), s.IsMutable(), "utf32")
+	return vm.NewSequence([]rune(v), s.IsMutable(), "utf32"), NoStop
 }
 
 // SequenceAppendPathSeq is a Sequence method.
 //
 // appendPathSeq appends a path element to the sequence, removing extra path
 // separators between.
-func SequenceAppendPathSeq(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceAppendPathSeq(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckMutable("appendPathSeq"); err != nil {
 		return vm.IoError(err)
 	}
-	other, stop := msg.StringArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	other, err, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	sl, ok := s.At(s.Len() - 1)
 	if !ok {
-		return vm.NewSequence(other.Value, true, other.Code)
+		return vm.NewSequence(other.Value, true, other.Code), NoStop
 	}
 	of, ok := other.At(0)
 	if !ok {
-		return s
+		return s, NoStop
 	}
 	sis := rune(sl) == filepath.Separator || rune(sl) == '/'
 	ois := rune(of) == filepath.Separator || rune(of) == '/'
@@ -693,20 +641,20 @@ func SequenceAppendPathSeq(vm *VM, target, locals Interface, msg *Message) Inter
 		s.Append(vm.NewString(string(filepath.Separator)))
 	}
 	s.Append(other)
-	return target
+	return target, NoStop
 }
 
 // SequenceAsBase64 is a Sequence method.
 //
 // asBase64 creates a base-64 representation of the bit data of the sequence,
 // in accordance with RFC 4648.
-func SequenceAsBase64(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceAsBase64(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	line := 0
 	if msg.ArgCount() > 0 {
-		n, stop := msg.NumberArgAt(vm, locals, 0)
-		if stop != nil {
-			return stop
+		n, err, stop := msg.NumberArgAt(vm, locals, 0)
+		if stop != NoStop {
+			return err, stop
 		}
 		line = int(n.Value)
 	}
@@ -721,7 +669,7 @@ func SequenceAsBase64(vm *VM, target, locals Interface, msg *Message) Interface 
 		b.WriteString(e)
 		e = b.String()
 	}
-	return vm.NewString(e + "\n")
+	return vm.NewString(e + "\n"), NoStop
 }
 
 // SequenceAsFixedSizeType is a Sequence method.
@@ -730,7 +678,7 @@ func SequenceAsBase64(vm *VM, target, locals Interface, msg *Message) Interface 
 // UTF-8, UTF-16, or UTF-32 that will encode each rune in a single word.
 // Number encoding is copied directly. If an erroneous encoding is
 // encountered, the result will be numeric.
-func SequenceAsFixedSizeType(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceAsFixedSizeType(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	code := s.MinCode()
 	switch code {
@@ -743,7 +691,7 @@ func SequenceAsFixedSizeType(vm *VM, target, locals Interface, msg *Message) Int
 	case "utf32":
 		return SequenceAsUTF32(vm, target, locals, msg)
 	case "number":
-		return vm.NewSequence(s.Value, s.IsMutable(), "number")
+		return vm.NewSequence(s.Value, s.IsMutable(), "number"), NoStop
 	}
 	panic("unreachable")
 }
@@ -751,15 +699,15 @@ func SequenceAsFixedSizeType(vm *VM, target, locals Interface, msg *Message) Int
 // SequenceAsIoPath is a Sequence method.
 //
 // asIoPath creates a sequence converting the receiver to Io's path convention.
-func SequenceAsIoPath(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceAsIoPath(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
-	return vm.NewString(filepath.ToSlash(s.String()))
+	return vm.NewString(filepath.ToSlash(s.String())), NoStop
 }
 
 // SequenceAsJson is a Sequence method.
 //
 // asJson creates a JSON representation of the sequence.
-func SequenceAsJson(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceAsJson(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	var r []byte
 	var err error
@@ -782,19 +730,19 @@ func SequenceAsJson(vm *VM, target, locals Interface, msg *Message) Interface {
 	if err != nil {
 		return vm.IoError(err)
 	}
-	return vm.NewSequence(r, false, "utf8")
+	return vm.NewSequence(r, false, "utf8"), NoStop
 }
 
 // SequenceAsMessage is a Sequence method.
 //
 // asMessage compiles the sequence to a Message.
-func SequenceAsMessage(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceAsMessage(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	label := "[asMessage]"
 	if msg.ArgCount() > 0 {
-		r, stop := msg.StringArgAt(vm, locals, 0)
-		if stop != nil {
-			return stop
+		r, err, stop := msg.StringArgAt(vm, locals, 0)
+		if stop != NoStop {
+			return err, stop
 		}
 		label = r.String()
 	}
@@ -803,15 +751,15 @@ func SequenceAsMessage(vm *VM, target, locals Interface, msg *Message) Interface
 		return vm.IoError(err)
 	}
 	if err := vm.OpShuffle(m); err != nil {
-		return err
+		return err.Raise()
 	}
-	return m
+	return m, NoStop
 }
 
 // SequenceAsNumber is a Sequence method.
 //
 // asNumber parses the sequence as a numeric representation.
-func SequenceAsNumber(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceAsNumber(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	b := strings.TrimSpace(s.String())
 	x, err := strconv.ParseFloat(b, 64)
@@ -822,34 +770,34 @@ func SequenceAsNumber(vm *VM, target, locals Interface, msg *Message) Interface 
 		}
 		x = float64(y)
 	}
-	return vm.NewNumber(x)
+	return vm.NewNumber(x), NoStop
 }
 
 // SequenceAsOSPath is a Sequence method.
 //
 // asOSPath creates a sequence converting the receiver to the host operating
 // system's path convention.
-func SequenceAsOSPath(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceAsOSPath(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
-	return vm.NewString(filepath.FromSlash(s.String()))
+	return vm.NewString(filepath.FromSlash(s.String())), NoStop
 }
 
 // SequenceCapitalize is a Sequence method.
 //
 // capitalize replaces the first rune in the sequence with the capitalized
 // equivalent. This does not use special (Turkish) casing.
-func SequenceCapitalize(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceCapitalize(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckMutable("capitalize"); err != nil {
 		return vm.IoError(err)
 	}
 	fr, bn := s.FirstRune()
 	if fr < 0 {
-		return target
+		return target, NoStop
 	}
 	r := unichr.ToUpper(fr)
 	if r == fr {
-		return target
+		return target, NoStop
 	}
 	is := s.ItemSize()
 	nn := (utf8.RuneLen(r) + is - 1) / is * is
@@ -906,7 +854,7 @@ func SequenceCapitalize(vm *VM, target, locals Interface, msg *Message) Interfac
 		// TODO: We can really support any encoding in x/text/encoding.
 		panic(fmt.Sprintf("unsupported sequence encoding %q", s.Code))
 	}
-	return target
+	return target, NoStop
 }
 
 // SequenceCloneAppendPath is a Sequence method.
@@ -914,19 +862,19 @@ func SequenceCapitalize(vm *VM, target, locals Interface, msg *Message) Interfac
 // cloneAppendPath creates a new Symbol with the receiver's contents and the
 // argument sequence's contents appended with redundant path separators
 // between them removed.
-func SequenceCloneAppendPath(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceCloneAppendPath(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
-	other, stop := msg.StringArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	other, err, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	sl, ok := s.At(s.Len() - 1)
 	if !ok {
-		return vm.NewSequence(other.Value, true, other.Code)
+		return vm.NewSequence(other.Value, true, other.Code), NoStop
 	}
 	of, ok := other.At(0)
 	if !ok {
-		return s
+		return s, NoStop
 	}
 	sis := rune(sl) == filepath.Separator || rune(sl) == '/'
 	ois := rune(of) == filepath.Separator || rune(of) == '/'
@@ -938,7 +886,7 @@ func SequenceCloneAppendPath(vm *VM, target, locals Interface, msg *Message) Int
 	}
 	v.Append(other)
 	v.Kind = -v.Kind
-	return v
+	return v, NoStop
 }
 
 // SequenceConvertToFixedSizeType is a Sequence method.
@@ -947,7 +895,7 @@ func SequenceCloneAppendPath(vm *VM, target, locals Interface, msg *Message) Int
 // UTF-8, Latin-1, UTF-16, or UTF-32 that will encode each rune in a single
 // word. Number encoding is unchanged. If an erroneous code sequence is
 // encountered, the result will be numeric.
-func SequenceConvertToFixedSizeType(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceConvertToFixedSizeType(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckMutable("convertToFixedSizeType"); err != nil {
 		return vm.IoError(err)
@@ -990,14 +938,14 @@ func SequenceConvertToFixedSizeType(vm *VM, target, locals Interface, msg *Messa
 			s.Code = "utf32"
 		}
 	}
-	return target
+	return target, NoStop
 }
 
 // SequenceEscape is a Sequence method.
 //
 // escape replaces control and non-printable characters with backslash-escaped
 // equivalents.
-func SequenceEscape(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceEscape(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckMutable("escape"); err != nil {
 		return vm.IoError(err)
@@ -1062,18 +1010,18 @@ func SequenceEscape(vm *VM, target, locals Interface, msg *Message) Interface {
 		}
 		s.Value = v
 	}
-	return target
+	return target, NoStop
 }
 
 // SequenceFromBase is a Sequence method.
 //
 // fromBase converts the sequence from a representation of an integer in a
 // given radix to the Number it represents.
-func SequenceFromBase(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceFromBase(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
-	n, stop := msg.NumberArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	n, aerr, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return aerr, stop
 	}
 	b := int(n.Value)
 	sv := strings.TrimSpace(s.String())
@@ -1084,14 +1032,14 @@ func SequenceFromBase(vm *VM, target, locals Interface, msg *Message) Interface 
 	if err != nil {
 		return vm.IoError(err)
 	}
-	return vm.NewNumber(float64(x))
+	return vm.NewNumber(float64(x)), NoStop
 }
 
 // SequenceFromBase64 is a Sequence method.
 //
 // fromBase64 decodes standard (RFC 4648) base64 data from the sequence
 // interpreted bytewise.
-func SequenceFromBase64(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceFromBase64(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	v := s.Bytes()
 	w := make([]byte, base64.StdEncoding.DecodedLen(len(v)))
@@ -1099,7 +1047,7 @@ func SequenceFromBase64(vm *VM, target, locals Interface, msg *Message) Interfac
 	if err != nil {
 		return vm.IoError(err)
 	}
-	return vm.NewSequence(w[:n], false, "utf8")
+	return vm.NewSequence(w[:n], false, "utf8"), NoStop
 }
 
 // SequenceInterpolate is a Sequence method.
@@ -1107,17 +1055,17 @@ func SequenceFromBase64(vm *VM, target, locals Interface, msg *Message) Interfac
 // interpolate replaces "#{Io code}" in the sequence with the result of
 // evaluating the Io code in the current context or the optionally supplied
 // one, returning a new sequence with the result.
-func SequenceInterpolate(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceInterpolate(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	// The original implementation is equivalent to
 	// method(self asMutable interpolateInPlace asSymbol), but our stronger
 	// types actually make it easier to make interpolateInPlace use this.
 	s := target.(*Sequence)
 	ctxt := locals
 	if msg.ArgCount() > 0 {
-		var ok bool
-		ctxt, ok = CheckStop(msg.EvalArgAt(vm, locals, 0), LoopStops)
-		if !ok {
-			return ctxt
+		var stop Stop
+		ctxt, stop = msg.EvalArgAt(vm, locals, 0)
+		if stop != NoStop {
+			return ctxt, stop
 		}
 	}
 	sv := s.String()
@@ -1140,9 +1088,9 @@ func SequenceInterpolate(vm *VM, target, locals Interface, msg *Message) Interfa
 		code := sv[k+i+2 : k+i+j+2]
 		if len(code) != 0 {
 			m.Args[0] = vm.StringMessage(code)
-			r, ok := CheckStop(m.Eval(vm, ctxt), NoStop)
-			if !ok {
-				return r
+			r, stop := m.Eval(vm, ctxt)
+			if stop != NoStop {
+				return r, stop
 			}
 			if rs, ok := r.(*Sequence); ok {
 				b.WriteString(rs.String())
@@ -1150,70 +1098,70 @@ func SequenceInterpolate(vm *VM, target, locals Interface, msg *Message) Interfa
 		}
 		k += i + j + 3
 	}
-	return vm.NewString(b.String())
+	return vm.NewString(b.String()), NoStop
 }
 
 // SequenceIsLowercase is a Sequence method.
 //
 // isLowercase determines whether all characters in the string are equal to
 // their lowercase-converted versions using Unicode standard case conversion.
-func SequenceIsLowercase(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceIsLowercase(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	sv := s.String()
 	for _, r := range sv {
 		if r != unichr.ToLower(r) {
-			return vm.False
+			return vm.False, NoStop
 		}
 	}
-	return vm.True
+	return vm.True, NoStop
 }
 
 // SequenceIsUppercase is a Sequence method.
 //
 // isUppercase determines whether all characters in the string are equal to
 // their uppercase-converted versions using Unicode standard case conversion.
-func SequenceIsUppercase(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceIsUppercase(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	sv := s.String()
 	for _, r := range sv {
 		if r != unichr.ToUpper(r) {
-			return vm.False
+			return vm.False, NoStop
 		}
 	}
-	return vm.True
+	return vm.True, NoStop
 }
 
 // SequenceLastPathComponent is a Sequence method.
 //
 // lastPathComponent returns the basename of the sequence.
-func SequenceLastPathComponent(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceLastPathComponent(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	// This is the easy method, but results differ from Io's implementation;
 	// the original preserved trailing slashes and made no attempt to interpret
 	// the result as an actual path, while this removes trailing slashes,
 	// returns "." for the empty string, and returns the system's path
 	// separator for all-slash strings.
-	return vm.NewString(filepath.Base(s.String()))
+	return vm.NewString(filepath.Base(s.String())), NoStop
 }
 
 // SequenceLowercase is a Sequence method.
 //
 // lowercase converts the values in the sequence to their capitalized
 // equivalents. This does not use special (Turkish) casing.
-func SequenceLowercase(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceLowercase(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckMutable("lowercase"); err != nil {
 		return vm.IoError(err)
 	}
 	s.SetString(strings.ToLower(s.String()))
-	return target
+	return target, NoStop
 }
 
 // SequenceLstrip is a Sequence method.
 //
 // lstrip removes all whitespace characters from the beginning of the sequence,
 // or all characters in the provided cut set.
-func SequenceLstrip(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceLstrip(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckMutable("lstrip"); err != nil {
 		return vm.IoError(err)
@@ -1222,20 +1170,20 @@ func SequenceLstrip(vm *VM, target, locals Interface, msg *Message) Interface {
 	if msg.ArgCount() == 0 {
 		sv = strings.TrimLeftFunc(s.String(), unichr.IsSpace)
 	} else {
-		other, stop := msg.StringArgAt(vm, locals, 0)
-		if stop != nil {
-			return stop
+		other, err, stop := msg.StringArgAt(vm, locals, 0)
+		if stop != NoStop {
+			return err, stop
 		}
 		sv = strings.TrimLeft(s.String(), other.String())
 	}
 	s.SetString(sv)
-	return target
+	return target, NoStop
 }
 
 // SequenceParseJson is a Sequence method.
 //
 // parseJson decodes the JSON represented by the receiver.
-func SequenceParseJson(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceParseJson(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	d := json.NewDecoder(strings.NewReader(s.String()))
 	tok, err := d.Token()
@@ -1254,28 +1202,28 @@ func SequenceParseJson(vm *VM, target, locals Interface, msg *Message) Interface
 			if err != nil {
 				return vm.IoError(err)
 			}
-			return l
+			return l, NoStop
 		}
 		m := vm.NewMap(map[string]Interface{})
 		err = parseJSONMap(vm, d, m)
 		if err != nil {
 			return vm.IoError(err)
 		}
-		return m
+		return m, NoStop
 	case bool:
-		return vm.IoBool(t)
+		return vm.IoBool(t), NoStop
 	case float64:
-		return vm.NewNumber(t)
+		return vm.NewNumber(t), NoStop
 	case json.Number:
 		f, err := t.Float64()
 		if err != nil {
 			return vm.IoError(err)
 		}
-		return vm.NewNumber(f)
+		return vm.NewNumber(f), NoStop
 	case string:
-		return vm.NewString(t)
+		return vm.NewString(t), NoStop
 	case nil:
-		return vm.Nil
+		return vm.Nil, NoStop
 	}
 	panic("unreachable")
 }
@@ -1384,47 +1332,47 @@ func parseJSONMap(vm *VM, d *json.Decoder, m *Map) error {
 //
 // pathComponent returns a new Sequence with the receiver up to the last path
 // separator. Always converts to slash paths.
-func SequencePathComponent(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequencePathComponent(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	// Easy method again. Same differences as lastPathComponent above, but more
 	// details also differ: "a/b/c/" pathComponent returns "a/b/c" here, but
 	// "a/b" in Io. Should probably fix, but hopefully it's rare.
-	return vm.NewString(filepath.ToSlash(filepath.Dir(s.String())))
+	return vm.NewString(filepath.ToSlash(filepath.Dir(s.String()))), NoStop
 }
 
 // SequencePathExtension is a Sequence method.
 //
 // pathExtension returns a new Sequence with the receiver past the last period.
-func SequencePathExtension(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequencePathExtension(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
-	return vm.NewString(strings.TrimPrefix(filepath.Ext(s.String()), "."))
+	return vm.NewString(strings.TrimPrefix(filepath.Ext(s.String()), ".")), NoStop
 }
 
 // SequencePercentDecoded is a Sequence method.
 //
 // percentDecoded unescapes the receiver as a URL path segment.
-func SequencePercentDecoded(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequencePercentDecoded(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	p, err := url.PathUnescape(s.String())
 	if err != nil {
-		return vm.NewString("")
+		return vm.NewString(""), NoStop
 	}
-	return vm.NewString(p)
+	return vm.NewString(p), NoStop
 }
 
 // SequencePercentEncoded is a Sequence method.
 //
 // percentEncoded escapes the receiver as a URL path segment.
-func SequencePercentEncoded(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequencePercentEncoded(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
-	return vm.NewString(url.PathEscape(s.String()))
+	return vm.NewString(url.PathEscape(s.String())), NoStop
 }
 
 // SequenceRstrip is a Sequence method.
 //
 // rstrip removes all whitespace characters from the end of the sequence, or
 // all characters in the provided cut set.
-func SequenceRstrip(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceRstrip(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckMutable("rstrip"); err != nil {
 		return vm.IoError(err)
@@ -1433,21 +1381,21 @@ func SequenceRstrip(vm *VM, target, locals Interface, msg *Message) Interface {
 	if msg.ArgCount() == 0 {
 		sv = strings.TrimRightFunc(s.String(), unichr.IsSpace)
 	} else {
-		other, stop := msg.StringArgAt(vm, locals, 0)
-		if stop != nil {
-			return stop
+		other, err, stop := msg.StringArgAt(vm, locals, 0)
+		if stop != NoStop {
+			return err, stop
 		}
 		sv = strings.TrimRight(s.String(), other.String())
 	}
 	s.SetString(sv)
-	return target
+	return target, NoStop
 }
 
 // SequenceSplit is a Sequence method.
 //
 // split returns a list of the portions of the sequence split at each
 // occurrence of any of the given separators, or by whitespace if none given.
-func SequenceSplit(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceSplit(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	str := s.String()
 	l := []Interface{}
@@ -1460,9 +1408,9 @@ func SequenceSplit(vm *VM, target, locals Interface, msg *Message) Interface {
 	} else {
 		seps := make([]string, msg.ArgCount())
 		for arg := range seps {
-			sep, stop := msg.StringArgAt(vm, locals, arg)
-			if stop != nil {
-				return stop
+			sep, err, stop := msg.StringArgAt(vm, locals, arg)
+			if stop != NoStop {
+				return err, stop
 			}
 			seps[arg] = sep.String()
 		}
@@ -1486,41 +1434,41 @@ func SequenceSplit(vm *VM, target, locals Interface, msg *Message) Interface {
 		}
 		l = append(l, vm.NewString(v.String()))
 	}
-	return vm.NewList(l...)
+	return vm.NewList(l...), NoStop
 }
 
 // SequenceStrip is a Sequence method.
 //
 // strip removes all whitespace characters from each end of the sequence, or
 // all characters in the provided cut set.
-func SequenceStrip(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceStrip(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
-	if err := s.CheckMutable("rstrip"); err != nil {
+	if err := s.CheckMutable("strip"); err != nil {
 		return vm.IoError(err)
 	}
 	var sv string
 	if msg.ArgCount() == 0 {
 		sv = strings.TrimFunc(s.String(), unichr.IsSpace)
 	} else {
-		other, stop := msg.StringArgAt(vm, locals, 0)
-		if stop != nil {
-			return stop
+		other, err, stop := msg.StringArgAt(vm, locals, 0)
+		if stop != NoStop {
+			return err, stop
 		}
 		sv = strings.Trim(s.String(), other.String())
 	}
 	s.SetString(sv)
-	return target
+	return target, NoStop
 }
 
 // SequenceToBase is a Sequence method.
 //
 // toBase converts the sequence from a base 10 representation of a number to a
 // base 8 or 16 representation of the same number.
-func SequenceToBase(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceToBase(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
-	n, stop := msg.NumberArgAt(vm, locals, 0)
-	if stop != nil {
-		return stop
+	n, aerr, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return aerr, stop
 	}
 	base := int(n.Value)
 	if base < 2 || base > 36 {
@@ -1530,13 +1478,13 @@ func SequenceToBase(vm *VM, target, locals Interface, msg *Message) Interface {
 	if err != nil {
 		return vm.IoError(err)
 	}
-	return vm.NewString(strconv.FormatInt(x, base))
+	return vm.NewString(strconv.FormatInt(x, base)), NoStop
 }
 
 // SequenceUnescape is a Sequence method.
 //
 // unescape interprets backslash-escaped codes in the sequence.
-func SequenceUnescape(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceUnescape(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckMutable("unescape"); err != nil {
 		return vm.IoError(err)
@@ -1546,38 +1494,38 @@ func SequenceUnescape(vm *VM, target, locals Interface, msg *Message) Interface 
 		return vm.IoError(err)
 	}
 	s.SetString(ss)
-	return target
+	return target, NoStop
 }
 
 // SequenceUppercase is a Sequence method.
 //
 // uppercase converts the values in the sequence to their capitalized
 // equivalents. This does not use special (Turkish) casing.
-func SequenceUppercase(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceUppercase(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	if err := s.CheckMutable("uppercase"); err != nil {
 		return vm.IoError(err)
 	}
 	s.SetString(strings.ToUpper(s.String()))
-	return target
+	return target, NoStop
 }
 
 // SequenceUrlDecoded is a Sequence method.
 //
 // urlDecoded unescapes the sequence as a URL query.
-func SequenceUrlDecoded(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceUrlDecoded(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	p, err := url.QueryUnescape(s.String())
 	if err != nil {
 		return vm.IoError(err)
 	}
-	return vm.NewString(p)
+	return vm.NewString(p), NoStop
 }
 
 // SequenceUrlEncoded is a Sequence method.
 //
 // urlEncoded escapes the sequence for safe use in a URL query.
-func SequenceUrlEncoded(vm *VM, target, locals Interface, msg *Message) Interface {
+func SequenceUrlEncoded(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
-	return vm.NewString(url.QueryEscape(s.String()))
+	return vm.NewString(url.QueryEscape(s.String())), NoStop
 }

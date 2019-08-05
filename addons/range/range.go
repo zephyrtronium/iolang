@@ -4,32 +4,34 @@ import (
 	"fmt"
 	"github.com/zephyrtronium/iolang"
 	"math"
+
+	. "github.com/zephyrtronium/iolang/addons"
 )
 
 // Range yields the terms of a linear sequence.
 type Range struct {
-	iolang.Object
+	Object
 
 	Index, Last int64
 	Start, Step float64
 }
 
 // NewRange creates a new Range with the given start, stop, and step values.
-func NewRange(vm *iolang.VM, start, stop, step float64) *Range {
+func NewRange(vm *VM, start, stop, step float64) *Range {
 	r := &Range{Object: *vm.AddonInstance("Range")}
 	r.SetRange(start, stop, step)
 	return r
 }
 
 // Activate returns the range.
-func (r *Range) Activate(vm *iolang.VM, target, locals, context iolang.Interface, msg *iolang.Message) iolang.Interface {
-	return r
+func (r *Range) Activate(vm *VM, target, locals, context Interface, msg *Message) (Interface, Stop) {
+	return r, NoStop
 }
 
 // Clone creates a clone of the range with the same status.
-func (r *Range) Clone() iolang.Interface {
+func (r *Range) Clone() Interface {
 	return &Range{
-		Object: iolang.Object{Slots: iolang.Slots{}, Protos: []iolang.Interface{r}},
+		Object: Object{Slots: Slots{}, Protos: []Interface{r}},
 		Index:  r.Index,
 		Last:   r.Last,
 		Start:  r.Start,
@@ -91,27 +93,27 @@ func (r *Range) Previous() (v float64, ok bool) {
 // At is a Range method.
 //
 // at returns the nth value of the range.
-func At(vm *iolang.VM, target, locals iolang.Interface, msg *iolang.Message) iolang.Interface {
+func At(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	r := target.(*Range)
-	n, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return err
+	n, err, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	k := int64(n.Value)
 	if k < 0 || k > r.Last {
 		return vm.RaiseException("index out of bounds")
 	}
-	return vm.NewNumber(r.Start + float64(k)*r.Step)
+	return vm.NewNumber(r.Start + float64(k)*r.Step), NoStop
 }
 
 // Contains is a Range method.
 //
 // contains returns true if the given value occurs exactly in the range.
-func Contains(vm *iolang.VM, target, locals iolang.Interface, msg *iolang.Message) iolang.Interface {
+func Contains(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	r := target.(*Range)
-	v, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return err
+	v, err, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	var k float64
 	if r.Step > 0 {
@@ -120,24 +122,24 @@ func Contains(vm *iolang.VM, target, locals iolang.Interface, msg *iolang.Messag
 		k = (v.Value + r.Start) / r.Step
 	}
 	if k < 0 || k > float64(r.Last) {
-		return vm.False
+		return vm.False, NoStop
 	}
-	return vm.IoBool(k == float64(int(k)))
+	return vm.IoBool(k == float64(int(k))), NoStop
 }
 
 // First is a Range method.
 //
 // first moves the range's cursor to the beginning and returns its value.
-func First(vm *iolang.VM, target, locals iolang.Interface, msg *iolang.Message) iolang.Interface {
+func First(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	r := target.(*Range)
 	r.Index = 0
-	return vm.NewNumber(r.Value())
+	return vm.NewNumber(r.Value()), NoStop
 }
 
 // Foreach is a Range method.
 //
 // foreach performs a loop for each element of the range.
-func Foreach(vm *iolang.VM, target, locals iolang.Interface, msg *iolang.Message) (result iolang.Interface) {
+func Foreach(vm *VM, target, locals Interface, msg *Message) (result Interface, control Stop) {
 	r := target.(*Range)
 	kn, vn, hkn, hvn, ev := iolang.ForeachArgs(msg)
 	if ev == nil {
@@ -149,47 +151,44 @@ func Foreach(vm *iolang.VM, target, locals iolang.Interface, msg *iolang.Message
 	for x, ok := r.Next(); ok; x, ok = r.Next() {
 		v := vm.NewNumber(x)
 		if hvn {
-			iolang.SetSlot(locals, vn, v)
+			locals.SetSlot(vn, v)
 			if hkn {
-				iolang.SetSlot(locals, kn, vm.NewNumber(float64(r.Index)))
+				locals.SetSlot(kn, vm.NewNumber(float64(r.Index)))
 			}
-			result = ev.Eval(vm, locals)
+			result, control = ev.Eval(vm, locals)
 		} else {
-			result = ev.Send(vm, v, locals)
+			result, control = ev.Send(vm, v, locals)
 		}
-		if rr, ok := iolang.CheckStop(result, iolang.NoStop); !ok {
-			switch s := rr.(iolang.Stop); s.Status {
-			case iolang.ContinueStop:
-				result = s.Result
-			case iolang.BreakStop:
-				return s.Result
-			case iolang.ReturnStop, iolang.ExceptionStop:
-				return rr
-			default:
-				panic(fmt.Sprintf("range: invalid Stop: %#v", s))
-			}
+		switch control {
+		case NoStop, ContinueStop: // do nothing
+		case BreakStop:
+			return result, NoStop
+		case ReturnStop, ExceptionStop:
+			return result, control
+		default:
+			panic(fmt.Sprintf("iolang/range: invalid Stop: %v", control))
 		}
 	}
-	return result
+	return result, control
 }
 
 // Index is a Range method.
 //
 // index returns the number of terms yielded from the range.
-func Index(vm *iolang.VM, target, locals iolang.Interface, msg *iolang.Message) iolang.Interface {
+func Index(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	r := target.(*Range)
-	return vm.NewNumber(float64(r.Index))
+	return vm.NewNumber(float64(r.Index)), NoStop
 }
 
 // IndexOf is a Range method.
 //
 // indexOf returns the index of the range that would produce a particular value,
 // or nil if none would.
-func IndexOf(vm *iolang.VM, target, locals iolang.Interface, msg *iolang.Message) iolang.Interface {
+func IndexOf(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	r := target.(*Range)
-	v, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return err
+	v, err, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	var k float64
 	if r.Step > 0 {
@@ -198,81 +197,81 @@ func IndexOf(vm *iolang.VM, target, locals iolang.Interface, msg *iolang.Message
 		k = (v.Value + r.Start) / r.Step
 	}
 	if k < 0 || k > float64(r.Last) || k != float64(int64(k)) {
-		return vm.Nil
+		return vm.Nil, NoStop
 	}
-	return vm.NewNumber(k)
+	return vm.NewNumber(k), NoStop
 }
 
 // Last is a Range method.
 //
 // last moves the range's cursor to the end and returns its value.
-func Last(vm *iolang.VM, target, locals iolang.Interface, msg *iolang.Message) iolang.Interface {
+func Last(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	r := target.(*Range)
 	r.Index = r.Last
-	return vm.NewNumber(r.Value())
+	return vm.NewNumber(r.Value()), NoStop
 }
 
 // Next is a Range method.
 //
 // next increments the range's cursor. Returns self if the cursor is still in
 // bounds and nil otherwise.
-func Next(vm *iolang.VM, target, locals iolang.Interface, msg *iolang.Message) iolang.Interface {
+func Next(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	r := target.(*Range)
 	_, ok := r.Next()
 	if ok {
-		return target
+		return target, NoStop
 	}
-	return vm.Nil
+	return vm.Nil, NoStop
 }
 
 // Previous is a Range method.
 //
 // previous decrements the range's cursor. Returns self if the cursor is still
 // in bounds and nil otherwise.
-func Previous(vm *iolang.VM, target, locals iolang.Interface, msg *iolang.Message) iolang.Interface {
+func Previous(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	r := target.(*Range)
 	_, ok := r.Previous()
 	if ok {
-		return target
+		return target, NoStop
 	}
-	return vm.Nil
+	return vm.Nil, NoStop
 }
 
 // Rewind is a Range method.
 //
 // rewind returns the range to its first value and returns the range.
-func Rewind(vm *iolang.VM, target, locals iolang.Interface, msg *iolang.Message) iolang.Interface {
+func Rewind(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	r := target.(*Range)
 	r.Index = 0
-	return target
+	return target, NoStop
 }
 
 // setIndex is a Range method.
 //
 // setIndex seeks the range to a new index.
-func SetIndex(vm *iolang.VM, target, locals iolang.Interface, msg *iolang.Message) iolang.Interface {
+func SetIndex(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	r := target.(*Range)
-	k, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return err
+	k, err, stop := msg.NumberArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return err, stop
 	}
 	r.Index = int64(k.Value)
-	return target
+	return target, NoStop
 }
 
 // SetRange is a Range method.
 //
 // setRange sets the range to have the given start, stop, and step values.
-func SetRange(vm *iolang.VM, target, locals iolang.Interface, msg *iolang.Message) iolang.Interface {
+func SetRange(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	r := target.(*Range)
 	var start, stop, step float64
-	a, err := msg.NumberArgAt(vm, locals, 0)
-	if err != nil {
-		return err
+	a, err, control := msg.NumberArgAt(vm, locals, 0)
+	if control != NoStop {
+		return err, control
 	}
-	b, err := msg.NumberArgAt(vm, locals, 1)
-	if err != nil {
-		return err
+	b, err, control := msg.NumberArgAt(vm, locals, 1)
+	if control != NoStop {
+		return err, control
 	}
 	start = a.Value
 	stop = b.Value
@@ -283,28 +282,28 @@ func SetRange(vm *iolang.VM, target, locals iolang.Interface, msg *iolang.Messag
 			step = -1
 		}
 	} else {
-		c, err := msg.NumberArgAt(vm, locals, 2)
-		if err != nil {
-			return err
+		c, err, control := msg.NumberArgAt(vm, locals, 2)
+		if control != NoStop {
+			return err, control
 		}
 		step = c.Value
 	}
 	r.SetRange(start, stop, step)
-	return target
+	return target, NoStop
 }
 
 // Size is a Range method.
 //
 // size returns the number of steps the range can take.
-func Size(vm *iolang.VM, target, locals iolang.Interface, msg *iolang.Message) iolang.Interface {
+func Size(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	r := target.(*Range)
-	return vm.NewNumber(float64(r.Last))
+	return vm.NewNumber(float64(r.Last)), NoStop
 }
 
 // Value is a Range method.
 //
 // value returns the range's current value.
-func Value(vm *iolang.VM, target, locals iolang.Interface, msg *iolang.Message) iolang.Interface {
+func Value(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	r := target.(*Range)
-	return vm.NewNumber(r.Value())
+	return vm.NewNumber(r.Value()), NoStop
 }
