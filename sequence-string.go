@@ -35,10 +35,10 @@ var validEncodings = []string{"ascii", "utf8", "number", "latin1", "utf16", "utf
 // UTF-8 encoding.
 func (vm *VM) NewString(value string) *Sequence {
 	return &Sequence{
-		Object: *vm.CoreInstance("String"),
-		Value:  []byte(value),
-		Kind:   SeqIU8,
-		Code:   "utf8",
+		Object:  *vm.CoreInstance("String"),
+		Value:   []byte(value),
+		Mutable: false,
+		Code:    "utf8",
 	}
 }
 
@@ -48,10 +48,10 @@ func (s *Sequence) String() string {
 		return s.NumberString()
 	}
 	if s.Code == "utf8" {
-		if s.Kind == SeqMU8 || s.Kind == SeqIU8 {
+		if v, ok := s.Value.([]byte); ok {
 			// Easy path. The sequence is already a UTF-8 coded string, so we
 			// can just convert it and return it.
-			return string(s.Value.([]byte))
+			return string(v)
 		}
 		// All other kinds reinterpret their bytes as being already UTF-8.
 		return string(s.Bytes())
@@ -64,8 +64,8 @@ func (s *Sequence) String() string {
 	// Io supports UCS-2, but we support UTF-16. This could conceivably cause
 	// some compatibility issues between the two, but the ? operator exists.
 	if s.Code == "utf16" {
-		if s.Kind == SeqMU16 || s.Kind == SeqIU16 {
-			return string(utf16.Decode(s.Value.([]uint16)))
+		if v, ok := s.Value.([]uint16); ok {
+			return string(utf16.Decode(v))
 		}
 		d := encUTF16.NewDecoder()
 		b, _ := d.Bytes(s.Bytes()) // bytes :)
@@ -74,10 +74,10 @@ func (s *Sequence) String() string {
 	// Again, we use UTF-32 where Io supports UCS-4. This is probably less of
 	// an issue, though, because it's not like anyone uses either. :)
 	if s.Code == "utf32" {
-		if s.Kind == SeqMS32 || s.Kind == SeqIS32 {
+		if v, ok := s.Value.([]rune); ok {
 			// rune is an alias for int32, so we can convert directly to
 			// string.
-			return string(s.Value.([]rune))
+			return string(v)
 		}
 		d := encUTF32.NewDecoder()
 		b, _ := d.Bytes(s.Bytes()) // bytes :)
@@ -94,63 +94,51 @@ func (s *Sequence) NumberString() string {
 		return ""
 	}
 	b := strings.Builder{}
-	switch s.Kind {
-	case SeqMU8, SeqIU8:
-		v := s.Value.([]byte)
+	switch v := s.Value.(type) {
+	case []byte:
 		for _, c := range v {
 			b.WriteString(fmt.Sprintf("%d, ", c))
 		}
-	case SeqMU16, SeqIU16:
-		v := s.Value.([]uint16)
+	case []uint16:
 		for _, c := range v {
 			b.WriteString(fmt.Sprintf("%d, ", c))
 		}
-	case SeqMU32, SeqIU32:
-		v := s.Value.([]uint32)
+	case []uint32:
 		for _, c := range v {
 			b.WriteString(fmt.Sprintf("%d, ", c))
 		}
-	case SeqMU64, SeqIU64:
-		v := s.Value.([]uint64)
+	case []uint64:
 		for _, c := range v {
 			b.WriteString(fmt.Sprintf("%d, ", c))
 		}
-	case SeqMS8, SeqIS8:
-		v := s.Value.([]int8)
+	case []int8:
 		for _, c := range v {
 			b.WriteString(fmt.Sprintf("%d, ", c))
 		}
-	case SeqMS16, SeqIS16:
-		v := s.Value.([]int16)
+	case []int16:
 		for _, c := range v {
 			b.WriteString(fmt.Sprintf("%d, ", c))
 		}
-	case SeqMS32, SeqIS32:
-		v := s.Value.([]int32)
+	case []int32:
 		for _, c := range v {
 			b.WriteString(fmt.Sprintf("%d, ", c))
 		}
-	case SeqMS64, SeqIS64:
-		v := s.Value.([]int64)
+	case []int64:
 		for _, c := range v {
 			b.WriteString(fmt.Sprintf("%d, ", c))
 		}
-	case SeqMF32, SeqIF32:
-		v := s.Value.([]float32)
+	case []float32:
 		for _, c := range v {
 			b.WriteString(strconv.FormatFloat(float64(c), 'g', -1, 32))
 			b.WriteString(", ")
 		}
-	case SeqMF64, SeqIF64:
-		v := s.Value.([]float64)
+	case []float64:
 		for _, c := range v {
 			b.WriteString(strconv.FormatFloat(c, 'g', -1, 64))
 			b.WriteString(", ")
 		}
-	case SeqUntyped:
-		panic("use of untyped sequence")
 	default:
-		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+		panic(fmt.Sprintf("unknown sequence type %T", s.Value))
 	}
 	r := b.String()
 	return r[:len(r)-2]
@@ -159,22 +147,19 @@ func (s *Sequence) NumberString() string {
 // Bytes returns a slice of bytes with the same bit pattern as the sequence.
 // The result is always a copy.
 func (s *Sequence) Bytes() []byte {
-	if s.Kind == SeqMU8 || s.Kind == SeqIU8 {
-		return append([]byte{}, s.Value.([]byte)...)
-	}
-	// encoding/binary uses reflect for floating point types instead of
-	// fast-pathing like it does for integer types, so we'll do so manually.
-	if s.Kind == SeqMF32 || s.Kind == SeqIF32 {
-		v := s.Value.([]float32)
+	switch v := s.Value.(type) {
+	case []byte:
+		return append([]byte{}, v...)
+	case []float32:
+		// encoding/binary uses reflect for floating point types instead of
+		// fast-pathing like it does for integer types, so we do so manually.
 		b := make([]byte, 4*len(v))
 		for i, f := range v {
 			c := math.Float32bits(f)
 			binary.LittleEndian.PutUint32(b[4*i:], c)
 		}
 		return b
-	}
-	if s.Kind == SeqMF64 || s.Kind == SeqIF64 {
-		v := s.Value.([]float64)
+	case []float64:
 		b := make([]byte, 8*len(v))
 		for i, f := range v {
 			c := math.Float64bits(f)
@@ -197,28 +182,24 @@ func (s *Sequence) BytesN(n int) []byte {
 	// function creates the entire slice to write first, which defeats the
 	// purpose of having this be a separate method.
 	b := make([]byte, 0, (n+7)/8*8)
-	switch s.Kind {
-	case SeqMU8, SeqIU8:
-		v := s.Value.([]byte)
+	switch v := s.Value.(type) {
+	case []byte:
 		b = append(b, v[:n]...)
-	case SeqMU16, SeqIU16:
-		v := s.Value.([]uint16)
+	case []uint16:
 		for _, c := range v {
 			b = append(b, byte(c), byte(c>>8))
 			if len(b) >= n {
 				break
 			}
 		}
-	case SeqMU32, SeqIU32:
-		v := s.Value.([]uint32)
+	case []uint32:
 		for _, c := range v {
 			b = append(b, byte(c), byte(c>>8), byte(c>>16), byte(c>>24))
 			if len(b) >= n {
 				break
 			}
 		}
-	case SeqMU64, SeqIU64:
-		v := s.Value.([]uint64)
+	case []uint64:
 		for _, c := range v {
 			b = append(b, byte(c), byte(c>>8), byte(c>>16), byte(c>>24),
 				byte(c>>32), byte(c>>40), byte(c>>48), byte(c>>56))
@@ -226,16 +207,14 @@ func (s *Sequence) BytesN(n int) []byte {
 				break
 			}
 		}
-	case SeqMS8, SeqIS8:
-		v := s.Value.([]int8)
+	case []int8:
 		for _, c := range v {
 			b = append(b, byte(c))
 			if len(b) >= n {
 				break
 			}
 		}
-	case SeqMS16, SeqIS16:
-		v := s.Value.([]int16)
+	case []int16:
 		for _, x := range v {
 			c := uint16(x)
 			b = append(b, byte(c), byte(c>>8))
@@ -243,8 +222,7 @@ func (s *Sequence) BytesN(n int) []byte {
 				break
 			}
 		}
-	case SeqMS32, SeqIS32:
-		v := s.Value.([]int32)
+	case []int32:
 		for _, x := range v {
 			c := uint32(x)
 			b = append(b, byte(c), byte(c>>8), byte(c>>16), byte(c>>24))
@@ -252,8 +230,7 @@ func (s *Sequence) BytesN(n int) []byte {
 				break
 			}
 		}
-	case SeqMS64, SeqIS64:
-		v := s.Value.([]int64)
+	case []int64:
 		for _, x := range v {
 			c := uint64(x)
 			b = append(b, byte(c), byte(c>>8), byte(c>>16), byte(c>>24),
@@ -262,8 +239,7 @@ func (s *Sequence) BytesN(n int) []byte {
 				break
 			}
 		}
-	case SeqMF32, SeqIF32:
-		v := s.Value.([]float32)
+	case []float32:
 		for _, x := range v {
 			c := math.Float32bits(x)
 			b = append(b, byte(c), byte(c>>8), byte(c>>16), byte(c>>24))
@@ -271,8 +247,7 @@ func (s *Sequence) BytesN(n int) []byte {
 				break
 			}
 		}
-	case SeqMF64, SeqIF64:
-		v := s.Value.([]float64)
+	case []float64:
 		for _, x := range v {
 			c := math.Float64bits(x)
 			b = append(b, byte(c), byte(c>>8), byte(c>>16), byte(c>>24),
@@ -281,10 +256,8 @@ func (s *Sequence) BytesN(n int) []byte {
 				break
 			}
 		}
-	case SeqUntyped:
-		panic("use of untyped sequence")
 	default:
-		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+		panic(fmt.Sprintf("unknown sequence type %T", s.Value))
 	}
 	return b[:n]
 }
@@ -326,7 +299,7 @@ func (s *Sequence) SetString(sv string) {
 		// TODO: We can really support any encoding in x/text/encoding.
 		panic(fmt.Sprintf("unsupported sequence encoding %q", s.Code))
 	}
-	if s.Kind == SeqMU8 {
+	if _, ok := s.Value.([]uint8); ok {
 		s.Value = b
 	} else {
 		// Round up the length of the buffer to the next multiple of the item
@@ -557,7 +530,7 @@ func SequenceValidEncodings(vm *VM, target, locals Interface, msg *Message) (Int
 // Unrepresentable characters will be encoded as a byte with the value 0x1A.
 func SequenceAsLatin1(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
-	if (s.Code == "ascii" || s.Code == "latin1") && (s.Kind == SeqMU8 || s.Kind == SeqIU8) {
+	if _, ok := s.Value.([]uint8); ok && (s.Code == "ascii" || s.Code == "latin1") {
 		return vm.NewSequence(s.Value, s.IsMutable(), "latin1"), NoStop
 	}
 	v := s.String()
@@ -577,7 +550,7 @@ func SequenceAsLatin1(vm *VM, target, locals Interface, msg *Message) (Interface
 // asUTF8 creates a Sequence encoding the receiver in UTF-8.
 func SequenceAsUTF8(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
-	if s.Code == "utf8" && (s.Kind == SeqMU8 || s.Kind == SeqIU8) {
+	if _, ok := s.Value.([]uint8); ok && s.Code == "utf8" {
 		return vm.NewSequence(s.Value, s.IsMutable(), "utf8"), NoStop
 	}
 	// s.String already does what we want. We could duplicate its logic to
@@ -592,7 +565,7 @@ func SequenceAsUTF8(vm *VM, target, locals Interface, msg *Message) (Interface, 
 // asUTF16 creates a Sequence encoding the receiver in UTF-16.
 func SequenceAsUTF16(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
-	if s.Code == "utf16" && (s.Kind == SeqMU16 || s.Kind == SeqIU16) {
+	if _, ok := s.Value.([]uint16); ok && s.Code == "utf16" {
 		return vm.NewSequence(s.Value, s.IsMutable(), "utf16"), NoStop
 	}
 	// Again, we could duplicate s.String to skip extra copies, but :effort:.
@@ -605,7 +578,7 @@ func SequenceAsUTF16(vm *VM, target, locals Interface, msg *Message) (Interface,
 // asUTF32 creates a Sequence encoding the receiver in UTF-32.
 func SequenceAsUTF32(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
-	if s.Code == "utf32" && (s.Kind == SeqMS32 || s.Kind == SeqIS32) {
+	if _, ok := s.Value.([]rune); ok && s.Code == "utf32" {
 		return vm.NewSequence(s.Value, s.IsMutable(), "utf32"), NoStop
 	}
 	v := s.String()
@@ -714,8 +687,7 @@ func SequenceAsJson(vm *VM, target, locals Interface, msg *Message) (Interface, 
 	if s.Code == "number" {
 		// Serialize as an array. We need to avoid the default behavior for
 		// []byte, which is to encode as base64.
-		if s.Kind == SeqMU8 || s.Kind == SeqIU8 {
-			v := s.Value.([]uint8)
+		if v, ok := s.Value.([]uint8); ok {
 			w := make([]uint16, len(v))
 			for i, x := range v {
 				w[i] = uint16(x)
@@ -825,7 +797,7 @@ func SequenceCapitalize(vm *VM, target, locals Interface, msg *Message) (Interfa
 			for len(v)%is != 0 {
 				v = append(v, 0)
 			}
-			x := vm.SequenceFromBytes(v, s.Kind)
+			x := vm.SequenceFromBytes(v, s.Kind())
 			s.Value = x.Value
 		}
 	case "ascii", "latin1":
@@ -885,7 +857,7 @@ func SequenceCloneAppendPath(vm *VM, target, locals Interface, msg *Message) (In
 		v.Append(vm.NewString(string(filepath.Separator)))
 	}
 	v.Append(other)
-	v.Kind = -v.Kind
+	v.Mutable = false
 	return v, NoStop
 }
 
@@ -903,13 +875,12 @@ func SequenceConvertToFixedSizeType(vm *VM, target, locals Interface, msg *Messa
 	code := s.MinCode()
 	switch code {
 	case "utf8":
-		if s.Code != "utf8" || s.Kind != SeqMU8 {
+		if _, ok := s.Value.([]uint8); !ok || s.Code != "utf8" {
 			s.Value = []byte(s.String())
-			s.Kind = SeqMU8
 			s.Code = "utf8"
 		}
 	case "ascii", "latin1":
-		if s.Code != "ascii" && s.Code != "latin1" || s.Kind != SeqMU8 {
+		if _, ok := s.Value.([]uint8); !ok || s.Code != "ascii" && s.Code != "latin1" {
 			b := s.String()
 			v := make([]byte, 0, len(b))
 			for _, r := range b {
@@ -917,24 +888,21 @@ func SequenceConvertToFixedSizeType(vm *VM, target, locals Interface, msg *Messa
 				v = append(v, c)
 			}
 			s.Value = v
-			s.Kind = SeqMU8
 			s.Code = "latin1"
 		}
 	case "utf16":
-		if s.Code != "utf16" || s.Kind != SeqMU16 {
+		if _, ok := s.Value.([]uint16); !ok || s.Code != "utf16" {
 			b := s.String()
 			v := make([]uint16, 0, len(b))
 			for _, r := range b {
 				v = append(v, uint16(r))
 			}
 			s.Value = v
-			s.Kind = SeqMU16
 			s.Code = "utf16"
 		}
 	case "utf32":
-		if s.Code != "utf32" || s.Kind != SeqMS32 {
+		if _, ok := s.Value.([]rune); !ok || s.Code != "utf32" {
 			s.Value = []rune(s.String())
-			s.Kind = SeqMS32
 			s.Code = "utf32"
 		}
 	}
@@ -952,58 +920,58 @@ func SequenceEscape(vm *VM, target, locals Interface, msg *Message) (Interface, 
 	}
 	ss := []byte(strconv.Quote(s.String()))
 	ss = ss[1 : len(ss)-1]
-	switch s.Kind {
-	case SeqMU8:
+	switch s.Value.(type) {
+	case []byte:
 		s.Value = ss
-	case SeqMU16:
+	case []uint16:
 		v := make([]uint16, len(ss))
 		for i, x := range ss {
 			v[i] = uint16(x)
 		}
 		s.Value = v
-	case SeqMU32:
+	case []uint32:
 		v := make([]uint32, len(ss))
 		for i, x := range ss {
 			v[i] = uint32(x)
 		}
 		s.Value = v
-	case SeqMU64:
+	case []uint64:
 		v := make([]uint64, len(ss))
 		for i, x := range ss {
 			v[i] = uint64(x)
 		}
 		s.Value = v
-	case SeqMS8:
+	case []int8:
 		v := make([]int8, len(ss))
 		for i, x := range ss {
 			v[i] = int8(x)
 		}
 		s.Value = v
-	case SeqMS16:
+	case []int16:
 		v := make([]int16, len(ss))
 		for i, x := range ss {
 			v[i] = int16(x)
 		}
 		s.Value = v
-	case SeqMS32:
+	case []int32:
 		v := make([]int32, len(ss))
 		for i, x := range ss {
 			v[i] = int32(x)
 		}
 		s.Value = v
-	case SeqMS64:
+	case []int64:
 		v := make([]int64, len(ss))
 		for i, x := range ss {
 			v[i] = int64(x)
 		}
 		s.Value = v
-	case SeqMF32:
+	case []float32:
 		v := make([]float32, len(ss))
 		for i, x := range ss {
 			v[i] = float32(x)
 		}
 		s.Value = v
-	case SeqMF64:
+	case []float64:
 		v := make([]float64, len(ss))
 		for i, x := range ss {
 			v[i] = float64(x)

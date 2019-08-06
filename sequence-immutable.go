@@ -48,31 +48,29 @@ func SequenceItemSize(vm *VM, target, locals Interface, msg *Message) (Interface
 // itemType returns the type of the values in the sequence.
 func SequenceItemType(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
-	switch s.Kind {
-	case SeqMU8, SeqIU8:
+	switch s.Value.(type) {
+	case []byte:
 		return vm.NewString("uint8"), NoStop
-	case SeqMU16, SeqIU16:
+	case []uint16:
 		return vm.NewString("uint16"), NoStop
-	case SeqMU32, SeqIU32:
+	case []uint32:
 		return vm.NewString("uint32"), NoStop
-	case SeqMU64, SeqIU64:
+	case []uint64:
 		return vm.NewString("uint64"), NoStop
-	case SeqMS8, SeqIS8:
+	case []int8:
 		return vm.NewString("int8"), NoStop
-	case SeqMS16, SeqIS16:
+	case []int16:
 		return vm.NewString("int16"), NoStop
-	case SeqMS32, SeqIS32:
+	case []int32:
 		return vm.NewString("int32"), NoStop
-	case SeqMS64, SeqIS64:
+	case []int64:
 		return vm.NewString("int64"), NoStop
-	case SeqMF32, SeqIF32:
+	case []float32:
 		return vm.NewString("float32"), NoStop
-	case SeqMF64, SeqIF64:
+	case []float64:
 		return vm.NewString("float64"), NoStop
-	case SeqUntyped:
-		panic("use of untyped sequence")
 	default:
-		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+		panic(fmt.Sprintf("unknown sequence type %T", s.Value))
 	}
 }
 
@@ -98,33 +96,7 @@ func SequenceCompare(vm *VM, target, locals Interface, msg *Message) (Interface,
 	if !ok {
 		return vm.NewNumber(float64(PtrCompare(target, r))), NoStop
 	}
-	la, lb := s.Len(), t.Len()
-	ml := la
-	if lb < la {
-		ml = lb
-	}
-	// Getting this right is actually very tricky, considering cases like
-	// comparing uint64 and float64 - both have values that the other can't
-	// represent exactly. It might be worthwhile to revisit this at some point
-	// to address inconsistencies, but float64 is the most complete kind
-	// available, so for now, we'll make all comparisons in that type.
-	for i := 0; i < ml; i++ {
-		x, _ := s.At(i)
-		y, _ := t.At(i)
-		if x < y {
-			return vm.NewNumber(-1), NoStop
-		}
-		if x > y {
-			return vm.NewNumber(1), NoStop
-		}
-	}
-	if la < lb {
-		return vm.NewNumber(-1), NoStop
-	}
-	if la > lb {
-		return vm.NewNumber(1), NoStop
-	}
-	return vm.NewNumber(0), NoStop
+	return vm.NewNumber(float64(s.Compare(t))), NoStop
 }
 
 // SequenceCloneAppendSeq is a Sequence method.
@@ -142,7 +114,7 @@ func SequenceCloneAppendSeq(vm *VM, target, locals Interface, msg *Message) (Int
 	}
 	v := vm.NewSequence(s.Value, true, s.Code)
 	v.Append(other)
-	v.Kind = -v.Kind
+	v.Mutable = false
 	return v, NoStop
 }
 
@@ -173,16 +145,14 @@ func SequenceAfterSeq(vm *VM, target, locals Interface, msg *Message) (Interface
 // asList creates a list containing each element of the sequence.
 func SequenceAsList(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
-	switch s.Kind {
-	case SeqMU8, SeqIU8:
-		v := s.Value.([]byte)
+	switch v := s.Value.(type) {
+	case []byte:
 		x := make([]Interface, len(v))
 		for i, c := range v {
 			x[i] = vm.NewSequence([]byte{c}, false, "latin1")
 		}
 		return vm.NewList(x...), NoStop
-	case SeqMU16, SeqIU16:
-		v := s.Value.([]uint16)
+	case []uint16:
 		x := make([]Interface, len(v))
 		p := []byte{1: 0}
 		for i, c := range v {
@@ -190,8 +160,7 @@ func SequenceAsList(vm *VM, target, locals Interface, msg *Message) (Interface, 
 			x[i] = vm.NewSequence(bytes.TrimRight(p, "\x00"), false, "latin1")
 		}
 		return vm.NewList(x...), NoStop
-	case SeqMU32, SeqIU32:
-		v := s.Value.([]uint32)
+	case []uint32:
 		x := make([]Interface, len(v))
 		p := []byte{3: 0}
 		for i, c := range v {
@@ -199,8 +168,7 @@ func SequenceAsList(vm *VM, target, locals Interface, msg *Message) (Interface, 
 			x[i] = vm.NewSequence(bytes.TrimRight(p, "\x00"), false, "latin1")
 		}
 		return vm.NewList(x...), NoStop
-	case SeqMU64, SeqIU64:
-		v := s.Value.([]uint64)
+	case []uint64:
 		x := make([]Interface, len(v))
 		p := []byte{7: 0}
 		for i, c := range v {
@@ -208,15 +176,13 @@ func SequenceAsList(vm *VM, target, locals Interface, msg *Message) (Interface, 
 			x[i] = vm.NewSequence(bytes.TrimRight(p, "\x00"), false, "latin1")
 		}
 		return vm.NewList(x...), NoStop
-	case SeqMS8, SeqIS8:
-		v := s.Value.([]int8)
+	case []int8:
 		x := make([]Interface, len(v))
 		for i, c := range v {
 			x[i] = vm.NewSequence([]byte{byte(c)}, false, "latin1")
 		}
 		return vm.NewList(x...), NoStop
-	case SeqMS16, SeqIS16:
-		v := s.Value.([]int16)
+	case []int16:
 		x := make([]Interface, len(v))
 		p := []byte{1: 0}
 		for i, c := range v {
@@ -224,8 +190,7 @@ func SequenceAsList(vm *VM, target, locals Interface, msg *Message) (Interface, 
 			x[i] = vm.NewSequence(bytes.TrimRight(p, "\x00"), false, "latin1")
 		}
 		return vm.NewList(x...), NoStop
-	case SeqMS32, SeqIS32:
-		v := s.Value.([]int32)
+	case []int32:
 		x := make([]Interface, len(v))
 		p := []byte{3: 0}
 		for i, c := range v {
@@ -233,8 +198,7 @@ func SequenceAsList(vm *VM, target, locals Interface, msg *Message) (Interface, 
 			x[i] = vm.NewSequence(bytes.TrimRight(p, "\x00"), false, "latin1")
 		}
 		return vm.NewList(x...), NoStop
-	case SeqMS64, SeqIS64:
-		v := s.Value.([]int64)
+	case []int64:
 		x := make([]Interface, len(v))
 		p := []byte{7: 0}
 		for i, c := range v {
@@ -242,24 +206,20 @@ func SequenceAsList(vm *VM, target, locals Interface, msg *Message) (Interface, 
 			x[i] = vm.NewSequence(bytes.TrimRight(p, "\x00"), false, "latin1")
 		}
 		return vm.NewList(x...), NoStop
-	case SeqMF32, SeqIF32:
-		v := s.Value.([]float32)
+	case []float32:
 		x := make([]Interface, len(v))
 		for i, c := range v {
 			x[i] = vm.NewNumber(float64(c))
 		}
 		return vm.NewList(x...), NoStop
-	case SeqMF64, SeqIF64:
-		v := s.Value.([]float64)
+	case []float64:
 		x := make([]Interface, len(v))
 		for i, c := range v {
 			x[i] = vm.NewNumber(c)
 		}
 		return vm.NewList(x...), NoStop
-	case SeqUntyped:
-		panic("use of untyped sequence")
 	default:
-		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+		panic(fmt.Sprintf("unknown sequence type %T", s.Value))
 	}
 }
 
@@ -464,49 +424,37 @@ func SequenceBitAt(vm *VM, target, locals Interface, msg *Message) (Interface, S
 		return vm.NewNumber(0), NoStop
 	}
 	var c byte
-	switch s.Kind {
-	case SeqMU8, SeqIU8:
-		v := s.Value.([]byte)
+	switch v := s.Value.(type) {
+	case []byte:
 		c = v[j]
-	case SeqMU16, SeqIU16:
-		v := s.Value.([]uint16)
+	case []uint16:
 		x := v[j/2]
 		c = byte(x >> uint(j&1*8))
-	case SeqMU32, SeqIU32:
-		v := s.Value.([]uint32)
+	case []uint32:
 		x := v[j/4]
 		c = byte(x >> uint(j&3*8))
-	case SeqMU64, SeqIU64:
-		v := s.Value.([]uint64)
+	case []uint64:
 		x := v[j/8]
 		c = byte(x >> uint(j&7*8))
-	case SeqMS8, SeqIS8:
-		v := s.Value.([]int8)
+	case []int8:
 		c = byte(v[j])
-	case SeqMS16, SeqIS16:
-		v := s.Value.([]int16)
+	case []int16:
 		x := v[j/2]
 		c = byte(x >> uint(j&1*8))
-	case SeqMS32, SeqIS32:
-		v := s.Value.([]int32)
+	case []int32:
 		x := v[j/4]
 		c = byte(x >> uint(j&3*8))
-	case SeqMS64, SeqIS64:
-		v := s.Value.([]int64)
+	case []int64:
 		x := v[j/8]
 		c = byte(x >> uint(j&7*8))
-	case SeqMF32, SeqIF32:
-		v := s.Value.([]float32)
+	case []float32:
 		x := math.Float32bits(v[j/4])
 		c = byte(x >> uint(j&3*8))
-	case SeqMF64, SeqIF64:
-		v := s.Value.([]float64)
+	case []float64:
 		x := math.Float64bits(v[j/8])
 		c = byte(x >> uint(j&7*8))
-	case SeqUntyped:
-		panic("use of untyped sequence")
 	default:
-		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+		panic(fmt.Sprintf("unknown sequence kind %T", s.Value))
 	}
 	return vm.NewNumber(float64(c >> k & 1)), NoStop
 }
@@ -527,49 +475,37 @@ func SequenceByteAt(vm *VM, target, locals Interface, msg *Message) (Interface, 
 		return vm.NewNumber(0), NoStop
 	}
 	var c byte
-	switch s.Kind {
-	case SeqMU8, SeqIU8:
-		v := s.Value.([]byte)
+	switch v := s.Value.(type) {
+	case []byte:
 		c = v[j]
-	case SeqMU16, SeqIU16:
-		v := s.Value.([]uint16)
+	case []uint16:
 		x := v[j/2]
 		c = byte(x >> uint(j&1*8))
-	case SeqMU32, SeqIU32:
-		v := s.Value.([]uint32)
+	case []uint32:
 		x := v[j/4]
 		c = byte(x >> uint(j&3*8))
-	case SeqMU64, SeqIU64:
-		v := s.Value.([]uint64)
+	case []uint64:
 		x := v[j/8]
 		c = byte(x >> uint(j&7*8))
-	case SeqMS8, SeqIS8:
-		v := s.Value.([]int8)
+	case []int8:
 		c = byte(v[j])
-	case SeqMS16, SeqIS16:
-		v := s.Value.([]int16)
+	case []int16:
 		x := v[j/2]
 		c = byte(x >> uint(j&1*8))
-	case SeqMS32, SeqIS32:
-		v := s.Value.([]int32)
+	case []int32:
 		x := v[j/4]
 		c = byte(x >> uint(j&3*8))
-	case SeqMS64, SeqIS64:
-		v := s.Value.([]int64)
+	case []int64:
 		x := v[j/8]
 		c = byte(x >> uint(j&7*8))
-	case SeqMF32, SeqIF32:
-		v := s.Value.([]float32)
+	case []float32:
 		x := math.Float32bits(v[j/4])
 		c = byte(x >> uint(j&3*8))
-	case SeqMF64, SeqIF64:
-		v := s.Value.([]float64)
+	case []float64:
 		x := math.Float64bits(v[j/8])
 		c = byte(x >> uint(j&7*8))
-	case SeqUntyped:
-		panic("use of untyped sequence")
 	default:
-		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+		panic(fmt.Sprintf("unknown sequence kind %T", s.Value))
 	}
 	return vm.NewNumber(float64(c)), NoStop
 }
@@ -585,81 +521,69 @@ func SequenceContains(vm *VM, target, locals Interface, msg *Message) (Interface
 		return err, stop
 	}
 	x := n.Value
-	switch s.Kind {
-	case SeqMU8, SeqIU8:
-		v := s.Value.([]byte)
+	switch v := s.Value.(type) {
+	case []byte:
 		for _, c := range v {
 			if float64(c) == x {
 				return vm.True, NoStop
 			}
 		}
-	case SeqMU16, SeqIU16:
-		v := s.Value.([]uint16)
+	case []uint16:
 		for _, c := range v {
 			if float64(c) == x {
 				return vm.True, NoStop
 			}
 		}
-	case SeqMU32, SeqIU32:
-		v := s.Value.([]uint32)
+	case []uint32:
 		for _, c := range v {
 			if float64(c) == x {
 				return vm.True, NoStop
 			}
 		}
-	case SeqMU64, SeqIU64:
-		v := s.Value.([]uint64)
+	case []uint64:
 		for _, c := range v {
 			if float64(c) == x {
 				return vm.True, NoStop
 			}
 		}
-	case SeqMS8, SeqIS8:
-		v := s.Value.([]int8)
+	case []int8:
 		for _, c := range v {
 			if float64(c) == x {
 				return vm.True, NoStop
 			}
 		}
-	case SeqMS16, SeqIS16:
-		v := s.Value.([]int16)
+	case []int16:
 		for _, c := range v {
 			if float64(c) == x {
 				return vm.True, NoStop
 			}
 		}
-	case SeqMS32, SeqIS32:
-		v := s.Value.([]int32)
+	case []int32:
 		for _, c := range v {
 			if float64(c) == x {
 				return vm.True, NoStop
 			}
 		}
-	case SeqMS64, SeqIS64:
-		v := s.Value.([]int64)
+	case []int64:
 		for _, c := range v {
 			if float64(c) == x {
 				return vm.True, NoStop
 			}
 		}
-	case SeqMF32, SeqIF32:
-		v := s.Value.([]float32)
+	case []float32:
 		for _, c := range v {
 			if float64(c) == x {
 				return vm.True, NoStop
 			}
 		}
-	case SeqMF64, SeqIF64:
-		v := s.Value.([]float64)
+	case []float64:
 		for _, c := range v {
 			if c == x {
 				return vm.True, NoStop
 			}
 		}
-	case SeqUntyped:
-		panic("use of untyped sequence")
 	default:
-		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+		panic(fmt.Sprintf("unknown sequence kind %T", s.Value))
 	}
 	return vm.False, NoStop
 }
@@ -718,41 +642,29 @@ func SequenceExSlice(vm *VM, target, locals Interface, msg *Message) (Interface,
 	}
 	a = fixSliceIndex(a, 1, m)
 	b = fixSliceIndex(b, 1, m)
-	switch s.Kind {
-	case SeqMU8, SeqIU8:
-		v := s.Value.([]byte)
+	switch v := s.Value.(type) {
+	case []byte:
 		return vm.NewSequence(v[a:b], s.IsMutable(), s.Code), NoStop
-	case SeqMU16, SeqIU16:
-		v := s.Value.([]uint16)
+	case []uint16:
 		return vm.NewSequence(v[a:b], s.IsMutable(), s.Code), NoStop
-	case SeqMU32, SeqIU32:
-		v := s.Value.([]uint32)
+	case []uint32:
 		return vm.NewSequence(v[a:b], s.IsMutable(), s.Code), NoStop
-	case SeqMU64, SeqIU64:
-		v := s.Value.([]uint64)
+	case []uint64:
 		return vm.NewSequence(v[a:b], s.IsMutable(), s.Code), NoStop
-	case SeqMS8, SeqIS8:
-		v := s.Value.([]int8)
+	case []int8:
 		return vm.NewSequence(v[a:b], s.IsMutable(), s.Code), NoStop
-	case SeqMS16, SeqIS16:
-		v := s.Value.([]int16)
+	case []int16:
 		return vm.NewSequence(v[a:b], s.IsMutable(), s.Code), NoStop
-	case SeqMS32, SeqIS32:
-		v := s.Value.([]int32)
+	case []int32:
 		return vm.NewSequence(v[a:b], s.IsMutable(), s.Code), NoStop
-	case SeqMS64, SeqIS64:
-		v := s.Value.([]int64)
+	case []int64:
 		return vm.NewSequence(v[a:b], s.IsMutable(), s.Code), NoStop
-	case SeqMF32, SeqIF32:
-		v := s.Value.([]float32)
+	case []float32:
 		return vm.NewSequence(v[a:b], s.IsMutable(), s.Code), NoStop
-	case SeqMF64, SeqIF64:
-		v := s.Value.([]float64)
+	case []float64:
 		return vm.NewSequence(v[a:b], s.IsMutable(), s.Code), NoStop
-	case SeqUntyped:
-		panic("use of untyped sequence")
 	default:
-		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+		panic(fmt.Sprintf("unknown sequence type %T", s.Value))
 	}
 }
 
@@ -894,41 +806,29 @@ func SequenceInSlice(vm *VM, target, locals Interface, msg *Message) (Interface,
 		}
 	}
 	a = fixSliceIndex(a, 1, m)
-	switch s.Kind {
-	case SeqMU8, SeqIU8:
-		v := s.Value.([]byte)
+	switch v := s.Value.(type) {
+	case []byte:
 		return vm.NewSequence(v[a:b], s.IsMutable(), s.Code), NoStop
-	case SeqMU16, SeqIU16:
-		v := s.Value.([]uint16)
+	case []uint16:
 		return vm.NewSequence(v[a:b], s.IsMutable(), s.Code), NoStop
-	case SeqMU32, SeqIU32:
-		v := s.Value.([]uint32)
+	case []uint32:
 		return vm.NewSequence(v[a:b], s.IsMutable(), s.Code), NoStop
-	case SeqMU64, SeqIU64:
-		v := s.Value.([]uint64)
+	case []uint64:
 		return vm.NewSequence(v[a:b], s.IsMutable(), s.Code), NoStop
-	case SeqMS8, SeqIS8:
-		v := s.Value.([]int8)
+	case []int8:
 		return vm.NewSequence(v[a:b], s.IsMutable(), s.Code), NoStop
-	case SeqMS16, SeqIS16:
-		v := s.Value.([]int16)
+	case []int16:
 		return vm.NewSequence(v[a:b], s.IsMutable(), s.Code), NoStop
-	case SeqMS32, SeqIS32:
-		v := s.Value.([]int32)
+	case []int32:
 		return vm.NewSequence(v[a:b], s.IsMutable(), s.Code), NoStop
-	case SeqMS64, SeqIS64:
-		v := s.Value.([]int64)
+	case []int64:
 		return vm.NewSequence(v[a:b], s.IsMutable(), s.Code), NoStop
-	case SeqMF32, SeqIF32:
-		v := s.Value.([]float32)
+	case []float32:
 		return vm.NewSequence(v[a:b], s.IsMutable(), s.Code), NoStop
-	case SeqMF64, SeqIF64:
-		v := s.Value.([]float64)
+	case []float64:
 		return vm.NewSequence(v[a:b], s.IsMutable(), s.Code), NoStop
-	case SeqUntyped:
-		panic("use of untyped sequence")
 	default:
-		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+		panic(fmt.Sprintf("unknown sequence type %T", s.Value))
 	}
 }
 
@@ -937,81 +837,69 @@ func SequenceInSlice(vm *VM, target, locals Interface, msg *Message) (Interface,
 // isZero returns whether all elements of the sequence are zero.
 func SequenceIsZero(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
-	switch s.Kind {
-	case SeqMU8, SeqIU8:
-		v := s.Value.([]byte)
+	switch v := s.Value.(type) {
+	case []byte:
 		for _, c := range v {
 			if c != 0 {
 				return vm.False, NoStop
 			}
 		}
-	case SeqMU16, SeqIU16:
-		v := s.Value.([]uint16)
+	case []uint16:
 		for _, c := range v {
 			if c != 0 {
 				return vm.False, NoStop
 			}
 		}
-	case SeqMU32, SeqIU32:
-		v := s.Value.([]uint32)
+	case []uint32:
 		for _, c := range v {
 			if c != 0 {
 				return vm.False, NoStop
 			}
 		}
-	case SeqMU64, SeqIU64:
-		v := s.Value.([]uint64)
+	case []uint64:
 		for _, c := range v {
 			if c != 0 {
 				return vm.False, NoStop
 			}
 		}
-	case SeqMS8, SeqIS8:
-		v := s.Value.([]int8)
+	case []int8:
 		for _, c := range v {
 			if c != 0 {
 				return vm.False, NoStop
 			}
 		}
-	case SeqMS16, SeqIS16:
-		v := s.Value.([]int16)
+	case []int16:
 		for _, c := range v {
 			if c != 0 {
 				return vm.False, NoStop
 			}
 		}
-	case SeqMS32, SeqIS32:
-		v := s.Value.([]int32)
+	case []int32:
 		for _, c := range v {
 			if c != 0 {
 				return vm.False, NoStop
 			}
 		}
-	case SeqMS64, SeqIS64:
-		v := s.Value.([]int64)
+	case []int64:
 		for _, c := range v {
 			if c != 0 {
 				return vm.False, NoStop
 			}
 		}
-	case SeqMF32, SeqIF32:
-		v := s.Value.([]float32)
+	case []float32:
 		for _, c := range v {
 			if c != 0 {
 				return vm.False, NoStop
 			}
 		}
-	case SeqMF64, SeqIF64:
-		v := s.Value.([]float64)
+	case []float64:
 		for _, c := range v {
 			if c != 0 {
 				return vm.False, NoStop
 			}
 		}
-	case SeqUntyped:
-		panic("use of untyped sequence")
 	default:
-		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+		panic(fmt.Sprintf("unknown sequence type %T", s.Value))
 	}
 	return vm.True, NoStop
 }
@@ -1229,10 +1117,9 @@ func SequenceSplitAt(vm *VM, target, locals Interface, msg *Message) (Interface,
 		return err, stop
 	}
 	k := s.FixIndex(int(idx.Value))
-	s1 := vm.NewSequence(s.Value, true, s.Code)
-	s2 := vm.NewSequence(s.Value, true, s.Code)
-	s1.Slice(0, k, 1)
-	s2.Slice(k, s2.Len(), 1)
+	v := reflect.ValueOf(s.Value)
+	s1 := vm.NewSequence(v.Slice(0, k).Interface(), true, s.Code)
+	s2 := vm.NewSequence(v.Slice(k, v.Len()).Interface(), true, s.Code)
 	return vm.NewList(s1, s2), NoStop
 }
 

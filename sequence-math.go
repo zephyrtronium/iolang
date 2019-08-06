@@ -26,61 +26,49 @@ func (s *Sequence) MapUnary(op func(float64) float64) {
 	if !s.IsMutable() {
 		panic("can't modify immutable sequence")
 	}
-	switch s.Kind {
-	case SeqMU8, SeqIU8:
-		v := s.Value.([]byte)
+	switch v := s.Value.(type) {
+	case []byte:
 		for i, c := range v {
 			v[i] = byte(op(float64(c)))
 		}
-	case SeqMU16, SeqIU16:
-		v := s.Value.([]uint16)
+	case []uint16:
 		for i, c := range v {
 			v[i] = uint16(op(float64(c)))
 		}
-	case SeqMU32, SeqIU32:
-		v := s.Value.([]uint32)
+	case []uint32:
 		for i, c := range v {
 			v[i] = uint32(op(float64(c)))
 		}
-	case SeqMU64, SeqIU64:
-		v := s.Value.([]uint64)
+	case []uint64:
 		for i, c := range v {
 			v[i] = uint64(op(float64(c)))
 		}
-	case SeqMS8, SeqIS8:
-		v := s.Value.([]int8)
+	case []int8:
 		for i, c := range v {
 			v[i] = int8(op(float64(c)))
 		}
-	case SeqMS16, SeqIS16:
-		v := s.Value.([]int16)
+	case []int16:
 		for i, c := range v {
 			v[i] = int16(op(float64(c)))
 		}
-	case SeqMS32, SeqIS32:
-		v := s.Value.([]int32)
+	case []int32:
 		for i, c := range v {
 			v[i] = int32(op(float64(c)))
 		}
-	case SeqMS64, SeqIS64:
-		v := s.Value.([]int64)
+	case []int64:
 		for i, c := range v {
 			v[i] = int64(op(float64(c)))
 		}
-	case SeqMF32, SeqIF32:
-		v := s.Value.([]float32)
+	case []float32:
 		for i, c := range v {
 			v[i] = float32(op(float64(c)))
 		}
-	case SeqMF64, SeqIF64:
-		v := s.Value.([]float64)
+	case []float64:
 		for i, c := range v {
 			v[i] = op(c)
 		}
-	case SeqUntyped:
-		panic("use of untyped sequence")
 	default:
-		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+		panic(fmt.Sprintf("unknown sequence type %T", s.Value))
 	}
 }
 
@@ -91,9 +79,8 @@ func (s *Sequence) MapBinary(op func(float64, float64) float64, t *Sequence, def
 	if !s.IsMutable() {
 		panic("can't modify immutable sequence")
 	}
-	switch s.Kind {
-	case SeqMU8, SeqIU8:
-		v := s.Value.([]byte)
+	switch v := s.Value.(type) {
+	case []byte:
 		for i, c := range v {
 			x, ok := t.At(i)
 			if !ok {
@@ -101,8 +88,7 @@ func (s *Sequence) MapBinary(op func(float64, float64) float64, t *Sequence, def
 			}
 			v[i] = byte(op(float64(c), x))
 		}
-	case SeqMU16, SeqIU16:
-		v := s.Value.([]uint16)
+	case []uint16:
 		for i, c := range v {
 			x, ok := t.At(i)
 			if !ok {
@@ -110,8 +96,7 @@ func (s *Sequence) MapBinary(op func(float64, float64) float64, t *Sequence, def
 			}
 			v[i] = uint16(op(float64(c), x))
 		}
-	case SeqMU32, SeqIU32:
-		v := s.Value.([]uint32)
+	case []uint32:
 		for i, c := range v {
 			x, ok := t.At(i)
 			if !ok {
@@ -119,8 +104,7 @@ func (s *Sequence) MapBinary(op func(float64, float64) float64, t *Sequence, def
 			}
 			v[i] = uint32(op(float64(c), x))
 		}
-	case SeqMU64, SeqIU64:
-		v := s.Value.([]uint64)
+	case []uint64:
 		for i, c := range v {
 			x, ok := t.At(i)
 			if !ok {
@@ -128,8 +112,7 @@ func (s *Sequence) MapBinary(op func(float64, float64) float64, t *Sequence, def
 			}
 			v[i] = uint64(op(float64(c), x))
 		}
-	case SeqMS8, SeqIS8:
-		v := s.Value.([]int8)
+	case []int8:
 		for i, c := range v {
 			x, ok := t.At(i)
 			if !ok {
@@ -137,8 +120,7 @@ func (s *Sequence) MapBinary(op func(float64, float64) float64, t *Sequence, def
 			}
 			v[i] = int8(op(float64(c), x))
 		}
-	case SeqMS16, SeqIS16:
-		v := s.Value.([]int16)
+	case []int16:
 		for i, c := range v {
 			x, ok := t.At(i)
 			if !ok {
@@ -146,8 +128,7 @@ func (s *Sequence) MapBinary(op func(float64, float64) float64, t *Sequence, def
 			}
 			v[i] = int16(op(float64(c), x))
 		}
-	case SeqMS32, SeqIS32:
-		v := s.Value.([]int32)
+	case []int32:
 		for i, c := range v {
 			x, ok := t.At(i)
 			if !ok {
@@ -155,8 +136,7 @@ func (s *Sequence) MapBinary(op func(float64, float64) float64, t *Sequence, def
 			}
 			v[i] = int32(op(float64(c), x))
 		}
-	case SeqMS64, SeqIS64:
-		v := s.Value.([]int64)
+	case []int64:
 		for i, c := range v {
 			x, ok := t.At(i)
 			if !ok {
@@ -164,8 +144,7 @@ func (s *Sequence) MapBinary(op func(float64, float64) float64, t *Sequence, def
 			}
 			v[i] = int64(op(float64(c), x))
 		}
-	case SeqMF32, SeqIF32:
-		v := s.Value.([]float32)
+	case []float32:
 		for i, c := range v {
 			x, ok := t.At(i)
 			if !ok {
@@ -173,8 +152,7 @@ func (s *Sequence) MapBinary(op func(float64, float64) float64, t *Sequence, def
 			}
 			v[i] = float32(op(float64(c), x))
 		}
-	case SeqMF64, SeqIF64:
-		v := s.Value.([]float64)
+	case []float64:
 		for i, c := range v {
 			x, ok := t.At(i)
 			if !ok {
@@ -182,10 +160,8 @@ func (s *Sequence) MapBinary(op func(float64, float64) float64, t *Sequence, def
 			}
 			v[i] = op(c, x)
 		}
-	case SeqUntyped:
-		panic("use of untyped sequence")
 	default:
-		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+		panic(fmt.Sprintf("unknown sequence type %T", s.Value))
 	}
 }
 
@@ -193,61 +169,49 @@ func (s *Sequence) MapBinary(op func(float64, float64) float64, t *Sequence, def
 // first input to the following call. The first input for the first element is
 // ic.
 func (s *Sequence) Reduce(op func(float64, float64) float64, ic float64) float64 {
-	switch s.Kind {
-	case SeqMU8, SeqIU8:
-		v := s.Value.([]byte)
+	switch v := s.Value.(type) {
+	case []byte:
 		for _, c := range v {
 			ic = op(ic, float64(c))
 		}
-	case SeqMU16, SeqIU16:
-		v := s.Value.([]uint16)
+	case []uint16:
 		for _, c := range v {
 			ic = op(ic, float64(c))
 		}
-	case SeqMU32, SeqIU32:
-		v := s.Value.([]uint32)
+	case []uint32:
 		for _, c := range v {
 			ic = op(ic, float64(c))
 		}
-	case SeqMU64, SeqIU64:
-		v := s.Value.([]uint64)
+	case []uint64:
 		for _, c := range v {
 			ic = op(ic, float64(c))
 		}
-	case SeqMS8, SeqIS8:
-		v := s.Value.([]int8)
+	case []int8:
 		for _, c := range v {
 			ic = op(ic, float64(c))
 		}
-	case SeqMS16, SeqIS16:
-		v := s.Value.([]int16)
+	case []int16:
 		for _, c := range v {
 			ic = op(ic, float64(c))
 		}
-	case SeqMS32, SeqIS32:
-		v := s.Value.([]int32)
+	case []int32:
 		for _, c := range v {
 			ic = op(ic, float64(c))
 		}
-	case SeqMS64, SeqIS64:
-		v := s.Value.([]int64)
+	case []int64:
 		for _, c := range v {
 			ic = op(ic, float64(c))
 		}
-	case SeqMF32, SeqIF32:
-		v := s.Value.([]float32)
+	case []float32:
 		for _, c := range v {
 			ic = op(ic, float64(c))
 		}
-	case SeqMF64, SeqIF64:
-		v := s.Value.([]float64)
+	case []float64:
 		for _, c := range v {
 			ic = op(ic, c)
 		}
-	case SeqUntyped:
-		panic("use of untyped sequence")
 	default:
-		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+		panic(fmt.Sprintf("unknown sequence type %T", s.Value))
 	}
 	return ic
 }
@@ -521,61 +485,49 @@ func SequenceAtan(vm *VM, target, locals Interface, msg *Message) (Interface, St
 func SequenceBitCount(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	s := target.(*Sequence)
 	n := 0
-	switch s.Kind {
-	case SeqMU8, SeqIU8:
-		v := s.Value.([]byte)
+	switch v := s.Value.(type) {
+	case []byte:
 		for _, c := range v {
 			n += bits.OnesCount8(c)
 		}
-	case SeqMU16, SeqIU16:
-		v := s.Value.([]uint16)
+	case []uint16:
 		for _, c := range v {
 			n += bits.OnesCount16(c)
 		}
-	case SeqMU32, SeqIU32:
-		v := s.Value.([]uint32)
+	case []uint32:
 		for _, c := range v {
 			n += bits.OnesCount32(c)
 		}
-	case SeqMU64, SeqIU64:
-		v := s.Value.([]uint64)
+	case []uint64:
 		for _, c := range v {
 			n += bits.OnesCount64(c)
 		}
-	case SeqMS8, SeqIS8:
-		v := s.Value.([]int8)
+	case []int8:
 		for _, c := range v {
 			n += bits.OnesCount8(byte(c))
 		}
-	case SeqMS16, SeqIS16:
-		v := s.Value.([]int16)
+	case []int16:
 		for _, c := range v {
 			n += bits.OnesCount16(uint16(c))
 		}
-	case SeqMS32, SeqIS32:
-		v := s.Value.([]int32)
+	case []int32:
 		for _, c := range v {
 			n += bits.OnesCount32(uint32(c))
 		}
-	case SeqMS64, SeqIS64:
-		v := s.Value.([]int64)
+	case []int64:
 		for _, c := range v {
 			n += bits.OnesCount64(uint64(c))
 		}
-	case SeqMF32, SeqIF32:
-		v := s.Value.([]float32)
+	case []float32:
 		for _, c := range v {
 			n += bits.OnesCount32(math.Float32bits(c))
 		}
-	case SeqMF64, SeqIF64:
-		v := s.Value.([]float64)
+	case []float64:
 		for _, c := range v {
 			n += bits.OnesCount64(math.Float64bits(c))
 		}
-	case SeqUntyped:
-		panic("use of untyped sequence")
 	default:
-		panic(fmt.Sprintf("unknown sequence kind %#v", s.Kind))
+		panic(fmt.Sprintf("unknown sequence type %T", s.Value))
 	}
 	return vm.NewNumber(float64(n)), NoStop
 }
@@ -739,12 +691,11 @@ func SequenceDistanceTo(vm *VM, target, locals Interface, msg *Message) (Interfa
 	if stop != NoStop {
 		return err, stop
 	}
-	if x.Kind != y.Kind && x.Kind != -y.Kind {
+	if !x.SameType(y) {
 		return vm.NewNumber(0), NoStop
 	}
-	switch x.Kind {
-	case SeqMF32, SeqIF32:
-		v := x.Value.([]float32)
+	switch v := x.Value.(type) {
+	case []float32:
 		w := y.Value.([]float32)
 		if len(v) != len(w) {
 			break
@@ -755,8 +706,7 @@ func SequenceDistanceTo(vm *VM, target, locals Interface, msg *Message) (Interfa
 			sum += b * b
 		}
 		return vm.NewNumber(math.Sqrt(float64(sum))), NoStop
-	case SeqMF64, SeqIF64:
-		v := x.Value.([]float64)
+	case []float64:
 		w := y.Value.([]float64)
 		if len(v) != len(w) {
 			break
