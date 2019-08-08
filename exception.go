@@ -97,7 +97,7 @@ func (vm *VM) initException() {
 		"stack":           vm.NewCFunction(ExceptionStack, kind),
 		"type":            vm.NewString("Exception"),
 	}
-	vm.Core.SetSlot("Exception", &Exception{Object: *vm.ObjectWith(slots)})
+	vm.SetSlot(vm.Core, "Exception", &Exception{Object: *vm.ObjectWith(slots)})
 }
 
 // ExceptionPass is an Exception method.
@@ -120,8 +120,8 @@ func ExceptionRaise(vm *VM, target, locals Interface, msg *Message) (Interface, 
 		return nested, stop
 	}
 	e := &Exception{Object: *vm.CoreInstance("Exception")}
-	e.SetSlot("error", s)
-	e.SetSlot("nestedException", nested)
+	vm.SetSlot(e, "error", s)
+	vm.SetSlot(e, "nestedException", nested)
 	return e.Raise()
 }
 
@@ -142,9 +142,9 @@ func ExceptionRaiseFrom(vm *VM, target, locals Interface, msg *Message) (Interfa
 		return nested, stop
 	}
 	e := &Exception{Object: *vm.CoreInstance("Exception")}
-	e.SetSlot("error", s)
-	e.SetSlot("nestedException", nested)
-	e.SetSlot("originalCall", call)
+	vm.SetSlot(e, "error", s)
+	vm.SetSlot(e, "nestedException", nested)
+	vm.SetSlot(e, "originalCall", call)
 	return e.Raise()
 }
 

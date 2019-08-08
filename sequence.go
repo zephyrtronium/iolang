@@ -1252,12 +1252,12 @@ func (vm *VM) initSequence() {
 	}
 	is := ms.Clone().(*Sequence)
 	is.Mutable = false
-	vm.Core.SetSlots(Slots{
+	vm.SetSlots(vm.Core, Slots{
 		"Sequence":          ms,
 		"ImmutableSequence": is,
 		"String":            is,
 	})
 	// Now that we have the String proto, we can use vm.NewString.
-	ms.SetSlot("type", vm.NewString("Sequence"))
-	is.SetSlot("type", vm.NewString("ImmutableSequence"))
+	vm.SetSlot(ms, "type", vm.NewString("Sequence"))
+	vm.SetSlot(is, "type", vm.NewString("ImmutableSequence"))
 }

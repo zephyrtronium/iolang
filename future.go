@@ -44,7 +44,7 @@ func (vm *VM) initFuture() {
 		Slots:  slots,
 		Protos: []Interface{}, // no protos so we forward where possible
 	}}
-	vm.Core.SetSlot("Future", &f)
+	vm.SetSlot(vm.Core, "Future", &f)
 }
 
 // NewFuture creates a new Future object with its own coroutine and runs it.
@@ -55,7 +55,7 @@ func (vm *VM) NewFuture(target Interface, msg *Message) *Future {
 	}
 	f.Object.Slots["runTarget"] = target
 	f.Object.Slots["runMessage"] = msg
-	f.Coro.SetSlots(Slots{
+	vm.SetSlots(f.Coro, Slots{
 		"runTarget":       target,
 		"runMessage":      msg,
 		"runLocals":       target,
@@ -88,7 +88,7 @@ func (f *Future) run() {
 			// pointless, but there isn't anything else to do.
 			// TODO: indicate that this new exception resulted while handling
 			// the old one
-			f.Coro.SetSlot("exception", r)
+			vm.SetSlot(f.Coro, "exception", r)
 			f.Coro.Stop <- RemoteStop{r, stop}
 		}
 	}

@@ -74,7 +74,7 @@ func (vm *VM) initScheduler() {
 		loaded: make(map[string]struct{}),
 	}
 	vm.Sched = sched
-	vm.Core.SetSlot("Scheduler", sched)
+	vm.SetSlot(vm.Core, "Scheduler", sched)
 	go sched.schedule()
 }
 

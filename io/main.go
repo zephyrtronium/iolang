@@ -13,7 +13,7 @@ import (
 func main() {
 	vm := iolang.NewVM(os.Args[1:]...)
 	setupStaticAddons(vm)
-	vm.Lobby.SetSlots(iolang.Slots{
+	vm.SetSlots(vm.Lobby, iolang.Slots{
 		"ps1":       vm.NewString("io> "),
 		"ps2":       vm.NewString("... "),
 		"isRunning": vm.True,

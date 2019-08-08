@@ -748,9 +748,9 @@ func SequenceForeach(vm *VM, target, locals Interface, msg *Message) (result Int
 	sl := s.Len()
 	for k := 0; k < sl; k++ {
 		v, _ := s.At(k)
-		locals.SetSlot(vn, vm.NewNumber(v))
+		vm.SetSlot(locals, vn, vm.NewNumber(v))
 		if hkn {
-			locals.SetSlot(kn, vm.NewNumber(float64(k)))
+			vm.SetSlot(locals, kn, vm.NewNumber(float64(k)))
 		}
 		result, control = ev.Eval(vm, locals)
 		switch control {

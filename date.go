@@ -80,7 +80,7 @@ func (vm *VM) initDate() {
 	// Since we don't have a forward-facing DST concept in Go, there isn't any
 	// obvious reason to have them be distinct in this implementation.
 	slots["isDaylightSavingsTime"] = slots["isDST"]
-	vm.Core.SetSlot("Date", &Date{Object: *vm.ObjectWith(slots), Date: time.Now()})
+	vm.SetSlot(vm.Core, "Date", &Date{Object: *vm.ObjectWith(slots), Date: time.Now()})
 }
 
 // DateAsNumber is a Date method.

@@ -39,7 +39,7 @@ func (b *Block) reallyActivate(vm *VM, target, locals, context Interface, msg *M
 		if stop != NoStop {
 			return x, stop
 		}
-		blkLocals.SetSlot(arg, x)
+		vm.SetSlot(blkLocals, arg, x)
 	}
 	result, stop := b.Message.Eval(vm, blkLocals)
 	if b.PassStops || stop == ExceptionStop {
@@ -63,8 +63,8 @@ func (b *Block) Clone() Interface {
 // NewLocals instantiates a Locals object for a block activation.
 func (vm *VM) NewLocals(self, call Interface) *Object {
 	lc := vm.CoreInstance("Locals")
-	lc.SetSlot("self", self)
-	lc.SetSlot("call", call)
+	vm.SetSlot(lc, "self", self)
+	vm.SetSlot(lc, "call", call)
 	return lc
 }
 
@@ -85,7 +85,7 @@ func (vm *VM) initBlock() {
 		"type":             vm.NewString("Block"),
 	}
 	slots["code"] = slots["asString"]
-	vm.Core.SetSlot("Block", &Block{Object: *vm.ObjectWith(slots)})
+	vm.SetSlot(vm.Core, "Block", &Block{Object: *vm.ObjectWith(slots)})
 }
 
 func (vm *VM) initLocals() {
@@ -97,7 +97,7 @@ func (vm *VM) initLocals() {
 	}
 	slots["forward"] = vm.NewCFunction(LocalsForward, nil)
 	slots["updateSlot"] = vm.NewCFunction(LocalsUpdateSlot, nil)
-	vm.Core.SetSlot("Locals", &Object{Slots: slots, Protos: []Interface{}})
+	vm.SetSlot(vm.Core, "Locals", &Object{Slots: slots, Protos: []Interface{}})
 }
 
 // ObjectBlock is an Object method.
@@ -324,7 +324,7 @@ func BlockSetScope(vm *VM, target, locals Interface, msg *Message) (Interface, S
 //
 // forward handles messages to which the object does not respond.
 func LocalsForward(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	self, ok := target.GetLocalSlot("self")
+	self, ok := vm.GetLocalSlot(target, "self")
 	if ok && self != target {
 		return vm.Perform(self, locals, msg)
 	}
@@ -347,7 +347,7 @@ func LocalsUpdateSlot(vm *VM, target, locals Interface, msg *Message) (Interface
 		if stop != NoStop {
 			return v, stop
 		}
-		target.SetSlot(slot, v)
+		vm.SetSlot(target, slot, v)
 		return v, NoStop
 	}
 	// If the slot doesn't exist on the locals, forward to self, which is the

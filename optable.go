@@ -51,13 +51,13 @@ func (vm *VM) initOpTable() {
 		"type":                 vm.NewString("OperatorTable"),
 	}
 	vm.Operators = vm.ObjectWith(slots)
-	vm.Core.SetSlot("OperatorTable", vm.Operators)
+	vm.SetSlot(vm.Core, "OperatorTable", vm.Operators)
 	// This method can be called post-initialization if both Core's and
 	// Core Message's OperatorTable slots are removed. In that case, we want to
 	// set the slot on both of those.
-	msg, ok := vm.Core.GetLocalSlot("Message")
+	msg, ok := vm.GetLocalSlot(vm.Core, "Message")
 	if ok {
-		msg.SetSlot("OperatorTable", vm.Operators)
+		vm.SetSlot(msg, "OperatorTable", vm.Operators)
 	}
 }
 
@@ -318,7 +318,7 @@ func (vm *VM) OpShuffle(m *Message) (err *Exception) {
 		asgn, _ = asgnx.(*Map)
 		if ops == nil || asgn == nil {
 			vm.initOpTable()
-			operators, _ = vm.Core.GetLocalSlot("OperatorTable")
+			operators, _ = vm.GetLocalSlot(vm.Core, "OperatorTable")
 		} else {
 			break
 		}

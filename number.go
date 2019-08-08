@@ -136,7 +136,7 @@ func (vm *VM) initNumber() {
 		"toggle":             vm.NewCFunction(NumberToggle, kind),
 		"type":               vm.NewString("Number"),
 	}
-	vm.Core.SetSlot("Number", &Number{Object: *vm.ObjectWith(slots)})
+	vm.SetSlot(vm.Core, "Number", &Number{Object: *vm.ObjectWith(slots)})
 
 	vm.initIntsMemo()
 	vm.initRealsMemo()
@@ -712,7 +712,7 @@ func NumberRepeat(vm *VM, target, locals Interface, msg *Message) (result Interf
 	max := int(math.Ceil(target.(*Number).Value))
 	for i := 0; i < max; i++ {
 		if counter != nil {
-			locals.SetSlot(c, vm.NewNumber(float64(i)))
+			vm.SetSlot(locals, c, vm.NewNumber(float64(i)))
 		}
 		result, control = eval.Eval(vm, locals)
 		switch control {

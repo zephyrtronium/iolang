@@ -75,7 +75,7 @@ func (vm *VM) initCFunction() {
 		Object:   Object{Slots: slots, Protos: []Interface{vm.BaseObject}},
 		Function: ObjectThisContext,
 	}
-	vm.Core.SetSlot("CFunction", kind)
+	vm.SetSlot(vm.Core, "CFunction", kind)
 	// Now we can create CFunctions.
 	slots["=="] = vm.NewCFunction(CFunctionEqual, kind)
 	slots["asString"] = vm.NewCFunction(CFunctionAsString, kind)

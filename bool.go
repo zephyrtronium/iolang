@@ -17,7 +17,7 @@ func (vm *VM) initTrue() {
 		"then":           object["evalArgAndReturnNil"],
 		"type":           s,
 	}
-	vm.Core.SetSlot("true", vm.True)
+	vm.SetSlot(vm.Core, "true", vm.True)
 }
 
 func (vm *VM) initFalse() {
@@ -38,7 +38,7 @@ func (vm *VM) initFalse() {
 		"then":           vm.False,
 		"type":           s,
 	}
-	vm.Core.SetSlot("false", vm.False)
+	vm.SetSlot(vm.Core, "false", vm.False)
 }
 
 func (vm *VM) initNil() {
@@ -64,5 +64,5 @@ func (vm *VM) initNil() {
 		"then":           vm.Nil,
 		"type":           s,
 	}
-	vm.Core.SetSlot("nil", vm.Nil)
+	vm.SetSlot(vm.Core, "nil", vm.Nil)
 }

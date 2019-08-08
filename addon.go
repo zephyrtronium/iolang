@@ -36,7 +36,7 @@ func (vm *VM) initPlugin() {
 		"open":        vm.NewCFunction(AddonOpen, nil),
 		"type":        vm.NewString("Addon"),
 	}
-	vm.Core.SetSlot("Addon", vm.ObjectWith(slots))
+	vm.SetSlot(vm.Core, "Addon", vm.ObjectWith(slots))
 }
 
 // LoadAddon loads an addon. It returns a channel over which the addon object
@@ -50,7 +50,7 @@ func (vm *VM) LoadAddon(addon Addon) chan Interface {
 // reallyLoadAddon is the method the scheduler calls to set up an addon proto.
 func (vm *VM) reallyLoadAddon(addon Addon) Interface {
 	p := addon.Instance(vm)
-	vm.Addons.SetSlot(addon.AddonName(), p)
+	vm.SetSlot(vm.Addons, addon.AddonName(), p)
 	m := addon.Script(vm)
 	if m != nil {
 		r, stop := m.Send(vm, p, p)

@@ -151,9 +151,9 @@ func Foreach(vm *VM, target, locals Interface, msg *Message) (result Interface, 
 	for x, ok := r.Next(); ok; x, ok = r.Next() {
 		v := vm.NewNumber(x)
 		if hvn {
-			locals.SetSlot(vn, v)
+			vm.SetSlot(locals, vn, v)
 			if hkn {
-				locals.SetSlot(kn, vm.NewNumber(float64(r.Index)))
+				vm.SetSlot(locals, kn, vm.NewNumber(float64(r.Index)))
 			}
 			result, control = ev.Eval(vm, locals)
 		} else {

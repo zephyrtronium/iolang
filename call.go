@@ -59,7 +59,7 @@ func (vm *VM) initCall() {
 		"evalArgAt": vm.NewCFunction(CallEvalArgAt, nil),
 		"type":      vm.NewString("Call"),
 	}
-	vm.Core.SetSlot("Call", vm.ObjectWith(slots))
+	vm.SetSlot(vm.Core, "Call", vm.ObjectWith(slots))
 }
 
 // CallArgAt is a Call method.

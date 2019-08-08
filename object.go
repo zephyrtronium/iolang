@@ -20,21 +20,6 @@ type Interface interface {
 	// proto.
 	Clone() Interface
 
-	// GetLocalSlot gets a slot without checking ancestors. Returns nil, false
-	// if the slot does not exist on this object.
-	GetLocalSlot(slot string) (value Interface, ok bool)
-	// SetSlot sets a slot on this object.
-	SetSlot(slot string, value Interface)
-	// SetSlots updates multiple slots more efficiently than using SetSlot for
-	// each.
-	SetSlots(slots Slots)
-	// RemoveSlot removes slots from this object.
-	RemoveSlot(slots ...string)
-
-	// IsKindOf finds whether the object has kind as any of its ancestors, or
-	// is itself kind.
-	IsKindOf(kind Interface) bool
-
 	// The following methods are for direct access to the object properties.
 	// They are not synchronized; the object lock must be held to use or modify
 	// slots and protos.
@@ -95,82 +80,15 @@ func (o *Object) Clone() Interface {
 	return &Object{Slots: Slots{}, Protos: []Interface{o}}
 }
 
-// GetLocalSlot checks only an object's own slots for a slot.
-func (o *Object) GetLocalSlot(slot string) (value Interface, ok bool) {
-	if o == nil {
-		return nil, false
-	}
-	o.Lock()
-	defer o.Unlock()
-	if o.Slots == nil {
-		return nil, false
-	}
-	value, ok = o.Slots[slot]
-	return value, ok
+// Lock blocks until acquiring the object's lock. This lock is to synchronize
+// only slots and protos, not values.
+func (o *Object) Lock() {
+	o.L.Lock()
 }
 
-// SetSlot sets a slot's value on the given Interface, as if using the :=
-// operator.
-func (o *Object) SetSlot(slot string, value Interface) {
-	o.Lock()
-	defer o.Unlock()
-	if o.Slots == nil {
-		o.Slots = Slots{}
-	}
-	o.Slots[slot] = value
-}
-
-// SetSlots sets multiple slots more efficiently than using SetSlot for each.
-func (o *Object) SetSlots(slots Slots) {
-	o.Lock()
-	defer o.Unlock()
-	if o.Slots == nil {
-		o.Slots = Slots{}
-	}
-	for slot, value := range slots {
-		o.Slots[slot] = value
-	}
-}
-
-// RemoveSlot removes slots from the given object's local slots, if they are
-// present.
-func (o *Object) RemoveSlot(slots ...string) {
-	o.Lock()
-	defer o.Unlock()
-	if o.Slots != nil {
-		for _, slot := range slots {
-			delete(o.Slots, slot)
-		}
-	}
-}
-
-// IsKindOf evaluates whether the object has kind as any of its ancestors, or
-// is itself kind.
-func (o *Object) IsKindOf(kind Interface) bool {
-	if o == nil {
-		return false
-	}
-	// Same stack-based approach as GetSlot. However, in this case, we aren't
-	// in the hot path for message passing, so we can use simpler structures.
-	checked := map[Interface]struct{}{o: {}}
-	protos := []Interface{o}
-	for len(protos) > 0 {
-		proto := protos[len(protos)-1]
-		protos = protos[:len(protos)-1]
-		if proto == kind {
-			return true
-		}
-		proto.Lock()
-		opro := proto.RawProtos()
-		for _, p := range opro {
-			if _, ok := checked[p]; !ok {
-				protos = append(protos, p)
-				checked[p] = struct{}{}
-			}
-		}
-		proto.Unlock()
-	}
-	return false
+// Unlock releases the object's lock.
+func (o *Object) Unlock() {
+	o.L.Unlock()
 }
 
 // RawSlots returns the object's slot map directly. It is not synchronized;
@@ -195,17 +113,6 @@ func (o *Object) RawProtos() []Interface {
 // callers must hold the object's lock to use this safely.
 func (o *Object) RawSetProtos(protos []Interface) {
 	o.Protos = protos
-}
-
-// Lock blocks until acquiring the object's lock. This lock is to synchronize
-// only slots and protos, not values.
-func (o *Object) Lock() {
-	o.L.Lock()
-}
-
-// Unlock releases the object's lock.
-func (o *Object) Unlock() {
-	o.L.Unlock()
 }
 
 // initObject sets up the "base" object that is the first proto of all other
@@ -292,7 +199,7 @@ func (vm *VM) initObject() {
 	slots["returnIfNonNil"] = slots["return"]
 	slots["uniqueHexId"] = slots["uniqueId"]
 	vm.BaseObject.Slots = slots
-	vm.Core.SetSlot("Object", vm.BaseObject)
+	vm.SetSlot(vm.Core, "Object", vm.BaseObject)
 }
 
 // ObjectWith creates a new object with the given slots and with the VM's
@@ -355,7 +262,7 @@ func ObjectSetSlot(vm *VM, target, locals Interface, msg *Message) (Interface, S
 	}
 	v, stop := msg.EvalArgAt(vm, locals, 1)
 	if stop == NoStop {
-		target.SetSlot(slot.String(), v)
+		vm.SetSlot(target, slot.String(), v)
 	}
 	return v, stop
 }
@@ -377,7 +284,7 @@ func ObjectUpdateSlot(vm *VM, target, locals Interface, msg *Message) (Interface
 		if proto == nil {
 			return vm.RaiseExceptionf("slot %s not found", s)
 		}
-		target.SetSlot(s, v)
+		vm.SetSlot(target, s, v)
 	}
 	return v, stop
 }
@@ -406,7 +313,7 @@ func ObjectGetLocalSlot(vm *VM, target, locals Interface, msg *Message) (Interfa
 	if stop != NoStop {
 		return err, stop
 	}
-	v, _ := target.GetLocalSlot(slot.String())
+	v, _ := vm.GetLocalSlot(target, slot.String())
 	if v != nil {
 		return v, NoStop
 	}
@@ -422,7 +329,7 @@ func ObjectHasLocalSlot(vm *VM, target, locals Interface, msg *Message) (Interfa
 	if stop != NoStop {
 		return err, stop
 	}
-	_, ok := target.GetLocalSlot(s.String())
+	_, ok := vm.GetLocalSlot(target, s.String())
 	return vm.IoBool(ok), NoStop
 }
 
@@ -865,9 +772,9 @@ func ObjectForeachSlot(vm *VM, target, locals Interface, msg *Message) (result I
 	}
 	target.Unlock()
 	for k, v := range slots {
-		locals.SetSlot(vn, v)
+		vm.SetSlot(locals, vn, v)
 		if hkn {
-			locals.SetSlot(kn, vm.NewString(k))
+			vm.SetSlot(locals, kn, vm.NewString(k))
 		}
 		result, control = ev.Eval(vm, locals)
 		switch control {
@@ -903,7 +810,7 @@ func ObjectIsKindOf(vm *VM, target, locals Interface, msg *Message) (Interface, 
 	if stop != NoStop {
 		return r, stop
 	}
-	return vm.IoBool(target.IsKindOf(r)), NoStop
+	return vm.IoBool(vm.IsKindOf(target, r)), NoStop
 }
 
 // ObjectMessage is an Object method.
@@ -996,7 +903,7 @@ func ObjectRemoveAllProtos(vm *VM, target, locals Interface, msg *Message) (Inte
 // removeAllSlots removes all slots from the object.
 func ObjectRemoveAllSlots(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	target.Lock()
-	target.SetSlots(Slots{})
+	target.RawSetSlots(Slots{})
 	target.Unlock()
 	return target, NoStop
 }
@@ -1030,7 +937,7 @@ func ObjectRemoveSlot(vm *VM, target, locals Interface, msg *Message) (Interface
 	if stop != NoStop {
 		return err, stop
 	}
-	target.RemoveSlot(s.String())
+	vm.RemoveSlot(target, s.String())
 	return target, NoStop
 }
 

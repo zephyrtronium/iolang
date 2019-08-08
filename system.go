@@ -52,7 +52,7 @@ func (vm *VM) initSystem() {
 	} else {
 		slots["launchPath"] = vm.Nil
 	}
-	vm.Core.SetSlot("System", vm.ObjectWith(slots))
+	vm.SetSlot(vm.Core, "System", vm.ObjectWith(slots))
 }
 
 func (vm *VM) initArgs(args []string) {
@@ -60,8 +60,8 @@ func (vm *VM) initArgs(args []string) {
 	for i, v := range args {
 		l[i] = vm.NewString(v)
 	}
-	s, _ := vm.Core.GetLocalSlot("System")
-	s.SetSlot("args", vm.NewList(l...))
+	s, _ := vm.GetLocalSlot(vm.Core, "System")
+	vm.SetSlot(s, "args", vm.NewList(l...))
 }
 
 // SetLaunchScript sets the System launchScript slot to the given string, as a
@@ -69,12 +69,12 @@ func (vm *VM) initArgs(args []string) {
 // default System launchScript value is nil, which signifies an interactive
 // session.
 func (vm *VM) SetLaunchScript(path string) {
-	s, ok := vm.Core.GetLocalSlot("System")
+	s, ok := vm.GetLocalSlot(vm.Core, "System")
 	if !ok {
 		// No System. Is a "DOES NOT COMPUTE" joke sufficiently witty here?
 		panic("iolang.SetLaunchScript: no Core System")
 	}
-	s.SetSlot("launchScript", vm.NewString(path))
+	vm.SetSlot(s, "launchScript", vm.NewString(path))
 }
 
 // SystemActiveCpus is a System method.

@@ -55,7 +55,7 @@ func (vm *VM) initDuration() {
 		"years":      vm.NewCFunction(DurationYears, kind),
 	}
 	slots["totalSeconds"] = slots["asNumber"]
-	vm.Core.SetSlot("Duration", &Duration{Object: *vm.ObjectWith(slots)})
+	vm.SetSlot(vm.Core, "Duration", &Duration{Object: *vm.ObjectWith(slots)})
 }
 
 // DurationAsNumber is a Duration method.

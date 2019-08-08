@@ -357,7 +357,7 @@ func (vm *VM) initMessage() {
 		"type":                       vm.NewString("Message"),
 	}
 	slots["opShuffleC"] = slots["opShuffle"]
-	vm.Core.SetSlot("Message", &Message{Object: *vm.ObjectWith(slots)})
+	vm.SetSlot(vm.Core, "Message", &Message{Object: *vm.ObjectWith(slots)})
 }
 
 // MessageAppendArg is a Message method.

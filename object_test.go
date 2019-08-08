@@ -114,7 +114,7 @@ func TestGetSlot(t *testing.T) {
 		"Local":        {testVM.Lobby, testVM.Lobby, testVM.Lobby, "Lobby"},
 		"Ancestor":     {testVM.Lobby, testVM.BaseObject, testVM.Core, "Object"},
 		"Never":        {testVM.Lobby, nil, nil, "fail to find"},
-		"OnceLocal":    {sl, testVM.Lobby, testVM.Lobby, "Lobby"},
+		"OnceLocal":    {sl, testVM.Lobby, sl, "Lobby"},
 		"OnceAncestor": {&singleLookupObject{Interface: testVM.Lobby}, testVM.BaseObject, testVM.Core, "Object"},
 		"OnceNever":    {&singleLookupObject{Interface: testVM.Lobby}, nil, nil, "fail to find"},
 	}
@@ -145,7 +145,7 @@ func TestGetLocalSlot(t *testing.T) {
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
-			v, ok := c.o.GetLocalSlot(c.slot)
+			v, ok := testVM.GetLocalSlot(c.o, c.slot)
 			if ok != c.ok {
 				t.Errorf("slot %s has wrong presence: have %v, want %v", c.slot, ok, c.ok)
 			}
@@ -160,7 +160,7 @@ func TestGetLocalSlot(t *testing.T) {
 // activate slot when activated.
 func TestObjectGoActivate(t *testing.T) {
 	o := testVM.ObjectWith(Slots{})
-	testVM.Lobby.SetSlot("TestObjectActivate", o)
+	testVM.SetSlot(testVM.Lobby, "TestObjectActivate", o)
 	cases := map[string]SourceTestCase{
 		"InactiveNoActivate": {`getSlot("TestObjectActivate") removeSlot("activate") setIsActivatable(false)`, PassEqual(o)},
 		"InactiveActivate":   {`getSlot("TestObjectActivate") do(activate := Lobby) setIsActivatable(false)`, PassEqual(o)},
@@ -170,7 +170,7 @@ func TestObjectGoActivate(t *testing.T) {
 	for name, c := range cases {
 		t.Run(name, c.TestFunc("TestObjectActivate/"+name))
 	}
-	testVM.Lobby.RemoveSlot("TestObjectActivate")
+	testVM.RemoveSlot(testVM.Lobby, "TestObjectActivate")
 }
 
 // TestObjectSlots tests that a new VM Object has the slots we expect.

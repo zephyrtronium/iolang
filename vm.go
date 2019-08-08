@@ -174,11 +174,95 @@ func (vm *VM) GetSlot(obj Interface, slot string) (value, proto Interface) {
 	return nil, nil
 }
 
+// GetLocalSlot checks only an object's own slots for a slot.
+func (vm *VM) GetLocalSlot(obj Interface, slot string) (value Interface, ok bool) {
+	if obj == nil {
+		return nil, false
+	}
+	obj.Lock()
+	defer obj.Unlock()
+	slots := obj.RawSlots()
+	if slots == nil {
+		return nil, false
+	}
+	value, ok = slots[slot]
+	return value, ok
+}
+
+// SetSlot sets a slot's value on obj, as if using the := operator.
+func (vm *VM) SetSlot(obj Interface, slot string, value Interface) {
+	obj.Lock()
+	defer obj.Unlock()
+	slots := obj.RawSlots()
+	if slots == nil {
+		slots = Slots{}
+		obj.RawSetSlots(slots)
+	}
+	slots[slot] = value
+}
+
+// SetSlots sets multiple slots more efficiently than using SetSlot for each.
+func (vm *VM) SetSlots(obj Interface, slots Slots) {
+	obj.Lock()
+	defer obj.Unlock()
+	s := obj.RawSlots()
+	if s == nil {
+		s = Slots{}
+		obj.RawSetSlots(s)
+	}
+	for slot, value := range slots {
+		s[slot] = value
+	}
+}
+
+// RemoveSlot removes slots from the given object's local slots, if they are
+// present.
+func (vm *VM) RemoveSlot(obj Interface, slots ...string) {
+	obj.Lock()
+	defer obj.Unlock()
+	s := obj.RawSlots()
+	if s != nil {
+		for _, slot := range slots {
+			delete(s, slot)
+		}
+	}
+}
+
+// IsKindOf evaluates whether the object has kind as any of its ancestors, or
+// is itself kind.
+func (vm *VM) IsKindOf(obj, kind Interface) bool {
+	if obj == nil {
+		return false
+	}
+	// Same stack-based approach as GetSlot. However, in this case, we aren't
+	// in the hot path for message passing, so we can behave a bit more simply.
+	protos := []Interface{obj}
+	vm.protoSet.Add(reflect.ValueOf(obj).Pointer())
+	for len(protos) > 0 {
+		proto := protos[len(protos)-1]
+		protos = protos[:len(protos)-1]
+		if proto == kind {
+			vm.protoSet.Reset()
+			return true
+		}
+		proto.Lock()
+		opro := proto.RawProtos()
+		for _, p := range opro {
+			if vm.protoSet.Add(reflect.ValueOf(p).Pointer()) {
+				protos = append(protos, p)
+			}
+		}
+		proto.Unlock()
+	}
+	vm.protoSet.Reset()
+	return false
+}
+
 // CoreInstance instantiates a type whose default slots are in vm.Core,
 // returning an Object with that type as its proto. Panics if there is no such
 // type!
 func (vm *VM) CoreInstance(name string) *Object {
-	p, ok := vm.Core.GetLocalSlot(name)
+	p, ok := vm.GetLocalSlot(vm.Core, name)
 	if ok {
 		return &Object{Slots: Slots{}, Protos: []Interface{p}}
 	}
@@ -189,7 +273,7 @@ func (vm *VM) CoreInstance(name string) *Object {
 // returning an Object with that type as its proto. Panics if there is no such
 // type!
 func (vm *VM) AddonInstance(name string) *Object {
-	p, ok := vm.Addons.GetLocalSlot(name)
+	p, ok := vm.GetLocalSlot(vm.Addons, name)
 	if ok {
 		return &Object{Slots: Slots{}, Protos: []Interface{p}}
 	}
@@ -244,8 +328,8 @@ func (vm *VM) initCore() {
 	vm.Addons.Protos = []Interface{vm.BaseObject}
 	lp := &Object{Slots: Slots{"Core": vm.Core, "Addons": vm.Addons}, Protos: []Interface{vm.Core, vm.Addons}}
 	vm.Lobby.RawSetProtos([]Interface{lp})
-	vm.Lobby.SetSlot("Protos", lp)
-	vm.Lobby.SetSlot("Lobby", vm.Lobby)
+	vm.SetSlot(vm.Lobby, "Protos", lp)
+	vm.SetSlot(vm.Lobby, "Lobby", vm.Lobby)
 }
 
 func (vm *VM) finalInit() {

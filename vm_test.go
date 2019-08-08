@@ -26,7 +26,6 @@ func TestNewVMAttrs(t *testing.T) {
 		"Lobby", "Core", "Addons",
 		"BaseObject", "True", "False", "Nil", "Operators",
 		"Sched", "Stop",
-		"NumberMemo",
 	}
 	v := reflect.ValueOf(testVM).Elem()
 	for _, attr := range attrs {

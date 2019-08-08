@@ -48,7 +48,7 @@ func (vm *VM) initDirectory() {
 		"setPath":                    vm.NewCFunction(DirectorySetPath, nil),
 		"type":                       vm.NewString("Directory"),
 	}
-	vm.Core.SetSlot("Directory", &Directory{Object: *vm.ObjectWith(slots)})
+	vm.SetSlot(vm.Core, "Directory", &Directory{Object: *vm.ObjectWith(slots)})
 }
 
 // DirectoryAt is a Directory method.

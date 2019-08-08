@@ -54,7 +54,7 @@ func (vm *VM) initMap() {
 		"type":          vm.NewString("Map"),
 		"values":        vm.NewCFunction(MapValues, kind),
 	}
-	vm.Core.SetSlot("Map", &Map{Object: *vm.ObjectWith(slots), Value: map[string]Interface{}})
+	vm.SetSlot(vm.Core, "Map", &Map{Object: *vm.ObjectWith(slots), Value: map[string]Interface{}})
 }
 
 // MapAt is a Map method.
@@ -134,9 +134,9 @@ func MapForeach(vm *VM, target, locals Interface, msg *Message) (result Interfac
 	}
 	m := target.(*Map)
 	for k, v := range m.Value {
-		locals.SetSlot(vn, v)
+		vm.SetSlot(locals, vn, v)
 		if hkn {
-			locals.SetSlot(kn, vm.NewString(k))
+			vm.SetSlot(locals, kn, vm.NewString(k))
 		}
 		result, control = ev.Eval(vm, locals)
 		switch control {
