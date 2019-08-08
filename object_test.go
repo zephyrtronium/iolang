@@ -41,10 +41,9 @@ func PassEqual(want Interface) func(Interface, Stop) bool {
 // slots we expect.
 func CheckSlots(t *testing.T, obj Interface, slots []string) {
 	t.Helper()
-	o := obj.(Raw)
-	o.Lock()
-	defer o.Unlock()
-	s := o.RawSlots()
+	obj.Lock()
+	defer obj.Unlock()
+	s := obj.RawSlots()
 	checked := make(map[string]bool, len(slots))
 	for _, name := range slots {
 		checked[name] = true
@@ -71,10 +70,9 @@ func CheckSlots(t *testing.T, obj Interface, slots []string) {
 // one proto, which is Core Object. obj must come from testVM.
 func CheckObjectIsProto(t *testing.T, obj Interface) {
 	t.Helper()
-	o := obj.(Raw)
-	o.Lock()
-	defer o.Unlock()
-	protos := o.RawProtos()
+	obj.Lock()
+	defer obj.Unlock()
+	protos := obj.RawProtos()
 	switch len(protos) {
 	case 0:
 		t.Fatal("no protos")
@@ -90,25 +88,25 @@ func CheckObjectIsProto(t *testing.T, obj Interface) {
 // singleLookupObject is a testing object that panics if its RawSlots method is
 // called more than once.
 type singleLookupObject struct {
-	Raw
+	Interface
 	c uint32
 }
 
 func (o *singleLookupObject) Clone() Interface {
-	return &singleLookupObject{Raw: o.Raw.Clone().(Raw)}
+	return &singleLookupObject{Interface: o.Interface.Clone()}
 }
 
 func (o *singleLookupObject) RawSlots() Slots {
 	if !atomic.CompareAndSwapUint32(&o.c, 0, 1) {
 		panic("multiple inspections of a single-lookup object")
 	}
-	return o.Raw.RawSlots()
+	return o.Interface.RawSlots()
 }
 
 // TestGetSlot tests that GetSlot can find local and ancestor slots, and that no
 // object is checked more than once.
 func TestGetSlot(t *testing.T) {
-	sl := &singleLookupObject{Raw: testVM.Lobby.(Raw)}
+	sl := &singleLookupObject{Interface: testVM.Lobby}
 	cases := map[string]struct {
 		o, v, p Interface
 		slot    string
@@ -117,12 +115,12 @@ func TestGetSlot(t *testing.T) {
 		"Ancestor":     {testVM.Lobby, testVM.BaseObject, testVM.Core, "Object"},
 		"Never":        {testVM.Lobby, nil, nil, "fail to find"},
 		"OnceLocal":    {sl, testVM.Lobby, testVM.Lobby, "Lobby"},
-		"OnceAncestor": {&singleLookupObject{Raw: testVM.Lobby.(Raw)}, testVM.BaseObject, testVM.Core, "Object"},
-		"OnceNever":    {&singleLookupObject{Raw: testVM.Lobby.(Raw)}, nil, nil, "fail to find"},
+		"OnceAncestor": {&singleLookupObject{Interface: testVM.Lobby}, testVM.BaseObject, testVM.Core, "Object"},
+		"OnceNever":    {&singleLookupObject{Interface: testVM.Lobby}, nil, nil, "fail to find"},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
-			v, p := c.o.GetSlot(c.slot)
+			v, p := testVM.GetSlot(c.o, c.slot)
 			if v != c.v {
 				t.Errorf("slot %s found wrong object: have %T@%p, want %T@%p", c.slot, v, v, c.v, c.v)
 			}

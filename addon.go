@@ -65,7 +65,7 @@ func (vm *VM) reallyLoadAddon(addon Addon) Interface {
 //
 // open loads the addon at the receiver's path and returns the addon's object.
 func AddonOpen(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	p, proto := target.GetSlot("path")
+	p, proto := vm.GetSlot(target, "path")
 	if proto == nil {
 		return vm.RaiseException("addon path unset")
 	}

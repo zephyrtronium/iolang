@@ -44,13 +44,17 @@ func (vm *VM) RaiseExceptionf(format string, args ...interface{}) (Interface, St
 
 // String returns the error message.
 func (e *Exception) String() string {
-	s, _ := e.GetSlot("error")
+	e.Lock()
+	s := e.Slots["error"]
+	e.Unlock()
 	return fmt.Sprint(s)
 }
 
 // Error returns the error message.
 func (e *Exception) Error() string {
-	s, _ := e.GetSlot("error")
+	e.Lock()
+	s := e.Slots["error"]
+	e.Unlock()
 	return fmt.Sprint(s)
 }
 

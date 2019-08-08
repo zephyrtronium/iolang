@@ -57,7 +57,7 @@ func TestLobbySlots(t *testing.T) {
 func TestLobbyProtos(t *testing.T) {
 	// Lobby's proto is a generic object that has Core and Addon slots and Core
 	// and Addons as protos. Check that this is all correct.
-	protos := testVM.Lobby.(Raw).RawProtos()
+	protos := testVM.Lobby.RawProtos()
 	switch len(protos) {
 	case 0:
 		t.Fatal("Lobby has no protos")
@@ -68,10 +68,9 @@ func TestLobbyProtos(t *testing.T) {
 	p := protos[0]
 	slots := []string{"Core", "Addons"}
 	CheckSlots(t, p, slots)
-	o := p.(Raw)
-	o.Lock()
-	defer o.Unlock()
-	opro := o.RawProtos()
+	p.Lock()
+	defer p.Unlock()
+	opro := p.RawProtos()
 	switch len(opro) {
 	case 0, 1:
 		t.Fatal("Lobby proto has too few protos")

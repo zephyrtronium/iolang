@@ -20,10 +20,6 @@ type Interface interface {
 	// proto.
 	Clone() Interface
 
-	// GetSlot checks the object and its ancestors in depth-first order without
-	// cycles for a slot, returning the slot value and the proto which had it.
-	// proto is nil if and only if the slot was not found.
-	GetSlot(slot string) (value, proto Interface)
 	// GetLocalSlot gets a slot without checking ancestors. Returns nil, false
 	// if the slot does not exist on this object.
 	GetLocalSlot(slot string) (value Interface, ok bool)
@@ -38,14 +34,10 @@ type Interface interface {
 	// IsKindOf finds whether the object has kind as any of its ancestors, or
 	// is itself kind.
 	IsKindOf(kind Interface) bool
-}
 
-// Raw is an interface for manipulating slots and protos of objects directly.
-// All objects embedding Object implement this, but the methods are split off
-// for safety. The methods are unsynchronized; callers must hold the Raw's lock
-// to use them safely.
-type Raw interface {
-	Interface
+	// The following methods are for direct access to the object properties.
+	// They are not synchronized; the object lock must be held to use or modify
+	// slots and protos.
 
 	// Lock blocks until acquiring the object's lock.
 	Lock()
@@ -82,7 +74,7 @@ type Object struct {
 // activate slot exists, then this activates that slot; otherwise, it returns
 // the object.
 func (o *Object) Activate(vm *VM, target, locals, context Interface, msg *Message) (Interface, Stop) {
-	ok, proto := o.GetSlot("isActivatable")
+	ok, proto := vm.GetSlot(o, "isActivatable")
 	// We can't use vm.AsBool even though it's one of the few situations where
 	// we'd want to, because it will attempt to activate the isTrue slot, which
 	// is typically a plain Object, which will activate this method and recurse
@@ -90,7 +82,7 @@ func (o *Object) Activate(vm *VM, target, locals, context Interface, msg *Messag
 	if proto == nil || ok == vm.False || ok == vm.Nil {
 		return o, NoStop
 	}
-	act, proto := o.GetSlot("activate")
+	act, proto := vm.GetSlot(o, "activate")
 	if proto != nil {
 		return act.Activate(vm, target, locals, context, msg)
 	}
@@ -101,47 +93,6 @@ func (o *Object) Activate(vm *VM, target, locals, context Interface, msg *Messag
 // proto.
 func (o *Object) Clone() Interface {
 	return &Object{Slots: Slots{}, Protos: []Interface{o}}
-}
-
-// GetSlot finds the value in a slot, checking protos in depth-first order
-// without duplicates. The proto is the object which actually had the slot. If
-// the slot is not found, both returned values will be nil.
-func (o *Object) GetSlot(slot string) (value, proto Interface) {
-	if o == nil {
-		return nil, nil
-	}
-	// Recursion is easy, but it can cause deadlocks, since we need to hold
-	// each proto's lock to check its respective protos. This stack-based
-	// approach is a bit messy, but it allows us to hold each object's lock
-	// only while grabbing its (current) protos.
-	checked := map[Raw]struct{}{o: {}}
-	protos := []Raw{o}
-	for len(protos) > 0 {
-		rp := protos[len(protos)-1]
-		protos = protos[:len(protos)-1]
-		rp.Lock()
-		slots := rp.RawSlots()
-		var ok bool
-		if slots != nil {
-			if value, ok = slots[slot]; ok {
-				rp.Unlock()
-				return value, rp
-			}
-		}
-		// The current proto didn't have the slot, so push every unchecked
-		// proto onto the stack in reverse order, marking them as checked as we
-		// do so.
-		opro := rp.RawProtos()
-		for i := len(opro) - 1; i >= 0; i-- {
-			p := opro[i].(Raw)
-			if _, ok = checked[p]; !ok {
-				protos = append(protos, p)
-				checked[p] = struct{}{}
-			}
-		}
-		rp.Unlock()
-	}
-	return nil, nil
 }
 
 // GetLocalSlot checks only an object's own slots for a slot.
@@ -199,10 +150,10 @@ func (o *Object) IsKindOf(kind Interface) bool {
 	if o == nil {
 		return false
 	}
-	// Same stack-based approach as GetSlot. However, in this case, we don't
-	// care about the order of traversal, which lets us save some effort.
+	// Same stack-based approach as GetSlot. However, in this case, we aren't
+	// in the hot path for message passing, so we can use simpler structures.
 	checked := map[Interface]struct{}{o: {}}
-	protos := []Raw{o}
+	protos := []Interface{o}
 	for len(protos) > 0 {
 		proto := protos[len(protos)-1]
 		protos = protos[:len(protos)-1]
@@ -213,7 +164,7 @@ func (o *Object) IsKindOf(kind Interface) bool {
 		opro := proto.RawProtos()
 		for _, p := range opro {
 			if _, ok := checked[p]; !ok {
-				protos = append(protos, p.(Raw))
+				protos = append(protos, p)
 				checked[p] = struct{}{}
 			}
 		}
@@ -353,7 +304,7 @@ func (vm *VM) ObjectWith(slots Slots) *Object {
 // TypeName gets the name of the type of an object by activating its type slot.
 // If there is no such slot, the Go type name will be returned.
 func (vm *VM) TypeName(o Interface) string {
-	if typ, proto := o.GetSlot("type"); proto != nil {
+	if typ, proto := vm.GetSlot(o, "type"); proto != nil {
 		return vm.AsString(typ)
 	}
 	return fmt.Sprintf("%T", o)
@@ -376,7 +327,7 @@ func (vm *VM) SimpleActivate(o, self, locals Interface, text string, args ...Int
 // proto.
 func ObjectClone(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	clone := target.Clone()
-	if init, proto := target.GetSlot("init"); proto != nil {
+	if init, proto := vm.GetSlot(target, "init"); proto != nil {
 		r, s := init.Activate(vm, clone, locals, proto, vm.IdentMessage("init"))
 		if s != NoStop {
 			return r, s
@@ -422,7 +373,7 @@ func ObjectUpdateSlot(vm *VM, target, locals Interface, msg *Message) (Interface
 	v, stop := msg.EvalArgAt(vm, locals, 1)
 	if stop == NoStop {
 		s := slot.String()
-		_, proto := target.GetSlot(s)
+		_, proto := vm.GetSlot(target, s)
 		if proto == nil {
 			return vm.RaiseExceptionf("slot %s not found", s)
 		}
@@ -439,7 +390,7 @@ func ObjectGetSlot(vm *VM, target, locals Interface, msg *Message) (Interface, S
 	if stop != NoStop {
 		return err, stop
 	}
-	v, _ := target.GetSlot(slot.String())
+	v, _ := vm.GetSlot(target, slot.String())
 	if v != nil {
 		return v, NoStop
 	}
@@ -479,14 +430,13 @@ func ObjectHasLocalSlot(vm *VM, target, locals Interface, msg *Message) (Interfa
 //
 // slotNames returns a list of the names of the slots on this object.
 func ObjectSlotNames(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	o := target.(Raw)
-	o.Lock()
-	slots := o.RawSlots()
+	target.Lock()
+	slots := target.RawSlots()
 	names := make([]Interface, 0, len(slots))
 	for name := range slots {
 		names = append(names, vm.NewString(name))
 	}
-	o.Unlock()
+	target.Unlock()
 	return vm.NewList(names...), NoStop
 }
 
@@ -494,14 +444,13 @@ func ObjectSlotNames(vm *VM, target, locals Interface, msg *Message) (Interface,
 //
 // slotValues returns a list of the values of the slots on this obect.
 func ObjectSlotValues(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	o := target.(Raw)
-	o.Lock()
-	slots := o.RawSlots()
+	target.Lock()
+	slots := target.RawSlots()
 	vals := make([]Interface, 0, len(slots))
 	for _, val := range slots {
 		vals = append(vals, val)
 	}
-	o.Unlock()
+	target.Unlock()
 	return vm.NewList(vals...), NoStop
 }
 
@@ -509,12 +458,11 @@ func ObjectSlotValues(vm *VM, target, locals Interface, msg *Message) (Interface
 //
 // protos returns a list of the receiver's protos.
 func ObjectProtos(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	o := target.(Raw)
-	o.Lock()
-	protos := o.RawProtos()
+	target.Lock()
+	protos := target.RawProtos()
 	v := make([]Interface, len(protos))
 	copy(v, protos)
-	o.Unlock()
+	target.Unlock()
 	return vm.NewList(v...), NoStop
 }
 
@@ -567,19 +515,18 @@ func ObjectDo(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) 
 // lexicalDo appends the lexical context to the receiver's protos, evaluates
 // the message in the context of the receiver, then removes the added proto.
 func ObjectLexicalDo(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	o := target.(Raw)
-	o.Lock()
-	protos := o.RawProtos()
+	target.Lock()
+	protos := target.RawProtos()
 	n := len(protos)
 	protos = append(protos, locals)
-	o.RawSetProtos(protos)
-	o.Unlock()
+	target.RawSetProtos(protos)
+	target.Unlock()
 	result, stop := msg.EvalArgAt(vm, target, 0)
-	o.Lock()
-	protos = o.RawProtos()
+	target.Lock()
+	protos = target.RawProtos()
 	copy(protos[n:], protos[n+1:])
-	o.RawSetProtos(protos[:len(protos)-1])
-	o.Unlock()
+	target.RawSetProtos(protos[:len(protos)-1])
+	target.Unlock()
 	if stop != NoStop {
 		return result, stop
 	}
@@ -618,7 +565,7 @@ func ObjectAsGoRepr(vm *VM, target, locals Interface, msg *Message) (Interface, 
 // *Number holding -1, 0, or 1, if the compare method is proper and no
 // exception occurs. Any Stop will be returned.
 func (vm *VM) Compare(x, y Interface) (Interface, Stop) {
-	cmp, proto := x.GetSlot("compare")
+	cmp, proto := vm.GetSlot(x, "compare")
 	if proto == nil {
 		// No compare method.
 		return vm.NewNumber(float64(PtrCompare(x, y))), NoStop
@@ -788,15 +735,14 @@ func ObjectAncestorWithSlot(vm *VM, target, locals Interface, msg *Message) (Int
 		return err, stop
 	}
 	ss := s.String()
-	o := target.(Raw)
-	o.Lock()
-	opro := o.RawProtos()
+	target.Lock()
+	opro := target.RawProtos()
 	protos := make([]Interface, len(opro))
 	copy(protos, opro)
-	o.Unlock()
+	target.Unlock()
 	for _, p := range protos {
 		// TODO: this finds the slot on target if target is in its own protos
-		_, proto := p.GetSlot(ss)
+		_, proto := vm.GetSlot(p, ss)
 		if proto != nil {
 			return proto, NoStop
 		}
@@ -812,10 +758,9 @@ func ObjectAppendProto(vm *VM, target, locals Interface, msg *Message) (Interfac
 	if stop != NoStop {
 		return v, stop
 	}
-	o := target.(Raw)
-	o.Lock()
-	o.RawSetProtos(append(o.RawProtos(), v))
-	o.Unlock()
+	target.Lock()
+	target.RawSetProtos(append(target.RawProtos(), v))
+	target.Unlock()
 	return target, NoStop
 }
 
@@ -828,7 +773,7 @@ func ObjectContextWithSlot(vm *VM, target, locals Interface, msg *Message) (Inte
 	if stop != NoStop {
 		return err, stop
 	}
-	_, proto := target.GetSlot(s.String())
+	_, proto := vm.GetSlot(target, s.String())
 	if proto != nil {
 		return proto, NoStop
 	}
@@ -912,14 +857,13 @@ func ObjectForeachSlot(vm *VM, target, locals Interface, msg *Message) (result I
 	}
 	// To be safe in a parallel world, we need to make a copy of the target's
 	// slots while holding its lock.
-	o := target.(Raw)
-	o.Lock()
-	ts := o.RawSlots()
+	target.Lock()
+	ts := target.RawSlots()
 	slots := make(Slots, len(ts))
 	for k, v := range ts {
 		slots[k] = v
 	}
-	o.Unlock()
+	target.Unlock()
 	for k, v := range slots {
 		locals.SetSlot(vn, v)
 		if hkn {
@@ -1029,12 +973,11 @@ func ObjectPrependProto(vm *VM, target, locals Interface, msg *Message) (Interfa
 	if stop != NoStop {
 		return p, stop
 	}
-	o := target.(Raw)
-	o.Lock()
-	protos := append(o.RawProtos(), p)
+	target.Lock()
+	protos := append(target.RawProtos(), p)
 	copy(protos[1:], protos)
 	protos[0] = p
-	o.Unlock()
+	target.Unlock()
 	return target, NoStop
 }
 
@@ -1042,10 +985,9 @@ func ObjectPrependProto(vm *VM, target, locals Interface, msg *Message) (Interfa
 //
 // removeAllProtos removes all protos from the object.
 func ObjectRemoveAllProtos(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	o := target.(Raw)
-	o.Lock()
-	o.RawSetProtos([]Interface{})
-	o.Unlock()
+	target.Lock()
+	target.RawSetProtos([]Interface{})
+	target.Unlock()
 	return target, NoStop
 }
 
@@ -1053,10 +995,9 @@ func ObjectRemoveAllProtos(vm *VM, target, locals Interface, msg *Message) (Inte
 //
 // removeAllSlots removes all slots from the object.
 func ObjectRemoveAllSlots(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	o := target.(Raw)
-	o.Lock()
-	o.SetSlots(Slots{})
-	o.Unlock()
+	target.Lock()
+	target.SetSlots(Slots{})
+	target.Unlock()
 	return target, NoStop
 }
 
@@ -1068,17 +1009,16 @@ func ObjectRemoveProto(vm *VM, target, locals Interface, msg *Message) (Interfac
 	if stop != NoStop {
 		return p, stop
 	}
-	o := target.(Raw)
-	o.Lock()
-	protos := o.RawProtos()
+	target.Lock()
+	protos := target.RawProtos()
 	n := make([]Interface, 0, len(protos))
 	for _, proto := range protos {
 		if proto != p {
 			n = append(n, proto)
 		}
 	}
-	o.RawSetProtos(n)
-	o.Unlock()
+	target.RawSetProtos(n)
+	target.Unlock()
 	return target, NoStop
 }
 
@@ -1102,10 +1042,9 @@ func ObjectSetProto(vm *VM, target, locals Interface, msg *Message) (Interface, 
 	if stop != NoStop {
 		return p, stop
 	}
-	o := target.(Raw)
-	o.Lock()
-	o.RawSetProtos(append(o.RawProtos()[:0], p))
-	o.Unlock()
+	target.Lock()
+	target.RawSetProtos(append(target.RawProtos()[:0], p))
+	target.Unlock()
 	return target, NoStop
 }
 
@@ -1117,10 +1056,9 @@ func ObjectSetProtos(vm *VM, target, locals Interface, msg *Message) (Interface,
 	if stop != NoStop {
 		return err, stop
 	}
-	o := target.(Raw)
-	o.Lock()
-	o.RawSetProtos(append(o.RawProtos()[:0], l.Value...))
-	o.Unlock()
+	target.Lock()
+	target.RawSetProtos(append(target.RawProtos()[:0], l.Value...))
+	target.Unlock()
 	return target, NoStop
 }
 

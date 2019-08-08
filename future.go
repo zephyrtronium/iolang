@@ -71,8 +71,8 @@ func (f *Future) run() {
 	vm := f.Coro
 	vm.Sched.Start(f.Coro)
 	defer vm.Sched.Finish(f.Coro)
-	target, _ := f.GetSlot("runTarget")
-	msg, _ := f.GetSlot("runMessage")
+	target, _ := vm.GetSlot(f, "runTarget")
+	msg, _ := vm.GetSlot(f, "runMessage")
 	m, ok := msg.(*Message)
 	if !ok {
 		panic("Future started without a message to run")
@@ -149,7 +149,7 @@ func FutureForward(vm *VM, target, locals Interface, msg *Message) (Interface, S
 			// This should apply only to Core Future, most likely due to
 			// Core slotSummary or Future slotSummary. Grabbing the slot from
 			// BaseObject is probably reasonable.
-			t, proto := vm.BaseObject.GetSlot(msg.Name())
+			t, proto := vm.GetSlot(vm.BaseObject, msg.Name())
 			if proto == nil {
 				return vm.RaiseException("cannot use unstarted Future")
 			}

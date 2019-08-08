@@ -340,7 +340,7 @@ func LocalsUpdateSlot(vm *VM, target, locals Interface, msg *Message) (Interface
 		return err, stop
 	}
 	slot := name.String()
-	_, proto := target.GetSlot(slot)
+	_, proto := vm.GetSlot(target, slot)
 	if proto != nil {
 		// The slot exists on the locals object.
 		v, stop := msg.EvalArgAt(vm, locals, 1)
@@ -352,7 +352,7 @@ func LocalsUpdateSlot(vm *VM, target, locals Interface, msg *Message) (Interface
 	}
 	// If the slot doesn't exist on the locals, forward to self, which is the
 	// block scope or method receiver.
-	self, proto := target.GetSlot("self")
+	self, proto := vm.GetSlot(target, "self")
 	if proto != nil {
 		return vm.Perform(self, locals, msg)
 	}

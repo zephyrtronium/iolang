@@ -2,7 +2,10 @@ package iolang
 
 import (
 	"fmt"
+	"reflect"
 	"time"
+
+	"github.com/zephyrtronium/contains"
 )
 
 // VM is an object for processing Io programs.
@@ -24,6 +27,9 @@ type VM struct {
 	Nil        *Object
 	Operators  *Object
 
+	// Set for checking protos during GetSlot.
+	protoSet contains.Set
+
 	// Sched is the scheduler for this VM and all related coroutines.
 	Sched *Scheduler
 	// Stop is a buffered channel for remote control of this coroutine. The
@@ -36,8 +42,10 @@ type VM struct {
 	// Date clock method.
 	StartTime time.Time
 
-	// Common numbers to avoid needing new objects for each use.
-	NumberMemo map[float64]*Number
+	// intsMemo is a list of memoized integer values from -1 to 255.
+	intsMemo []*Number
+	// realsMemo is a set of additional memoized numeric constants.
+	realsMemo *realsMemo
 }
 
 // NewVM prepares a new VM to interpret Io code. String arguments may be passed
@@ -58,10 +66,6 @@ func NewVM(args ...string) *VM {
 
 		// TODO: should this be since program start instead to match Io?
 		StartTime: time.Now(),
-
-		// Memoize all integers in [-1, 255], 1/2, 1/3, 1/4, all mathematical
-		// constants defined in package math, +/- inf, and float/int extrema.
-		NumberMemo: make(map[float64]*Number, 277),
 	}
 
 	// There is a specific order for initialization. First, we have to
@@ -124,9 +128,50 @@ func (vm *VM) Clone() Interface {
 		Sched:      vm.Sched,
 		Stop:       make(chan RemoteStop, 1),
 		StartTime:  vm.StartTime,
-		NumberMemo: vm.NumberMemo,
+		intsMemo:   vm.intsMemo,
+		realsMemo:  vm.realsMemo,
 	}
 	return &nv
+}
+
+// GetSlot checks the object and its ancestors in depth-first order without
+// cycles for a slot, returning the slot value and the proto which had it.
+// proto is nil if and only if the slot was not found.
+func (vm *VM) GetSlot(obj Interface, slot string) (value, proto Interface) {
+	if obj == nil {
+		return nil, nil
+	}
+	// Recursion is easy, but it can cause deadlocks, since we need to hold
+	// each proto's lock to check its respective protos. This stack-based
+	// approach is a bit messy, but it allows us to hold each object's lock
+	// only while grabbing its (current) protos.
+	protos := []Interface{obj}
+	vm.protoSet.Add(reflect.ValueOf(obj).Pointer())
+	for len(protos) > 0 {
+		rp := protos[len(protos)-1]
+		protos = protos[:len(protos)-1]
+		rp.Lock()
+		if slots := rp.RawSlots(); slots != nil {
+			if v, ok := slots[slot]; ok {
+				rp.Unlock()
+				vm.protoSet.Reset()
+				return v, rp
+			}
+		}
+		// The current proto didn't have the slot, so push every unchecked
+		// proto onto the stack in reverse order, marking them as checked as we
+		// do so.
+		opro := rp.RawProtos()
+		for i := len(opro) - 1; i >= 0; i-- {
+			p := opro[i]
+			if vm.protoSet.Add(reflect.ValueOf(p).Pointer()) {
+				protos = append(protos, p)
+			}
+		}
+		rp.Unlock()
+	}
+	vm.protoSet.Reset()
+	return nil, nil
 }
 
 // CoreInstance instantiates a type whose default slots are in vm.Core,
@@ -149,11 +194,6 @@ func (vm *VM) AddonInstance(name string) *Object {
 		return &Object{Slots: Slots{}, Protos: []Interface{p}}
 	}
 	panic("iolang: no Addon proto named " + name)
-}
-
-// MemoizeNumber creates a quick-access Number with the given value.
-func (vm *VM) MemoizeNumber(v float64) {
-	vm.NumberMemo[v] = vm.NewNumber(v)
 }
 
 // IoBool converts a bool to the appropriate Io boolean object.
@@ -203,7 +243,7 @@ func (vm *VM) initCore() {
 	vm.Addons.Slots = Slots{}
 	vm.Addons.Protos = []Interface{vm.BaseObject}
 	lp := &Object{Slots: Slots{"Core": vm.Core, "Addons": vm.Addons}, Protos: []Interface{vm.Core, vm.Addons}}
-	vm.Lobby.(Raw).RawSetProtos([]Interface{lp})
+	vm.Lobby.RawSetProtos([]Interface{lp})
 	vm.Lobby.SetSlot("Protos", lp)
 	vm.Lobby.SetSlot("Lobby", vm.Lobby)
 }

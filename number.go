@@ -1,3 +1,5 @@
+//go:generate mknumbermemo
+
 package iolang
 
 import (
@@ -19,12 +21,15 @@ type Number struct {
 // memoized by the VM, that object is returned; otherwise, a new object will be
 // allocated.
 func (vm *VM) NewNumber(value float64) *Number {
-	if x, ok := vm.NumberMemo[value]; ok {
+	if x := vm.chkIntsMemo(value); x != nil {
+		return x
+	}
+	if x := vm.chkRealsMemo(value); x != nil {
 		return x
 	}
 	return &Number{
-		*vm.CoreInstance("Number"),
-		value,
+		Object: *vm.CoreInstance("Number"),
+		Value:  value,
 	}
 }
 
@@ -133,29 +138,8 @@ func (vm *VM) initNumber() {
 	}
 	vm.Core.SetSlot("Number", &Number{Object: *vm.ObjectWith(slots)})
 
-	for i := -1; i <= 255; i++ {
-		vm.MemoizeNumber(float64(i))
-	}
-	vm.MemoizeNumber(0.5)
-	vm.MemoizeNumber(0.33333333333333333)
-	vm.MemoizeNumber(0.25)
-	vm.MemoizeNumber(math.E)
-	vm.MemoizeNumber(math.Pi)
-	vm.MemoizeNumber(math.Phi)
-	vm.MemoizeNumber(math.Sqrt2)
-	vm.MemoizeNumber(math.SqrtE)
-	vm.MemoizeNumber(math.SqrtPi)
-	vm.MemoizeNumber(math.SqrtPhi)
-	vm.MemoizeNumber(math.Ln2)
-	vm.MemoizeNumber(math.Log2E)
-	vm.MemoizeNumber(math.Ln10)
-	vm.MemoizeNumber(math.Log10E)
-	vm.MemoizeNumber(math.SmallestNonzeroFloat64)
-	vm.MemoizeNumber(math.MaxFloat64)
-	vm.MemoizeNumber(math.MinInt64)
-	vm.MemoizeNumber(math.MaxInt64)
-	vm.MemoizeNumber(math.Inf(1))
-	vm.MemoizeNumber(math.Inf(-1))
+	vm.initIntsMemo()
+	vm.initRealsMemo()
 	slots["%"] = slots["mod"]
 	slots["&"] = slots["bitwiseAnd"]
 	slots["|"] = slots["bitwiseOr"]

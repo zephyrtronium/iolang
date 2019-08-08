@@ -306,14 +306,14 @@ func (vm *VM) OpShuffle(m *Message) (err *Exception) {
 		// happen because the message begins with __noShuffling__. :)
 		return nil
 	}
-	operators, proto := m.GetSlot("OperatorTable")
+	operators, proto := vm.GetSlot(m, "OperatorTable")
 	if proto == nil {
 		operators = vm.Operators
 	}
 	var ops, asgn *Map
 	for {
-		opsx, _ := operators.GetSlot("operators")
-		asgnx, _ := operators.GetSlot("assignOperators")
+		opsx, _ := vm.GetSlot(operators, "operators")
+		asgnx, _ := vm.GetSlot(operators, "assignOperators")
 		ops, _ = opsx.(*Map)
 		asgn, _ = asgnx.(*Map)
 		if ops == nil || asgn == nil {

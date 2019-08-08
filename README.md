@@ -26,11 +26,12 @@ For a more in-depth introduction to Io, check out [the official guide](http://io
 
 ## TODO
 
-- Implement primitive (Core) types:
-	+ Compiler
-- Finish implementing CFunctions for existing primitive types:
-	+ File - figure out how/whether to implement popen and reopen.
-	+ Date - fromString requires a robust implementation.
+- Profile; iolang is about 6x slower than Io at just passing messages.
+- Redo addon loading.
+	+ Allow addons to create multiple objects.
+	+ Allow addons to have dependencies, e.g. HTTPClient requires Socket, but don't load Socket twice.
+- Change CoreInstance and AddonInstance to CoreProto and AddonProto, returning only protos, not a whole object.
+- Write tests, both in Go and in Io.
 - Write remaining initialization code.
 	+ Actor
 	+ Addon, AddonLoader, Importer, ideally supporting Go's `-buildmode=plugin`.
@@ -41,5 +42,9 @@ For a more in-depth introduction to Io, check out [the official guide](http://io
 	+ Path
 	+ System
 	+ I'm sure I've missed others.
-- Write tests, both in Go and in Io.
+- Implement primitive (Core) types:
+	+ Compiler
+- Finish implementing CFunctions for existing primitive types:
+	+ File - figure out how/whether to implement popen and reopen.
+	+ Date - fromString requires a robust implementation.
 - [Document differences between this implementation and the original.](https://github.com/zephyrtronium/iolang/wiki/Implementation-Specific-Behavior)

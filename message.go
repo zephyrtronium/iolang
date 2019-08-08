@@ -239,14 +239,14 @@ func (m *Message) Send(vm *VM, target, locals Interface) (result Interface, cont
 
 // Perform executes a single message. The result may be a Stop.
 func (vm *VM) Perform(target, locals Interface, msg *Message) (result Interface, control Stop) {
-	if v, proto := target.GetSlot(msg.Name()); proto != nil {
+	if v, proto := vm.GetSlot(target, msg.Name()); proto != nil {
 		x, s := v.Activate(vm, target, locals, proto, msg)
 		if x != nil {
 			return x, s
 		}
 		return vm.Nil, s
 	}
-	if forward, fp := target.GetSlot("forward"); fp != nil {
+	if forward, fp := vm.GetSlot(target, "forward"); fp != nil {
 		x, s := forward.Activate(vm, target, locals, fp, msg)
 		if x != nil {
 			return x, s
