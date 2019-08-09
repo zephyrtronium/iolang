@@ -27,7 +27,7 @@ func (vm *VM) NewCFunction(f Fn, kind Interface) *CFunction {
 	if kind != nil {
 		typ := reflect.TypeOf(kind)
 		return &CFunction{
-			Object: *vm.CoreInstance("CFunction"),
+			Object: Object{Protos: vm.CoreProto("CFunction")},
 			Function: func(vm *VM, target, locals Interface, msg *Message) (result Interface, control Stop) {
 				if ttyp := reflect.TypeOf(target); ttyp != typ {
 					return vm.RaiseExceptionf("receiver of %s must be %v, not %v", name, typ, ttyp)
@@ -39,7 +39,7 @@ func (vm *VM) NewCFunction(f Fn, kind Interface) *CFunction {
 		}
 	}
 	return &CFunction{
-		Object:   *vm.CoreInstance("CFunction"),
+		Object:   Object{Protos: vm.CoreProto("CFunction")},
 		Function: f,
 		Name:     path.Base(runtime.FuncForPC(u).Name()),
 	}
@@ -48,7 +48,7 @@ func (vm *VM) NewCFunction(f Fn, kind Interface) *CFunction {
 // Clone creates a clone of the CFunction with the same function and name.
 func (f *CFunction) Clone() Interface {
 	return &CFunction{
-		Object:   Object{Slots: Slots{}, Protos: []Interface{f}},
+		Object:   Object{Protos: []Interface{f}},
 		Function: f.Function,
 		Name:     f.Name,
 		Type:     f.Type,

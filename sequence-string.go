@@ -35,7 +35,7 @@ var validEncodings = []string{"ascii", "utf8", "number", "latin1", "utf16", "utf
 // UTF-8 encoding.
 func (vm *VM) NewString(value string) *Sequence {
 	return &Sequence{
-		Object:  *vm.CoreInstance("String"),
+		Object:  Object{Protos: vm.CoreProto("String")},
 		Value:   []byte(value),
 		Mutable: false,
 		Code:    "utf8",

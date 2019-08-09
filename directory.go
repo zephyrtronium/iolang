@@ -15,7 +15,7 @@ type Directory struct {
 // NewDirectory creates a new Directory with the given path.
 func (vm *VM) NewDirectory(path string) *Directory {
 	return &Directory{
-		Object: *vm.CoreInstance("Directory"),
+		Object: Object{Protos: vm.CoreProto("Directory")},
 		Path:   path,
 	}
 }
@@ -28,7 +28,7 @@ func (d *Directory) Activate(vm *VM, target, locals, context Interface, msg *Mes
 // Clone creates a clone of the directory.
 func (d *Directory) Clone() Interface {
 	return &Directory{
-		Object: Object{Slots: Slots{}, Protos: []Interface{d}},
+		Object: Object{Protos: []Interface{d}},
 		Path:   d.Path,
 	}
 }

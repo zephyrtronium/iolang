@@ -16,7 +16,7 @@ type Duration struct {
 // NewDuration creates a new Duration object with the given duration.
 func (vm *VM) NewDuration(d time.Duration) *Duration {
 	return &Duration{
-		Object: *vm.CoreInstance("Duration"),
+		Object: Object{Protos: vm.CoreProto("Duration")},
 		Value:  d,
 	}
 }
@@ -29,7 +29,7 @@ func (d *Duration) Activate(vm *VM, target, locals, context Interface, msg *Mess
 // Clone creates a clone of the duration with the same value.
 func (d *Duration) Clone() Interface {
 	return &Duration{
-		Object: Object{Slots: Slots{}, Protos: []Interface{d}},
+		Object: Object{Protos: []Interface{d}},
 		Value:  d.Value,
 	}
 }

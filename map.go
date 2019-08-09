@@ -13,7 +13,7 @@ type Map struct {
 // NewMap creates a new Map object with the given value, which may be nil.
 func (vm *VM) NewMap(value map[string]Interface) *Map {
 	m := Map{
-		Object: *vm.CoreInstance("Map"),
+		Object: Object{Protos: vm.CoreProto("Map")},
 		Value:  value,
 	}
 	if m.Value == nil {
@@ -34,7 +34,7 @@ func (m *Map) Clone() Interface {
 		n[k] = v
 	}
 	return &Map{
-		Object: Object{Slots: Slots{}, Protos: []Interface{m}},
+		Object: Object{Protos: []Interface{m}},
 		Value:  n,
 	}
 }

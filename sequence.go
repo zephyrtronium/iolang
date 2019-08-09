@@ -110,7 +110,7 @@ func (vm *VM) NewSequence(value interface{}, mutable bool, encoding string) *Seq
 		panic(fmt.Sprintf("unsupported value type %T, must be slice of basic fixed-size data type", value))
 	}
 	return &Sequence{
-		Object:  *vm.CoreInstance("ImmutableSequence"),
+		Object:  Object{Protos: vm.CoreProto("ImmutableSequence")},
 		Value:   value,
 		Mutable: mutable,
 		Code:    encoding,
@@ -215,7 +215,7 @@ func (s *Sequence) Activate(vm *VM, target, locals, context Interface, msg *Mess
 // Clone returns a new Sequence whose value is a copy of this one's.
 func (s *Sequence) Clone() Interface {
 	ns := Sequence{
-		Object:  Object{Slots: Slots{}, Protos: []Interface{s}},
+		Object:  Object{Protos: []Interface{s}},
 		Mutable: s.Mutable,
 		Code:    s.Code,
 	}

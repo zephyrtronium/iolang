@@ -24,7 +24,7 @@ import "math"
 var genInts = template.Must(template.New("genInts").Parse(`
 func (vm *VM) initIntsMemo() {
 	vm.intsMemo = []*Number{
-{{range .V}}		&Number{Object: *vm.CoreInstance("Number"), Value: {{. -}} },
+{{range .V}}		&Number{Object: Object{Protos: vm.CoreProto("Number")}, Value: {{. -}} },
 {{end}}	}
 }
 
@@ -44,7 +44,7 @@ type realsMemo struct {
 
 func (vm *VM) initRealsMemo() {
 	vm.realsMemo = &realsMemo{
-{{range $k, $v := .}}		{{$k}}: &Number{Object: *vm.CoreInstance("Number"), Value: {{$v -}} },
+{{range $k, $v := .}}		{{$k}}: &Number{Object: Object{Protos: vm.CoreProto("Number")}, Value: {{$v -}} },
 {{end}}
 	}
 }

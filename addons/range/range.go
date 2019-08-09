@@ -18,7 +18,7 @@ type Range struct {
 
 // NewRange creates a new Range with the given start, stop, and step values.
 func NewRange(vm *VM, start, stop, step float64) *Range {
-	r := &Range{Object: *vm.AddonInstance("Range")}
+	r := &Range{Object: Object{Protos: vm.AddonProto("Range")}}
 	r.SetRange(start, stop, step)
 	return r
 }
@@ -31,7 +31,7 @@ func (r *Range) Activate(vm *VM, target, locals, context Interface, msg *Message
 // Clone creates a clone of the range with the same status.
 func (r *Range) Clone() Interface {
 	return &Range{
-		Object: Object{Slots: Slots{}, Protos: []Interface{r}},
+		Object: Object{Protos: []Interface{r}},
 		Index:  r.Index,
 		Last:   r.Last,
 		Start:  r.Start,

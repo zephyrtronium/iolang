@@ -51,7 +51,7 @@ func (b *Block) reallyActivate(vm *VM, target, locals, context Interface, msg *M
 // Clone creates a clone of the block with a deep copy of its message.
 func (b *Block) Clone() Interface {
 	return &Block{
-		Object:      Object{Slots: Slots{}, Protos: []Interface{b}},
+		Object:      Object{Protos: []Interface{b}},
 		Message:     b.Message.DeepCopy(),
 		Self:        b.Self,
 		ArgNames:    append([]string{}, b.ArgNames...),
@@ -62,9 +62,13 @@ func (b *Block) Clone() Interface {
 
 // NewLocals instantiates a Locals object for a block activation.
 func (vm *VM) NewLocals(self, call Interface) *Object {
-	lc := vm.CoreInstance("Locals")
-	vm.SetSlot(lc, "self", self)
-	vm.SetSlot(lc, "call", call)
+	lc := &Object{
+		Slots: Slots{
+			"self": self,
+			"call": call,
+		},
+		Protos: vm.CoreProto("Locals"),
+	}
 	return lc
 }
 
@@ -113,13 +117,13 @@ func (vm *VM) initLocals() {
 func ObjectBlock(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	if msg.ArgCount() == 0 {
 		return &Block{
-			Object:  *vm.CoreInstance("Block"),
+			Object:  Object{Protos: vm.CoreProto("Block")},
 			Message: vm.CachedMessage(vm.Nil),
 			Self:    locals,
 		}, NoStop
 	}
 	blk := Block{
-		Object:   *vm.CoreInstance("Block"),
+		Object:   Object{Protos: vm.CoreProto("Block")},
 		Message:  msg.ArgAt(len(msg.Args) - 1),
 		Self:     locals,
 		ArgNames: make([]string, len(msg.Args)-1),

@@ -15,8 +15,8 @@ type List struct {
 // NewList creates a List with the given items.
 func (vm *VM) NewList(items ...Interface) *List {
 	return &List{
-		*vm.CoreInstance("List"),
-		items,
+		Object: Object{Protos: vm.CoreProto("List")},
+		Value:  items,
 	}
 }
 
@@ -45,7 +45,7 @@ func (l *List) Activate(vm *VM, target, locals, context Interface, msg *Message)
 func (l *List) Clone() Interface {
 	ll := make([]Interface, len(l.Value))
 	copy(ll, l.Value)
-	return &List{Object{Slots: Slots{}, Protos: []Interface{l}}, ll}
+	return &List{Object{Protos: []Interface{l}}, ll}
 }
 
 // String creates a simple string representation of this list.

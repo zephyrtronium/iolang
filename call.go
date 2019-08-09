@@ -27,7 +27,7 @@ func (c *Call) Activate(vm *VM, target, locals, context Interface, msg *Message)
 // same message pointer.
 func (c *Call) Clone() Interface {
 	return &Call{
-		Object:    Object{Slots: Slots{}, Protos: []Interface{c}},
+		Object:    Object{Protos: []Interface{c}},
 		Sender:    c.Sender,
 		Activated: c.Activated,
 		Msg:       c.Msg,
@@ -40,16 +40,17 @@ func (c *Call) Clone() Interface {
 // NewCall creates a Call object sent from sender to the target's actor using
 // the message msg.
 func (vm *VM) NewCall(sender, actor Interface, msg *Message, target, context Interface) Interface {
-	c := vm.CoreInstance("Call")
-	c.Slots = Slots{
-		"activated":   actor,
-		"coroutine":   vm,
-		"message":     msg,
-		"sender":      sender,
-		"slotContext": context,
-		"target":      target,
+	return &Object{
+		Slots: Slots{
+			"activated":   actor,
+			"coroutine":   vm,
+			"message":     msg,
+			"sender":      sender,
+			"slotContext": context,
+			"target":      target,
+		},
+		Protos: vm.CoreProto("Call"),
 	}
-	return c
 }
 
 func (vm *VM) initCall() {

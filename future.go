@@ -30,7 +30,7 @@ func (f *Future) Activate(vm *VM, target, locals, context Interface, msg *Messag
 // Clone returns an empty clone of this future.
 func (f *Future) Clone() Interface {
 	return &Future{
-		Object: Object{Slots: Slots{}, Protos: []Interface{f}},
+		Object: Object{Protos: []Interface{f}},
 	}
 }
 
@@ -50,7 +50,7 @@ func (vm *VM) initFuture() {
 // NewFuture creates a new Future object with its own coroutine and runs it.
 func (vm *VM) NewFuture(target Interface, msg *Message) *Future {
 	f := Future{
-		Object: *vm.CoreInstance("Future"),
+		Object: Object{Protos: vm.CoreProto("Future")},
 		Coro:   vm.Clone().(*VM),
 	}
 	f.Object.Slots["runTarget"] = target

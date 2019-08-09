@@ -77,7 +77,7 @@ func (o *Object) Activate(vm *VM, target, locals, context Interface, msg *Messag
 // Clone returns a new object with empty slots and this object as its only
 // proto.
 func (o *Object) Clone() Interface {
-	return &Object{Slots: Slots{}, Protos: []Interface{o}}
+	return &Object{Protos: []Interface{o}}
 }
 
 // Lock blocks until acquiring the object's lock. This lock is to synchronize

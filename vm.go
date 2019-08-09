@@ -116,7 +116,7 @@ func (vm *VM) Activate(vm2 *VM, target, locals, context Interface, msg *Message)
 // Clone creates a new, inactive coroutine cloned from this one.
 func (vm *VM) Clone() Interface {
 	nv := VM{
-		Object:     Object{Slots: Slots{}, Protos: []Interface{vm}},
+		Object:     Object{Protos: []Interface{vm}},
 		Lobby:      vm.Lobby,
 		Core:       vm.Core,
 		Addons:     vm.Addons,
@@ -258,26 +258,22 @@ func (vm *VM) IsKindOf(obj, kind Interface) bool {
 	return false
 }
 
-// CoreInstance instantiates a type whose default slots are in vm.Core,
-// returning an Object with that type as its proto. Panics if there is no such
-// type!
-func (vm *VM) CoreInstance(name string) *Object {
-	p, ok := vm.GetLocalSlot(vm.Core, name)
-	if ok {
-		return &Object{Slots: Slots{}, Protos: []Interface{p}}
+// CoreProto returns a new Protos list for a type in vm.Core. Panics if there
+// is no such type!
+func (vm *VM) CoreProto(name string) []Interface {
+	if p, ok := vm.GetLocalSlot(vm.Core, name); ok {
+		return []Interface{p}
 	}
 	panic("iolang: no Core proto named " + name)
 }
 
-// AddonInstance instantiates a type whose default slots are in vm.Addons,
-// returning an Object with that type as its proto. Panics if there is no such
-// type!
-func (vm *VM) AddonInstance(name string) *Object {
-	p, ok := vm.GetLocalSlot(vm.Addons, name)
-	if ok {
-		return &Object{Slots: Slots{}, Protos: []Interface{p}}
+// AddonProto returns a new Protos list for a type in vm.Addons. Panics if
+// there is no such type!
+func (vm *VM) AddonProto(name string) []Interface {
+	if p, ok := vm.GetLocalSlot(vm.Addons, name); ok {
+		return []Interface{p}
 	}
-	panic("iolang: no Addon proto named " + name)
+	panic("iolang: no Addons proto named " + name)
 }
 
 // IoBool converts a bool to the appropriate Io boolean object.
@@ -324,7 +320,6 @@ func (vm *VM) initCore() {
 	// make room for them.
 	vm.Core.Slots = make(Slots, 46)
 	vm.Core.Protos = []Interface{vm.BaseObject}
-	vm.Addons.Slots = Slots{}
 	vm.Addons.Protos = []Interface{vm.BaseObject}
 	lp := &Object{Slots: Slots{"Core": vm.Core, "Addons": vm.Addons}, Protos: []Interface{vm.Core, vm.Addons}}
 	vm.Lobby.RawSetProtos([]Interface{lp})

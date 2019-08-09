@@ -24,7 +24,7 @@ func (vm *VM) Parse(source io.Reader, label string) (msg *Message, err error) {
 }
 
 func (vm *VM) parseRecurse(open rune, src *bufio.Reader, tokens chan token, label string) (tok token, msg *Message, err error) {
-	msg = &Message{Object: *vm.CoreInstance("Message"), Label: label}
+	msg = &Message{Object: Object{Protos: vm.CoreProto("Message")}, Label: label}
 	m := msg
 	defer func() {
 		if msg.Text == "" && msg.Args == nil {
@@ -179,7 +179,7 @@ func (vm *VM) parseRecurse(open rune, src *bufio.Reader, tokens chan token, labe
 		}
 		if tok.Kind != commentToken {
 			m.Next = &Message{
-				Object: *vm.CoreInstance("Message"),
+				Object: Object{Protos: vm.CoreProto("Message")},
 				Prev:   m,
 				Label:  label,
 			}

@@ -28,7 +28,7 @@ func (vm *VM) NewNumber(value float64) *Number {
 		return x
 	}
 	return &Number{
-		Object: *vm.CoreInstance("Number"),
+		Object: Object{Protos: vm.CoreProto("Number")},
 		Value:  value,
 	}
 }
@@ -57,7 +57,7 @@ func (n *Number) Activate(vm *VM, target, locals, context Interface, msg *Messag
 // Clone creates a clone of this Number with the same value.
 func (n *Number) Clone() Interface {
 	return &Number{
-		Object{Slots: Slots{}, Protos: []Interface{n}},
+		Object{Protos: []Interface{n}},
 		n.Value,
 	}
 }

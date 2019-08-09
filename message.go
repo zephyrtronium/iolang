@@ -38,7 +38,7 @@ func (m *Message) Activate(vm *VM, target, locals, context Interface, msg *Messa
 // Clone returns a clone of the message with the same text only.
 func (m *Message) Clone() Interface {
 	return &Message{
-		Object: Object{Slots: Slots{}, Protos: []Interface{m}},
+		Object: Object{Protos: []Interface{m}},
 		Text:   m.Text,
 	}
 }
@@ -47,7 +47,7 @@ func (m *Message) Clone() Interface {
 // may be passed as arguments.
 func (vm *VM) IdentMessage(s string, args ...*Message) *Message {
 	return &Message{
-		Object: *vm.CoreInstance("Message"),
+		Object: Object{Protos: vm.CoreProto("Message")},
 		Text:   s,
 		Args:   args,
 	}
@@ -56,7 +56,7 @@ func (vm *VM) IdentMessage(s string, args ...*Message) *Message {
 // StringMessage creates a message carrying a string value.
 func (vm *VM) StringMessage(s string) *Message {
 	return &Message{
-		Object: *vm.CoreInstance("Message"),
+		Object: Object{Protos: vm.CoreProto("Message")},
 		Text:   strconv.Quote(s),
 		Memo:   vm.NewString(s),
 	}
@@ -65,7 +65,7 @@ func (vm *VM) StringMessage(s string) *Message {
 // NumberMessage creates a message carrying a numeric value.
 func (vm *VM) NumberMessage(v float64) *Message {
 	return &Message{
-		Object: *vm.CoreInstance("Message"),
+		Object: Object{Protos: vm.CoreProto("Message")},
 		Text:   strconv.FormatFloat(v, 'g', -1, 64),
 		Memo:   vm.NewNumber(v),
 	}
@@ -74,7 +74,7 @@ func (vm *VM) NumberMessage(v float64) *Message {
 // CachedMessage creates a message carrying a cached value.
 func (vm *VM) CachedMessage(v Interface) *Message {
 	return &Message{
-		Object: *vm.CoreInstance("Message"),
+		Object: Object{Protos: vm.CoreProto("Message")},
 		Text:   vm.AsString(v),
 		Memo:   v,
 	}
@@ -86,11 +86,11 @@ func (m *Message) DeepCopy() *Message {
 	if m == nil {
 		return nil
 	}
-	// We can't use vm.CoreInstance because we won't have access to a VM
+	// We can't use vm.CoreProto because we won't have access to a VM
 	// everywhere we need it, e.g. Block.Clone(). Instead, steal the protos
 	// from the message we're copying.
 	fm := &Message{
-		Object: Object{Slots: Slots{}, Protos: append([]Interface{}, m.Protos...)},
+		Object: Object{Protos: append([]Interface{}, m.Protos...)},
 		Text:   m.Text,
 		Args:   make([]*Message, len(m.Args)),
 		Prev:   m.Prev,
@@ -101,7 +101,7 @@ func (m *Message) DeepCopy() *Message {
 	}
 	for pm, nm := fm, m.Next; nm != nil; pm, nm = pm.Next, nm.Next {
 		pm.Next = &Message{
-			Object: Object{Slots: Slots{}, Protos: append([]Interface{}, nm.Protos...)},
+			Object: Object{Protos: append([]Interface{}, nm.Protos...)},
 			Text:   nm.Text,
 			Args:   make([]*Message, len(nm.Args)),
 			Prev:   pm,
@@ -450,7 +450,7 @@ func MessageArguments(vm *VM, target, locals Interface, msg *Message) (Interface
 func MessageAsMessageWithEvaluatedArgs(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 	m := target.(*Message)
 	nm := &Message{
-		Object: *vm.CoreInstance("Message"),
+		Object: Object{Protos: vm.CoreProto("Message")},
 		Text:   m.Text,
 		Args:   make([]*Message, m.ArgCount()),
 		Next:   m.Next,

@@ -16,7 +16,7 @@ type Date struct {
 // NewDate creates a new Date object with the given time.
 func (vm *VM) NewDate(date time.Time) *Date {
 	return &Date{
-		Object: *vm.CoreInstance("Date"),
+		Object: Object{Protos: vm.CoreProto("Date")},
 		Date:   date,
 	}
 }
@@ -29,7 +29,7 @@ func (d *Date) Activate(vm *VM, target, locals, context Interface, msg *Message)
 // Clone creates a clone of the date.
 func (d *Date) Clone() Interface {
 	return &Date{
-		Object: Object{Slots: Slots{}, Protos: []Interface{d}},
+		Object: Object{Protos: []Interface{d}},
 		Date:   d.Date,
 	}
 }

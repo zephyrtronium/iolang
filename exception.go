@@ -15,12 +15,12 @@ func (e *Exception) Activate(vm *VM, target, locals, context Interface, msg *Mes
 
 // Clone creates a clone of the exception.
 func (e *Exception) Clone() Interface {
-	return &Exception{Object: Object{Slots: Slots{}, Protos: []Interface{e}}}
+	return &Exception{Object: Object{Protos: []Interface{e}}}
 }
 
 // NewException creates a new Io Exception with the given error message.
 func (vm *VM) NewException(msg string) *Exception {
-	e := Exception{Object: *vm.CoreInstance("Exception")}
+	e := Exception{Object: Object{Protos: vm.CoreProto("Exception")}}
 	e.Slots["error"] = vm.NewString(msg)
 	e.Slots["coroutine"] = vm
 	return &e
@@ -119,7 +119,7 @@ func ExceptionRaise(vm *VM, target, locals Interface, msg *Message) (Interface, 
 	if stop != NoStop {
 		return nested, stop
 	}
-	e := &Exception{Object: *vm.CoreInstance("Exception")}
+	e := &Exception{Object: Object{Protos: vm.CoreProto("Exception")}}
 	vm.SetSlot(e, "error", s)
 	vm.SetSlot(e, "nestedException", nested)
 	return e.Raise()
@@ -141,7 +141,7 @@ func ExceptionRaiseFrom(vm *VM, target, locals Interface, msg *Message) (Interfa
 	if stop != NoStop {
 		return nested, stop
 	}
-	e := &Exception{Object: *vm.CoreInstance("Exception")}
+	e := &Exception{Object: Object{Protos: vm.CoreProto("Exception")}}
 	vm.SetSlot(e, "error", s)
 	vm.SetSlot(e, "nestedException", nested)
 	vm.SetSlot(e, "originalCall", call)

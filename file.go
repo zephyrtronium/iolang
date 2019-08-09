@@ -25,7 +25,7 @@ type File struct {
 // opening the file.
 func (vm *VM) NewFile(file *os.File, mode string) *File {
 	f := File{
-		Object: *vm.CoreInstance("File"),
+		Object: Object{Protos: vm.CoreProto("File")},
 		File:   file,
 		Mode:   mode,
 	}
@@ -39,7 +39,7 @@ func (vm *VM) NewFile(file *os.File, mode string) *File {
 // set to "read". The path should use the OS's separator convention.
 func (vm *VM) NewFileAt(path string) *File {
 	return &File{
-		Object: *vm.CoreInstance("File"),
+		Object: Object{Protos: vm.CoreProto("File")},
 		Path:   path,
 		Mode:   "read",
 	}
@@ -53,7 +53,7 @@ func (f *File) Activate(vm *VM, target, locals, context Interface, msg *Message)
 // Clone creates a clone of this file with no associated file.
 func (f *File) Clone() Interface {
 	return &File{
-		Object: Object{Slots: Slots{}, Protos: []Interface{f}},
+		Object: Object{Protos: []Interface{f}},
 		Mode:   "update",
 	}
 }
