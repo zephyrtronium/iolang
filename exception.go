@@ -20,7 +20,15 @@ func (e *Exception) Clone() Interface {
 
 // NewException creates a new Io Exception with the given error message.
 func (vm *VM) NewException(msg string) *Exception {
-	e := Exception{Object: Object{Protos: vm.CoreProto("Exception")}}
+	e := Exception{
+		Object: Object{
+			Slots: Slots{
+				"error":     vm.NewString(msg),
+				"coroutine": vm,
+			},
+			Protos: vm.CoreProto("Exception"),
+		},
+	}
 	e.Slots["error"] = vm.NewString(msg)
 	e.Slots["coroutine"] = vm
 	return &e
