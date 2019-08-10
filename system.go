@@ -9,6 +9,7 @@ import (
 func (vm *VM) initSystem() {
 	slots := Slots{
 		"activeCpus":             vm.NewCFunction(SystemActiveCpus, nil),
+		"arch":                   vm.NewString(runtime.GOARCH),
 		"exit":                   vm.NewCFunction(SystemExit, nil),
 		"getEnvironmentVariable": vm.NewCFunction(SystemGetEnvironmentVariable, nil),
 		"iovmName":               vm.NewString("github.com/zephyrtronium/iolang"),

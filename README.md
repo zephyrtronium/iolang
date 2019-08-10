@@ -29,13 +29,11 @@ For a more in-depth introduction to Io, check out [the official guide](http://io
 - Redo addon loading.
 	+ Allow addons to create multiple objects.
 	+ Allow addons to have dependencies, e.g. HTTPClient requires Socket, but don't load Socket twice.
-- Change CoreInstance and AddonInstance to CoreProto and AddonProto, returning only protos, not a whole object.
 - Write tests, both in Go and in Io.
 - Write remaining initialization code.
 	+ Actor
 	+ Addon, AddonLoader, Importer, ideally supporting Go's `-buildmode=plugin`.
 	+ CLI
-	+ Directory
 	+ File
 	+ Object
 	+ Path

@@ -89,7 +89,7 @@ func TestLobbyProtos(t *testing.T) {
 func TestCoreSlots(t *testing.T) {
 	slots := []string{
 		"Addon",
-		// "AddonLoader",
+		"AddonLoader",
 		"Block",
 		"CFunction",
 		// "CLI",
@@ -118,7 +118,7 @@ func TestCoreSlots(t *testing.T) {
 		"Number",
 		"Object",
 		"OperatorTable",
-		// "Path",
+		"Path",
 		// "Profiler",
 		"RunnerMixIn",
 		// "Sandbox",
