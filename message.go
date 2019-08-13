@@ -132,10 +132,10 @@ func (m *Message) AssertArgCount(name string, n int) error {
 // ArgAt returns the argument at position n, or nil if the position is out of
 // bounds.
 func (m *Message) ArgAt(n int) *Message {
-	if n >= len(m.Args) || n < 0 {
-		return nil
+	if 0 <= n && n < len(m.Args) {
+		return m.Args[n]
 	}
-	return m.Args[n]
+	return nil
 }
 
 // MessageArgAt evaluates the nth argument and returns it as a Message. If a

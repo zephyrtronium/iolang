@@ -3,7 +3,6 @@ package iolang
 import (
 	"fmt"
 	"os"
-	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -37,6 +36,9 @@ type Interface interface {
 	RawProtos() []Interface
 	// SetProtos sets the object's protos list.
 	RawSetProtos(protos []Interface)
+
+	// UniqueID returns a number unique to the object.
+	UniqueID() uintptr
 }
 
 // Slots holds the set of messages to which an object responds.
@@ -44,15 +46,16 @@ type Slots map[string]Interface
 
 // Object is the basic type of Io. Everything is an Object.
 type Object struct {
+	// l is a lock which should be held when accessing slots or protos
+	// directly. It is first in the object so that a pointer to the object is a
+	// pointer to the lock.
+	l sync.Mutex
+
 	// Slots is the set of messages to which this object responds.
 	Slots Slots
 	// Protos are the set of objects to which messages are forwarded, in
 	// depth-first order without duplicates, when this object cannot respond.
 	Protos []Interface
-
-	// L is a lock which should be held when accessing slots or protos
-	// directly.
-	L sync.Mutex
 }
 
 // Activate activates the object. If the isActivatable slot is true, and the
@@ -83,12 +86,12 @@ func (o *Object) Clone() Interface {
 // Lock blocks until acquiring the object's lock. This lock is to synchronize
 // only slots and protos, not values.
 func (o *Object) Lock() {
-	o.L.Lock()
+	o.l.Lock()
 }
 
 // Unlock releases the object's lock.
 func (o *Object) Unlock() {
-	o.L.Unlock()
+	o.l.Unlock()
 }
 
 // RawSlots returns the object's slot map directly. It is not synchronized;
@@ -496,8 +499,8 @@ func ObjectCompare(vm *VM, target, locals Interface, msg *Message) (Interface, S
 // PtrCompare returns a compare value for the pointers of two objects. It
 // panics if the value is not a real object.
 func PtrCompare(x, y Interface) int {
-	a := reflect.ValueOf(x).Pointer()
-	b := reflect.ValueOf(y).Pointer()
+	a := x.UniqueID()
+	b := y.UniqueID()
 	if a < b {
 		return -1
 	}
@@ -1014,8 +1017,7 @@ func ObjectThisMessage(vm *VM, target, locals Interface, msg *Message) (Interfac
 //
 // uniqueId returns a string representation of the object's address.
 func ObjectUniqueId(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	u := reflect.ValueOf(target).Pointer()
-	return vm.NewString(fmt.Sprintf("%#x", u)), NoStop
+	return vm.NewString(fmt.Sprintf("%#x", target.UniqueID())), NoStop
 }
 
 // ObjectWait is an Object method.

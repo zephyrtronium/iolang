@@ -1,5 +1,3 @@
-//go:generate mknumbermemo
-
 package iolang
 
 import (
@@ -21,12 +19,6 @@ type Number struct {
 // memoized by the VM, that object is returned; otherwise, a new object will be
 // allocated.
 func (vm *VM) NewNumber(value float64) *Number {
-	if x := vm.chkIntsMemo(value); x != nil {
-		return x
-	}
-	if x := vm.chkRealsMemo(value); x != nil {
-		return x
-	}
 	return &Number{
 		Object: Object{Protos: vm.CoreProto("Number")},
 		Value:  value,
@@ -138,8 +130,6 @@ func (vm *VM) initNumber() {
 	}
 	vm.SetSlot(vm.Core, "Number", &Number{Object: *vm.ObjectWith(slots)})
 
-	vm.initIntsMemo()
-	vm.initRealsMemo()
 	slots["%"] = slots["mod"]
 	slots["&"] = slots["bitwiseAnd"]
 	slots["|"] = slots["bitwiseOr"]

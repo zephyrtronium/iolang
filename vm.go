@@ -2,7 +2,6 @@ package iolang
 
 import (
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/zephyrtronium/contains"
@@ -27,8 +26,10 @@ type VM struct {
 	Nil        *Object
 	Operators  *Object
 
-	// Set for checking protos during GetSlot.
+	// protoSet is the set of protos checked during GetSlot.
 	protoSet contains.Set
+	// protoStack is the stack of protos to check during GetSlot.
+	protoStack []Interface
 
 	// Sched is the scheduler for this VM and all related coroutines.
 	Sched *Scheduler
@@ -41,11 +42,6 @@ type VM struct {
 	// StartTime is the time at which VM initialization began, used for the
 	// Date clock method.
 	StartTime time.Time
-
-	// intsMemo is a list of memoized integer values from -1 to 255.
-	intsMemo []*Number
-	// realsMemo is a set of additional memoized numeric constants.
-	realsMemo *realsMemo
 }
 
 // NewVM prepares a new VM to interpret Io code. String arguments may be passed
@@ -61,6 +57,8 @@ func NewVM(args ...string) *VM {
 		True:       &Object{},
 		False:      &Object{},
 		Nil:        &Object{},
+
+		protoStack: []Interface{nil},
 
 		Stop: make(chan RemoteStop, 1),
 
@@ -127,10 +125,9 @@ func (vm *VM) Clone() Interface {
 		Nil:        vm.Nil,
 		Operators:  vm.Operators,
 		Sched:      vm.Sched,
+		protoStack: []Interface{nil},
 		Stop:       make(chan RemoteStop, 1),
 		StartTime:  vm.StartTime,
-		intsMemo:   vm.intsMemo,
-		realsMemo:  vm.realsMemo,
 	}
 	return &nv
 }
@@ -146,16 +143,17 @@ func (vm *VM) GetSlot(obj Interface, slot string) (value, proto Interface) {
 	// each proto's lock to check its respective protos. This stack-based
 	// approach is a bit messy, but it allows us to hold each object's lock
 	// only while grabbing its (current) protos.
-	protos := []Interface{obj}
-	vm.protoSet.Add(reflect.ValueOf(obj).Pointer())
-	for len(protos) > 0 {
-		rp := protos[len(protos)-1]
-		protos = protos[:len(protos)-1]
+	vm.protoStack[0] = obj
+	vm.protoSet.Add(obj.UniqueID())
+	for len(vm.protoStack) > 0 {
+		rp := vm.protoStack[len(vm.protoStack)-1]
+		vm.protoStack = vm.protoStack[:len(vm.protoStack)-1]
 		rp.Lock()
 		if slots := rp.RawSlots(); slots != nil {
 			if v, ok := slots[slot]; ok {
 				rp.Unlock()
 				vm.protoSet.Reset()
+				vm.protoStack = vm.protoStack[:1]
 				return v, rp
 			}
 		}
@@ -165,13 +163,14 @@ func (vm *VM) GetSlot(obj Interface, slot string) (value, proto Interface) {
 		opro := rp.RawProtos()
 		for i := len(opro) - 1; i >= 0; i-- {
 			p := opro[i]
-			if vm.protoSet.Add(reflect.ValueOf(p).Pointer()) {
-				protos = append(protos, p)
+			if vm.protoSet.Add(p.UniqueID()) {
+				vm.protoStack = append(vm.protoStack, p)
 			}
 		}
 		rp.Unlock()
 	}
 	vm.protoSet.Reset()
+	vm.protoStack = vm.protoStack[:1]
 	return nil, nil
 }
 
@@ -181,31 +180,31 @@ func (vm *VM) GetLocalSlot(obj Interface, slot string) (value Interface, ok bool
 		return nil, false
 	}
 	obj.Lock()
-	defer obj.Unlock()
 	slots := obj.RawSlots()
 	if slots == nil {
+		obj.Unlock()
 		return nil, false
 	}
 	value, ok = slots[slot]
+	obj.Unlock()
 	return value, ok
 }
 
 // SetSlot sets a slot's value on obj, as if using the := operator.
 func (vm *VM) SetSlot(obj Interface, slot string, value Interface) {
 	obj.Lock()
-	defer obj.Unlock()
 	slots := obj.RawSlots()
 	if slots == nil {
 		slots = Slots{}
 		obj.RawSetSlots(slots)
 	}
 	slots[slot] = value
+	obj.Unlock()
 }
 
 // SetSlots sets multiple slots more efficiently than using SetSlot for each.
 func (vm *VM) SetSlots(obj Interface, slots Slots) {
 	obj.Lock()
-	defer obj.Unlock()
 	s := obj.RawSlots()
 	if s == nil {
 		s = Slots{}
@@ -214,19 +213,20 @@ func (vm *VM) SetSlots(obj Interface, slots Slots) {
 	for slot, value := range slots {
 		s[slot] = value
 	}
+	obj.Unlock()
 }
 
 // RemoveSlot removes slots from the given object's local slots, if they are
 // present.
 func (vm *VM) RemoveSlot(obj Interface, slots ...string) {
 	obj.Lock()
-	defer obj.Unlock()
 	s := obj.RawSlots()
 	if s != nil {
 		for _, slot := range slots {
 			delete(s, slot)
 		}
 	}
+	obj.Unlock()
 }
 
 // IsKindOf evaluates whether the object has kind as any of its ancestors, or
@@ -238,7 +238,7 @@ func (vm *VM) IsKindOf(obj, kind Interface) bool {
 	// Same stack-based approach as GetSlot. However, in this case, we aren't
 	// in the hot path for message passing, so we can behave a bit more simply.
 	protos := []Interface{obj}
-	vm.protoSet.Add(reflect.ValueOf(obj).Pointer())
+	vm.protoSet.Add(obj.UniqueID())
 	for len(protos) > 0 {
 		proto := protos[len(protos)-1]
 		protos = protos[:len(protos)-1]
@@ -249,7 +249,7 @@ func (vm *VM) IsKindOf(obj, kind Interface) bool {
 		proto.Lock()
 		opro := proto.RawProtos()
 		for _, p := range opro {
-			if vm.protoSet.Add(reflect.ValueOf(p).Pointer()) {
+			if vm.protoSet.Add(p.UniqueID()) {
 				protos = append(protos, p)
 			}
 		}
