@@ -1,0 +1,9 @@
+github.com/zephyrtronium/contains v0.0.0-20190813150354-f7df53f08000 h1:rsL4vYsl1EVDklYnVDq2etRQv7jZtFu2gkv4OzKKFbo=
+github.com/zephyrtronium/contains v0.0.0-20190813150354-f7df53f08000/go.mod h1:9VfULMvEEtBLQ93TyMwEFa2rMZj232ZMs7HA/dx31Eg=
+gitlab.com/variadico/lctime v0.0.0-20190211022338-49aae8a53d11 h1:Ly1b+G8N/HhmtygI9E+LkVZ3LitOpHHyVKbBORfOd7o=
+gitlab.com/variadico/lctime v0.0.0-20190211022338-49aae8a53d11/go.mod h1:oBjcCtUE+aWYiW4NuGN+eK3OK3efpcyKphbDv1Y508M=
+golang.org/x/sys v0.0.0-20190924154521-2837fb4f24fe h1:6fAMxZRR6sl1Uq8U61gxU+kPTs2tR8uOySCbBP7BN/M=
+golang.org/x/sys v0.0.0-20190924154521-2837fb4f24fe/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+golang.org/x/text v0.3.2 h1:tW2bmiBqwgJj/UpqtC8EpXEZVYOwU0yG4iWbprSVAcs=
+golang.org/x/text v0.3.2/go.mod h1:bEr9sfX3Q8Zfm5fL9x+3itogRgK3+ptLWKqgva+5dAk=
+golang.org/x/tools v0.0.0-20180917221912-90fa682c2a6e/go.mod h1:n7NCudcB/nEzxVGmLbDWY5pfWTLqBcC2KZ6jyYvM4mQ=
