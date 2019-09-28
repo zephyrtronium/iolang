@@ -149,7 +149,7 @@ func (m *Message) MessageArgAt(vm *VM, locals Interface, n int) (*Message, Inter
 			return m, nil, NoStop
 		}
 		// Not the expected type, so return an error.
-		v, s = vm.RaiseExceptionf("argument %d to %s must be List, not %s", n, m.Text, vm.TypeName(v))
+		v, s = vm.RaiseExceptionf("argument %d to %s must be Message, not %s", n, m.Text, vm.TypeName(v))
 	}
 	return nil, v, s
 }
