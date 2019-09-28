@@ -131,6 +131,31 @@ func TestGetSlot(t *testing.T) {
 	}
 }
 
+// BenchmarkGetSlot benchmarks VM.GetSlot in various depths of search.
+func BenchmarkGetSlot(b *testing.B) {
+	o := testVM.BaseObject.Clone().Clone().Clone().Clone().Clone().Clone().Clone().Clone().Clone().Clone().Clone()
+	cases := map[string]struct {
+		o    Interface
+		slot string
+	}{
+		"Local":    {testVM.Lobby, "Lobby"},
+		"Proto":    {testVM.BaseObject, "Lobby"},
+		"Ancestor": {o, "Lobby"},
+	}
+	// o has the deepest search depth, so it will reserve the most space in
+	// vm.protoSet and vm.protoStack. Getting the slot once here ensures that
+	// results are consistent within the actual benchmark. We'll actually get a
+	// slot that lives a couple extra levels deeper, just in case.
+	testVM.GetSlot(o, "Object")
+	for name, c := range cases {
+		b.Run(name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				BenchDummy, _ = testVM.GetSlot(c.o, c.slot)
+			}
+		})
+	}
+}
+
 // TestGetLocalSlot tests that GetLocalSlot can find local but not ancestor
 // slots.
 func TestGetLocalSlot(t *testing.T) {

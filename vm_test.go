@@ -8,6 +8,10 @@ import (
 // testVM is the VM used for all tests.
 var testVM *VM
 
+// BenchDummy is a dummy variable to prevent dead code elimination in
+// benchmarks.
+var BenchDummy Interface
+
 func init() {
 	testVM = NewVM()
 }

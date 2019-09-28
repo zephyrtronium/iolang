@@ -69,3 +69,33 @@ func performTestForward(vm *VM, target, locals Interface, msg *Message) (Interfa
 	}
 	return vm.RaiseExceptionf("%s does not respond to %s", vm.TypeName(target), msg.Name())
 }
+
+func BenchmarkPerform(b *testing.B) {
+	o := testVM.BaseObject.Clone().Clone().Clone().Clone().Clone().Clone().Clone().Clone().Clone().Clone().Clone()
+	p := testVM.BaseObject.Clone()
+	nm := testVM.IdentMessage("type")
+	cm := testVM.IdentMessage("thisContext")
+	cases := map[string]Interface{
+		"Local":    testVM.BaseObject,
+		"Proto":    p,
+		"Ancestor": o,
+	}
+	// o has the deepest search depth, so it will reserve the most space in
+	// vm.protoSet and vm.protoStack. Performing once here ensures that results
+	// are consistent within the actual benchmark.
+	testVM.Perform(o, o, nm)
+	for name, o := range cases {
+		b.Run(name, func(b *testing.B) {
+			b.Run("Type", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					BenchDummy, _ = testVM.Perform(o, o, nm)
+				}
+			})
+			b.Run("ThisContext", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					BenchDummy, _ = testVM.Perform(o, o, cm)
+				}
+			})
+		})
+	}
+}
