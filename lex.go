@@ -1,7 +1,6 @@
 package iolang
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
 	"io"
@@ -34,12 +33,17 @@ const (
 	commentToken  // //, #, or /* */
 )
 
+const (
+	lexerSpace = " \r\f\t\v"
+	lexerOp    = "!$%&'*+-/:<=>?@\\^|~"
+)
+
 // lexFn is a lexer state function. Each lexFn lexes a token, sends it on the
 // supplied channel, and returns the next lexFn to use.
-type lexFn func(src *bufio.Reader, tokens chan<- token, line, col int) (lexFn, int, int)
+type lexFn func(src io.RuneScanner, tokens chan<- token, line, col int) (lexFn, int, int)
 
 // lex converts a source into a stream of tokens.
-func lex(src *bufio.Reader, tokens chan<- token) {
+func lex(src io.RuneScanner, tokens chan<- token) {
 	state := eatSpace
 	line, col := 1, 1
 	for state != nil {
@@ -52,7 +56,7 @@ func lex(src *bufio.Reader, tokens chan<- token) {
 // to b. Returns b after appending, the first rune which did not satisfy the
 // predicate, and any error that occurred. If there was no such error, the
 // last rune is unread.
-func accept(src *bufio.Reader, predicate func(rune) bool, b []byte) ([]byte, rune, error) {
+func accept(src io.RuneScanner, predicate func(rune) bool, b []byte) ([]byte, rune, error) {
 	r, _, err := src.ReadRune()
 	for {
 		if err != nil {
@@ -83,8 +87,8 @@ func lexsend(err error, tokens chan<- token, good token) lexFn {
 }
 
 // eatSpace consumes space and decides the next lexFn to use.
-func eatSpace(src *bufio.Reader, tokens chan<- token, line, col int) (lexFn, int, int) {
-	eaten, r, err := accept(src, func(r rune) bool { return strings.ContainsRune(" \r\f\t\v", r) }, nil)
+func eatSpace(src io.RuneScanner, tokens chan<- token, line, col int) (lexFn, int, int) {
+	eaten, r, err := accept(src, func(r rune) bool { return strings.ContainsRune(lexerSpace, r) }, nil)
 	col += len(eaten)
 	if err != nil {
 		if err != io.EOF {
@@ -149,12 +153,7 @@ func eatSpace(src *bufio.Reader, tokens chan<- token, line, col int) (lexFn, int
 	case '0' <= r && r <= '9':
 		return lexNumber, line, col
 	case r == '.':
-		// . can be either a number or an identifier, because Dumbledore.
-		peek, _ := src.Peek(2)
-		if len(peek) > 1 && '0' <= peek[1] && peek[1] <= '9' {
-			return lexNumber, line, col
-		}
-		return lexIdent, line, col
+		return lexDot, line, col
 	case r == '"':
 		return lexString, line, col
 	case r == '#':
@@ -172,7 +171,7 @@ func eatSpace(src *bufio.Reader, tokens chan<- token, line, col int) (lexFn, int
 
 // lexIdent lexes an identifier, which consists of a-z, A-Z, 0-9, _, ., and all
 // runes greater than 0x80.
-func lexIdent(src *bufio.Reader, tokens chan<- token, line, col int) (lexFn, int, int) {
+func lexIdent(src io.RuneScanner, tokens chan<- token, line, col int) (lexFn, int, int) {
 	b, _, err := accept(src, func(r rune) bool {
 		return 'a' <= r && r <= 'z' ||
 			'A' <= r && r <= 'Z' ||
@@ -184,7 +183,7 @@ func lexIdent(src *bufio.Reader, tokens chan<- token, line, col int) (lexFn, int
 }
 
 // lexOp lexes an operator, which consists of !$%&'*+-/:<=>?@\^|~
-func lexOp(src *bufio.Reader, tokens chan<- token, line, col int) (lexFn, int, int) {
+func lexOp(src io.RuneScanner, tokens chan<- token, line, col int) (lexFn, int, int) {
 	var pr1, pr2 rune
 	// This predicate tracks whether a comment starts.
 	pred := func(r rune) bool {
@@ -206,21 +205,21 @@ func lexOp(src *bufio.Reader, tokens chan<- token, line, col int) (lexFn, int, i
 }
 
 // lexSlashSlashComment lexes a // comment.
-func lexSlashSlashComment(src *bufio.Reader, tokens chan<- token, line, col int) (lexFn, int, int) {
+func lexSlashSlashComment(src io.RuneScanner, tokens chan<- token, line, col int) (lexFn, int, int) {
 	b, _, err := accept(src, func(r rune) bool { return r != '\n' }, []byte("//"))
 	ncol := col + len(b)
 	return lexsend(err, tokens, token{Kind: commentToken, Value: string(b), Line: line, Col: col}), line, ncol
 }
 
 // lexHashComment lexes a # comment.
-func lexHashComment(src *bufio.Reader, tokens chan<- token, line, col int) (lexFn, int, int) {
+func lexHashComment(src io.RuneScanner, tokens chan<- token, line, col int) (lexFn, int, int) {
 	b, _, err := accept(src, func(r rune) bool { return r != '\n' }, nil)
 	ncol := col + len(b)
 	return lexsend(err, tokens, token{Kind: commentToken, Value: string(b), Line: line, Col: col}), line, ncol
 }
 
 // lexSlashStarComment lexes a /* */ comment.
-func lexSlashStarComment(src *bufio.Reader, tokens chan<- token, line, col int) (lexFn, int, int) {
+func lexSlashStarComment(src io.RuneScanner, tokens chan<- token, line, col int) (lexFn, int, int) {
 	depth := 1
 	nline := line
 	ncol := col
@@ -250,7 +249,7 @@ func lexSlashStarComment(src *bufio.Reader, tokens chan<- token, line, col int) 
 }
 
 // lexNumber lexes a number.
-func lexNumber(src *bufio.Reader, tokens chan<- token, line, col int) (lexFn, int, int) {
+func lexNumber(src io.RuneScanner, tokens chan<- token, line, col int) (lexFn, int, int) {
 	b, r, err := accept(src, func(r rune) bool { return '0' <= r && r <= '9' }, nil)
 	ncol := col + len(b)
 	if err != nil {
@@ -291,6 +290,51 @@ func lexNumber(src *bufio.Reader, tokens chan<- token, line, col int) (lexFn, in
 		b = append(b, byte(r))
 		r, _, err = src.ReadRune()
 		if err != nil {
+			if err == io.EOF {
+				err = io.ErrUnexpectedEOF
+			}
+			return lexsend(err, tokens, token{Kind: numberToken, Value: string(b), Line: line, Col: col}), line, ncol
+		}
+		if r == '-' || r == '+' {
+			b = append(b, byte(r))
+		} else {
+			src.UnreadRune()
+		}
+		b, _, err = accept(src, func(r rune) bool { return '0' <= r && r <= '9' }, b)
+		ncol += len(b) - prelen
+	}
+	return lexsend(err, tokens, token{Kind: numberToken, Value: string(b), Line: line, Col: col}), line, ncol
+}
+
+// lexDot lexes a token starting with a '.' rune, which may be a number or an
+// identifier.
+func lexDot(src io.RuneScanner, tokens chan<- token, line, col int) (lexFn, int, int) {
+	src.ReadRune() // Re-read the '.'.
+	b, r, err := accept(src, func(r rune) bool { return '0' <= r && r <= '9' }, []byte{'.'})
+	if len(b) == 1 {
+		// No digits follow the '.', so this is an identifier.
+		b, _, err := accept(src, func(r rune) bool {
+			return 'a' <= r && r <= 'z' ||
+				'A' <= r && r <= 'Z' ||
+				'0' <= r && r <= '9' ||
+				r == '_' || r == '.' || r >= 0x80
+		}, b)
+		ncol := col + len(b)
+		return lexsend(err, tokens, token{Kind: identToken, Value: string(b), Line: line, Col: col}), line, ncol
+	}
+	ncol := col + len(b)
+	if err != nil {
+		return lexsend(err, tokens, token{Kind: numberToken, Value: string(b), Line: line, Col: col}), line, ncol
+	}
+	if r == 'e' || r == 'E' {
+		prelen := len(b)
+		src.ReadRune() // Read the previously unread 'e'.
+		b = append(b, byte(r))
+		r, _, err = src.ReadRune()
+		if err != nil {
+			if err == io.EOF {
+				err = io.ErrUnexpectedEOF
+			}
 			return lexsend(err, tokens, token{Kind: numberToken, Value: string(b), Line: line, Col: col}), line, ncol
 		}
 		if r == '-' || r == '+' {
@@ -305,57 +349,13 @@ func lexNumber(src *bufio.Reader, tokens chan<- token, line, col int) (lexFn, in
 }
 
 // lexString lexes a string, which may be monoquote or triquote.
-func lexString(src *bufio.Reader, tokens chan<- token, line, col int) (lexFn, int, int) {
-	peek, _ := src.Peek(3)
-	if bytes.Equal(peek, []byte{'"', '"', '"'}) {
-		return lexTriquote(src, tokens, line, col)
-	}
-	return lexMonoquote(src, tokens, line, col)
-}
-
-// lexTriquote lexes a triquote string.
-func lexTriquote(src *bufio.Reader, tokens chan<- token, line, col int) (lexFn, int, int) {
-	b := make([]byte, 3, 6)
-	src.Read(b)
-	nline := line
-	ncol := col + 3
-	for {
-		r, _, err := src.ReadRune()
-		ncol++
-		if err != nil {
-			if err == io.EOF {
-				err = io.ErrUnexpectedEOF
-			}
-			tokens <- token{
-				Kind:  badToken,
-				Value: string(b),
-				Err:   err,
-				Line:  line,
-				Col:   col,
-			}
-			return nil, line, ncol
-		}
-		if r == '\n' {
-			nline++
-			ncol = 1
-		} else if r == '"' {
-			peek, err := src.Peek(2)
-			if bytes.Equal(peek, []byte{'"', '"'}) {
-				src.Read([]byte{1: 0})
-				ncol += 2
-				return lexsend(err, tokens, token{Kind: triquoteToken, Value: string(b) + `"""`, Line: line, Col: col}), nline, ncol
-			}
-		}
-		b = append(b, string(r)...)
-	}
-}
-
-// lexMonoquote lexes a monoquote string.
-func lexMonoquote(src *bufio.Reader, tokens chan<- token, line, col int) (lexFn, int, int) {
-	b := make([]byte, 1, 2)
-	src.Read(b)
+func lexString(src io.RuneScanner, tokens chan<- token, line, col int) (lexFn, int, int) {
+	src.ReadRune() // Re-read the previously unread '"'.
+	b := []byte{'"'}
 	ncol := col + 1
 	ps := false
+	// We try to lex a monoquote string at first, but if we start off with """,
+	// then we switch to triquote.
 	for {
 		r, _, err := src.ReadRune()
 		if err != nil {
@@ -376,9 +376,58 @@ func lexMonoquote(src *bufio.Reader, tokens chan<- token, line, col int) (lexFn,
 		if r == '\\' {
 			ps = !ps
 		} else if r == '"' && !ps {
+			if len(b) == 2 {
+				// The token so far is `""`. Check for a triquote string.
+				r, _, err = src.ReadRune()
+				if err != nil {
+					return lexsend(err, tokens, token{Kind: stringToken, Value: string(b), Line: line, Col: col}), line, ncol
+				}
+				if r == '"' {
+					return lexTriquote, line, col
+				}
+				src.UnreadRune()
+			}
 			return lexsend(err, tokens, token{Kind: stringToken, Value: string(b), Line: line, Col: col}), line, ncol
 		} else {
 			ps = false
+		}
+	}
+}
+
+// lexTriquote lexes a triquote string.
+func lexTriquote(src io.RuneScanner, tokens chan<- token, line, col int) (lexFn, int, int) {
+	b := []byte{'"', '"', '"'}
+	nline := line
+	ncol := col + 3
+	q := 0
+	for {
+		r, _, err := src.ReadRune()
+		ncol++
+		if err != nil {
+			if err == io.EOF {
+				err = io.ErrUnexpectedEOF
+			}
+			tokens <- token{
+				Kind:  badToken,
+				Value: string(b),
+				Err:   err,
+				Line:  line,
+				Col:   col,
+			}
+			return nil, line, ncol
+		}
+		b = append(b, string(r)...)
+		if r == '"' {
+			if q == 2 {
+				return lexsend(err, tokens, token{Kind: triquoteToken, Value: string(b), Line: line, Col: col}), nline, ncol
+			}
+			q++
+		} else {
+			if r == '\n' {
+				nline++
+				ncol = 1
+			}
+			q = 0
 		}
 	}
 }

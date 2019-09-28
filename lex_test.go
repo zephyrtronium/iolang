@@ -80,6 +80,7 @@ func TestLexSingles(t *testing.T) {
 		"Number-num.":               {"1234.", numberToken, "1234."},
 		"Number-num.num":            {"1234.567", numberToken, "1234.567"},
 		"Number-.num":               {".567", numberToken, ".567"},
+		"Number-.numE":              {".567e9", numberToken, ".567e9"},
 		"Number-numE":               {"1234e9", numberToken, "1234e9"},
 		"Number-num.E":              {"1234.e9", numberToken, "1234.e9"},
 		"Number-num.numE":           {"1234.567e9", numberToken, "1234.567e9"},
