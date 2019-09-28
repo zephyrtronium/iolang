@@ -10,11 +10,9 @@ import (
 // activate slots and produce appropriate results.
 func TestPerform(t *testing.T) {
 	res := &performTester{Object: Object{Protos: []Interface{testVM.BaseObject}}}
-	anc := testVM.ObjectWith(Slots{
-		"t":       res,
-		"forward": testVM.NewCFunction(performTestForward, nil),
-	})
+	anc := testVM.ObjectWith(Slots{"t": res})
 	target := anc.Clone()
+	testVM.SetSlot(target, "forward", testVM.NewCFunction(performTestForward, nil))
 	tm := testVM.IdentMessage("t")
 	cases := map[string]struct {
 		o       Interface
@@ -22,10 +20,11 @@ func TestPerform(t *testing.T) {
 		succeed bool
 		v       Interface
 	}{
-		"Local":    {anc, tm, true, res},
-		"Ancestor": {target, tm, true, res},
-		"Forward":  {anc, testVM.IdentMessage("T"), true, res},
-		"Fail":     {anc, testVM.IdentMessage("u"), false, nil},
+		"Local":       {anc, tm, true, res},
+		"Ancestor":    {target, tm, true, res},
+		"Forward":     {target, testVM.IdentMessage("T"), true, res},
+		"Fail":        {anc, testVM.IdentMessage("u"), false, nil},
+		"ForwardFail": {target, testVM.IdentMessage("u"), false, nil},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
