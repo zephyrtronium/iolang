@@ -29,6 +29,18 @@ For a more in-depth introduction to Io, check out [the official guide](http://io
 - Redo addon loading.
 	+ Allow addons to create multiple objects.
 	+ Allow addons to have dependencies, e.g. HTTPClient requires Socket, but don't load Socket twice.
+- Make parsing with operator shuffling less obnoxious.
+	+ Related: Make the lexer take io.RuneScanner instead of specifically bufio.Reader.
+- Rewrite everything, again.
+	+ Remove Interface, because interfaces are turning out to be very slow.
+	+ Make Object the basic type:
+		- Mutex (protecting slots, protos, /and/ value)
+		- Slots
+		- Protos
+		- Value interface{}
+		- Tag interface:
+			+ CloneValue(interface{}) interface{}
+			+ Activate(vm *VM, target, locals, context *Object, msg *Message) (Interface, Stop)
 - Write tests, both in Go and in Io.
 - Write remaining initialization code.
 	+ Actor
