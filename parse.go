@@ -14,16 +14,52 @@ import (
 	"strings"
 )
 
-// Parse converts Io source code into a message chain.
+// Parse converts Io source code into a message chain. The message is shuffled
+// according to the VM's default operator table.
 func (vm *VM) Parse(source io.Reader, label string) (msg *Message, err error) {
-	src := bufio.NewReader(source)
+	var src io.RuneScanner
+	if s, ok := source.(io.RuneScanner); ok {
+		src = s
+	} else {
+		src = bufio.NewReader(source)
+	}
+	tokens := make(chan token)
+	go lex(src, tokens)
+	_, msg, err = vm.parseRecurse(-1, src, tokens, label)
+	if err != nil {
+		return msg, err
+	}
+	if err := vm.OpShuffle(msg); err != nil {
+		return msg, err
+	}
+	return msg, err
+}
+
+// ParseUnshuffled converts Io source code into a message chain. No operator
+// precedence parsing is applied.
+func (vm *VM) ParseUnshuffled(source io.Reader, label string) (msg *Message, err error) {
+	var src io.RuneScanner
+	if s, ok := source.(io.RuneScanner); ok {
+		src = s
+	} else {
+		src = bufio.NewReader(source)
+	}
 	tokens := make(chan token)
 	go lex(src, tokens)
 	_, msg, err = vm.parseRecurse(-1, src, tokens, label)
 	return
 }
 
-func (vm *VM) parseRecurse(open rune, src *bufio.Reader, tokens chan token, label string) (tok token, msg *Message, err error) {
+// ParseScanner converts Io source code in a RuneScanner into a message chain.
+// No operator precedence parsing is applied.
+func (vm *VM) ParseScanner(src io.RuneScanner, label string) (msg *Message, err error) {
+	tokens := make(chan token)
+	go lex(src, tokens)
+	_, msg, err = vm.parseRecurse(-1, src, tokens, label)
+	return
+}
+
+func (vm *VM) parseRecurse(open rune, src io.RuneScanner, tokens chan token, label string) (tok token, msg *Message, err error) {
 	msg = &Message{Object: Object{Protos: vm.CoreProto("Message")}, Label: label}
 	m := msg
 	defer func() {
@@ -200,9 +236,6 @@ func (vm *VM) DoReader(src io.Reader, label string) (Interface, Stop) {
 	if err != nil {
 		return vm.IoError(err)
 	}
-	if err := vm.OpShuffle(msg); err != nil {
-		return err.Raise()
-	}
 	return vm.DoMessage(msg, vm.Lobby)
 }
 
@@ -217,9 +250,6 @@ func (vm *VM) MustDoString(src string) Interface {
 	r := strings.NewReader(src)
 	msg, err := vm.Parse(r, "<string>")
 	if err != nil {
-		panic(err)
-	}
-	if err := vm.OpShuffle(msg); err != nil {
 		panic(err)
 	}
 	v, stop := msg.Eval(vm, vm.Lobby)

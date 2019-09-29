@@ -706,9 +706,6 @@ func ObjectDoFile(vm *VM, target, locals Interface, msg *Message) (Interface, St
 	if err != nil {
 		return vm.IoError(err)
 	}
-	if err := vm.OpShuffle(m); err != nil {
-		return err.Raise()
-	}
 	return vm.DoMessage(m, target)
 }
 
@@ -750,9 +747,6 @@ func ObjectDoString(vm *VM, target, locals Interface, msg *Message) (Interface, 
 	m, err := vm.Parse(src, label)
 	if err != nil {
 		return vm.IoError(err)
-	}
-	if err := vm.OpShuffle(m); err != nil {
-		return err.Raise()
 	}
 	return m.Eval(vm, target)
 }

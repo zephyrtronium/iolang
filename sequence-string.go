@@ -15,11 +15,12 @@ import (
 	"strings"
 	unichr "unicode"
 
+	"unicode/utf16"
+	"unicode/utf8"
+
 	"golang.org/x/text/encoding/charmap"
 	"golang.org/x/text/encoding/unicode"
 	"golang.org/x/text/encoding/unicode/utf32"
-	"unicode/utf16"
-	"unicode/utf8"
 )
 
 var (
@@ -718,7 +719,7 @@ func SequenceAsMessage(vm *VM, target, locals Interface, msg *Message) (Interfac
 		}
 		label = r.String()
 	}
-	m, err := vm.Parse(strings.NewReader(s.String()), label)
+	m, err := vm.ParseScanner(strings.NewReader(s.String()), label)
 	if err != nil {
 		return vm.IoError(err)
 	}

@@ -16,7 +16,7 @@ type SourceTestCase struct {
 // TestFunc returns a test function for the test case.
 func (c SourceTestCase) TestFunc(name string) func(*testing.T) {
 	return func(t *testing.T) {
-		msg, err := testVM.Parse(strings.NewReader(c.Source), name)
+		msg, err := testVM.ParseScanner(strings.NewReader(c.Source), name)
 		if err != nil {
 			t.Fatalf("could not parse %q: %v", c.Source, err)
 		}

@@ -539,7 +539,7 @@ func MessageFromString(vm *VM, target, locals Interface, msg *Message) (Interfac
 	if stop != NoStop {
 		return aerr, stop
 	}
-	m, err := vm.Parse(strings.NewReader(s.String()), "<string>")
+	m, err := vm.ParseScanner(strings.NewReader(s.String()), "<string>")
 	if err != nil {
 		return vm.IoError(err)
 	}

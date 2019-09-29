@@ -30,7 +30,7 @@ func TestParseArgs(t *testing.T) {
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
-			msg, err := testVM.Parse(strings.NewReader(c.text), "TestParseArgs")
+			msg, err := testVM.ParseScanner(strings.NewReader(c.text), "TestParseArgs")
 			if msg == nil {
 				t.Fatalf("%q parsed to nil (err: %v)", c.text, err)
 			}
@@ -60,7 +60,7 @@ func TestParseErrors(t *testing.T) {
 	}
 	for name, text := range cases {
 		t.Run(name, func(t *testing.T) {
-			_, err := testVM.Parse(strings.NewReader(text), "TestParseErrors")
+			_, err := testVM.ParseScanner(strings.NewReader(text), "TestParseErrors")
 			if err == nil {
 				t.Errorf("%q failed to cause an error", text)
 			}
@@ -90,7 +90,7 @@ func TestParseComments(t *testing.T) {
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
-			msg, err := testVM.Parse(strings.NewReader(c.text), "TestParseComments")
+			msg, err := testVM.ParseScanner(strings.NewReader(c.text), "TestParseComments")
 			if err != nil {
 				t.Errorf("%q caused an error: %v", c.text, err)
 			}
