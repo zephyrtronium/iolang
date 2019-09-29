@@ -99,3 +99,34 @@ func BenchmarkPerform(b *testing.B) {
 		})
 	}
 }
+
+// TestPerformNilResult tests that VM.Perform always converts nil to VM.Nil.
+func TestPerformNilResult(t *testing.T) {
+	cf := testVM.NewCFunction(nilResult, nil)
+	o := testVM.ObjectWith(Slots{
+		"f":       cf,
+		"forward": cf,
+	})
+	cases := map[string]struct {
+		o   Interface
+		msg *Message
+	}{
+		"HaveSlot": {o, testVM.IdentMessage("f")},
+		"Forward":  {o, testVM.IdentMessage("g")},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			r, stop := testVM.Perform(c.o, c.o, c.msg)
+			if r != testVM.Nil {
+				t.Errorf("result not VM.Nil: want %T@%p, got %T@%p", testVM.Nil, testVM.Nil, r, r)
+			}
+			if stop != NoStop {
+				t.Errorf("wrong control flow: want NoStop, got %v", stop)
+			}
+		})
+	}
+}
+
+func nilResult(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+	return nil, NoStop
+}
