@@ -29,7 +29,6 @@ For a more in-depth introduction to Io, check out [the official guide](http://io
 - Redo addon loading.
 	+ Allow addons to create multiple objects.
 	+ Allow addons to have dependencies, e.g. HTTPClient requires Socket, but don't load Socket twice.
-- Make parsing with operator shuffling less obnoxious.
 - Rewrite everything, again.
 	+ Remove Interface, because interfaces are turning out to be very slow.
 	+ Make Object the basic type:
