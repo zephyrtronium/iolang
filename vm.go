@@ -3,20 +3,15 @@ package iolang
 import (
 	"fmt"
 	"time"
-
-	"github.com/zephyrtronium/contains"
 )
 
 // VM is an object for processing Io programs.
 type VM struct {
-	// The VM is an object because it also represents a coroutine.
-	Object
-
 	// Lobby is the default target of messages.
-	Lobby Interface
-	// Core is the object containing the basic types of Io.
+	Lobby *Object
+	// Core is the object containing the basic prototypes of Io.
 	Core *Object
-	// Addons is the object which will contain imported addons.
+	// Addons is the object containing imported addon protos.
 	Addons *Object
 
 	// Singletons.
@@ -26,18 +21,15 @@ type VM struct {
 	Nil        *Object
 	Operators  *Object
 
-	// protoSet is the set of protos checked during GetSlot.
-	protoSet contains.Set
-	// protoStack is the stack of protos to check during GetSlot.
-	protoStack []Interface
-
 	// Sched is the scheduler for this VM and all related coroutines.
 	Sched *Scheduler
-	// Stop is a buffered channel for remote control of this coroutine. The
+	// Control is a buffered channel for remote control of this coroutine. The
 	// evaluator checks this between each message. NoStop stops tell the
-	// coroutine to yield, ExceptionStops have their results returned, and all
-	// other statuses cause the current evaluated result to be returned.
-	Stop chan RemoteStop
+	// coroutine to yield, and all other stops have their results returned.
+	Control chan RemoteStop
+	// Coro is the Coroutine object for this VM. The object's value is the
+	// Control channel.
+	Coro *Object
 
 	// StartTime is the time at which VM initialization began, used for the
 	// Date clock method.
@@ -58,11 +50,8 @@ func NewVM(args ...string) *VM {
 		False:      &Object{},
 		Nil:        &Object{},
 
-		protoStack: []Interface{nil},
+		Control: make(chan RemoteStop, 1),
 
-		Stop: make(chan RemoteStop, 1),
-
-		// TODO: should this be since program start instead to match Io?
 		StartTime: time.Now(),
 	}
 
@@ -80,7 +69,7 @@ func NewVM(args ...string) *VM {
 	vm.initNumber()
 	vm.initException()
 	vm.initBlock()
-	vm.initCall()
+	// vm.initCall()
 	vm.initMap()
 	vm.initOpTable()
 	vm.initObject()
@@ -107,172 +96,20 @@ func NewVM(args ...string) *VM {
 	return &vm
 }
 
-// Activate returns the VM (coroutine).
-func (vm *VM) Activate(vm2 *VM, target, locals, context Interface, msg *Message) (Interface, Stop) {
-	return vm, NoStop
-}
-
-// Clone creates a new, inactive coroutine cloned from this one.
-func (vm *VM) Clone() Interface {
-	nv := VM{
-		Object:     Object{Protos: []Interface{vm}},
-		Lobby:      vm.Lobby,
-		Core:       vm.Core,
-		Addons:     vm.Addons,
-		BaseObject: vm.BaseObject,
-		True:       vm.True,
-		False:      vm.False,
-		Nil:        vm.Nil,
-		Operators:  vm.Operators,
-		Sched:      vm.Sched,
-		protoStack: []Interface{nil},
-		Stop:       make(chan RemoteStop, 1),
-		StartTime:  vm.StartTime,
-	}
-	return &nv
-}
-
-// GetSlot checks the object and its ancestors in depth-first order without
-// cycles for a slot, returning the slot value and the proto which had it.
-// proto is nil if and only if the slot was not found.
-func (vm *VM) GetSlot(obj Interface, slot string) (value, proto Interface) {
-	if obj == nil {
-		return nil, nil
-	}
-	// Recursion is easy, but it can cause deadlocks, since we need to hold
-	// each proto's lock to check its respective protos. This stack-based
-	// approach is a bit messy, but it allows us to hold each object's lock
-	// only while grabbing its (current) protos.
-	vm.protoStack[0] = obj
-	vm.protoSet.Add(obj.UniqueID())
-	for len(vm.protoStack) > 0 {
-		rp := vm.protoStack[len(vm.protoStack)-1]
-		vm.protoStack = vm.protoStack[:len(vm.protoStack)-1]
-		rp.Lock()
-		if slots := rp.RawSlots(); slots != nil {
-			if v, ok := slots[slot]; ok {
-				rp.Unlock()
-				vm.protoSet.Reset()
-				vm.protoStack = vm.protoStack[:1]
-				return v, rp
-			}
-		}
-		// The current proto didn't have the slot, so push every unchecked
-		// proto onto the stack in reverse order, marking them as checked as we
-		// do so.
-		opro := rp.RawProtos()
-		for i := len(opro) - 1; i >= 0; i-- {
-			p := opro[i]
-			if vm.protoSet.Add(p.UniqueID()) {
-				vm.protoStack = append(vm.protoStack, p)
-			}
-		}
-		rp.Unlock()
-	}
-	vm.protoSet.Reset()
-	vm.protoStack = vm.protoStack[:1]
-	return nil, nil
-}
-
-// GetLocalSlot checks only an object's own slots for a slot.
-func (vm *VM) GetLocalSlot(obj Interface, slot string) (value Interface, ok bool) {
-	if obj == nil {
-		return nil, false
-	}
-	obj.Lock()
-	slots := obj.RawSlots()
-	if slots == nil {
-		obj.Unlock()
-		return nil, false
-	}
-	value, ok = slots[slot]
-	obj.Unlock()
-	return value, ok
-}
-
-// SetSlot sets a slot's value on obj, as if using the := operator.
-func (vm *VM) SetSlot(obj Interface, slot string, value Interface) {
-	obj.Lock()
-	slots := obj.RawSlots()
-	if slots == nil {
-		slots = Slots{}
-		obj.RawSetSlots(slots)
-	}
-	slots[slot] = value
-	obj.Unlock()
-}
-
-// SetSlots sets multiple slots more efficiently than using SetSlot for each.
-func (vm *VM) SetSlots(obj Interface, slots Slots) {
-	obj.Lock()
-	s := obj.RawSlots()
-	if s == nil {
-		s = Slots{}
-		obj.RawSetSlots(s)
-	}
-	for slot, value := range slots {
-		s[slot] = value
-	}
-	obj.Unlock()
-}
-
-// RemoveSlot removes slots from the given object's local slots, if they are
-// present.
-func (vm *VM) RemoveSlot(obj Interface, slots ...string) {
-	obj.Lock()
-	s := obj.RawSlots()
-	if s != nil {
-		for _, slot := range slots {
-			delete(s, slot)
-		}
-	}
-	obj.Unlock()
-}
-
-// IsKindOf evaluates whether the object has kind as any of its ancestors, or
-// is itself kind.
-func (vm *VM) IsKindOf(obj, kind Interface) bool {
-	if obj == nil {
-		return false
-	}
-	// Same stack-based approach as GetSlot. However, in this case, we aren't
-	// in the hot path for message passing, so we can behave a bit more simply.
-	protos := []Interface{obj}
-	vm.protoSet.Add(obj.UniqueID())
-	for len(protos) > 0 {
-		proto := protos[len(protos)-1]
-		protos = protos[:len(protos)-1]
-		if proto == kind {
-			vm.protoSet.Reset()
-			return true
-		}
-		proto.Lock()
-		opro := proto.RawProtos()
-		for _, p := range opro {
-			if vm.protoSet.Add(p.UniqueID()) {
-				protos = append(protos, p)
-			}
-		}
-		proto.Unlock()
-	}
-	vm.protoSet.Reset()
-	return false
-}
-
 // CoreProto returns a new Protos list for a type in vm.Core. Panics if there
 // is no such type!
-func (vm *VM) CoreProto(name string) []Interface {
-	if p, ok := vm.GetLocalSlot(vm.Core, name); ok {
-		return []Interface{p}
+func (vm *VM) CoreProto(name string) []*Object {
+	if p, ok := vm.Core.GetLocalSlot(name); ok {
+		return []*Object{p}
 	}
 	panic("iolang: no Core proto named " + name)
 }
 
 // AddonProto returns a new Protos list for a type in vm.Addons. Panics if
 // there is no such type!
-func (vm *VM) AddonProto(name string) []Interface {
-	if p, ok := vm.GetLocalSlot(vm.Addons, name); ok {
-		return []Interface{p}
+func (vm *VM) AddonProto(name string) []*Object {
+	if p, ok := vm.Addons.GetLocalSlot(name); ok {
+		return []*Object{p}
 	}
 	panic("iolang: no Addons proto named " + name)
 }
@@ -287,7 +124,7 @@ func (vm *VM) IoBool(c bool) *Object {
 
 // AsBool attempts to convert an Io object to a bool by activating its isTrue
 // slot. If the object has no such slot, it is true.
-func (vm *VM) AsBool(obj Interface) bool {
+func (vm *VM) AsBool(obj *Object) bool {
 	if obj == nil {
 		obj = vm.Nil
 	}
@@ -299,16 +136,16 @@ func (vm *VM) AsBool(obj Interface) bool {
 }
 
 // AsString attempts to convert an Io object to a string by activating its
-// asString slot. If the object has no such slot but is an fmt.Stringer, then
-// it returns the value of String(); otherwise, a default representation is
-// used. If the asString method raises an exception, then the exception message
-// is the return value.
-func (vm *VM) AsString(obj Interface) string {
+// asString slot. If the object has no such slot but its Value is an
+// fmt.Stringer, then it returns the value of String(); otherwise, a default
+// representation is used. If the asString method raises an exception, then the
+// exception message is the returned value.
+func (vm *VM) AsString(obj *Object) string {
 	if obj == nil {
 		obj = vm.Nil
 	}
 	obj, _ = vm.Perform(obj, obj, vm.IdentMessage("asString"))
-	if s, ok := obj.(fmt.Stringer); ok {
+	if s, ok := obj.Value.(fmt.Stringer); ok {
 		return s.String()
 	}
 	return fmt.Sprintf("%T_%p", obj, obj)
@@ -323,9 +160,8 @@ func (vm *VM) initCore() {
 	vm.Core.Protos = []Interface{vm.BaseObject}
 	vm.Addons.Protos = []Interface{vm.BaseObject}
 	lp := &Object{Slots: Slots{"Core": vm.Core, "Addons": vm.Addons}, Protos: []Interface{vm.Core, vm.Addons}}
-	vm.Lobby.RawSetProtos([]Interface{lp})
-	vm.SetSlot(vm.Lobby, "Protos", lp)
-	vm.SetSlot(vm.Lobby, "Lobby", vm.Lobby)
+	vm.Lobby.Protos = []Interface{lp}
+	vm.Lobby.Slots = Slots{"Protos": lp, "Lobby": vm.Lobby}
 }
 
 func (vm *VM) finalInit() {
@@ -334,6 +170,9 @@ func (vm *VM) finalInit() {
 }
 
 const finalInitCode = `
+// This must happen before any Block is activated.
+Core Call := Object clone
+
 Object do(
 	print := method(File standardOutput write(getSlot("self") asString); getSlot("self"))
 	println := method(File standardOutput write(getSlot("self") asString, "\n"); getSlot("self"))
@@ -489,6 +328,12 @@ Object do(
 )
 
 Call do(
+	argCount := method(self message argCount)
+	argAt := method(n, self message argAt(n))
+	evalArgAt := method(n, self sender doMessage(self message argAt(n)))
+	hasArgs := method(argCount > 0)
+	evalArgs := method(self message argsEvaluatedIn(self sender)) setPassStops(true)
+
 	description := method(
 		m := self message
 		s := self target type .. " " .. m name
@@ -502,8 +347,7 @@ Call do(
 		target doMessage(self message clone setNext setName(name), self sender)
 	) setPassStops(true)
 
-	hasArgs := method(argCount > 0)
-	evalArgs := method(self message argsEvaluatedIn(self sender)) setPassStops(true)
+	type := "Call"
 )
 
 Sequence do(
@@ -661,7 +505,6 @@ Coroutine do(
 Exception do(
 	caughtMessage ::= nil
 	coroutine ::= nil
-	error ::= nil
 	nestedException ::= nil
 	originalCall ::= nil
 
@@ -738,7 +581,6 @@ Number do(
 	asBinary := method(toBaseWholeBytes(2))
 	asOctal := method(toBaseWholeBytes(8))
 
-	// This won't work until Sequence sequenceSets exists. (それは何ですか)
 	isInASequenceSet := method(
 		Sequence sequenceSets foreach(set, if(in(set), return true))
 		false

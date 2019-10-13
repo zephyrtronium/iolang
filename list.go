@@ -4,399 +4,467 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 )
 
-// A List is a linear collection of arbitrary items.
-type List struct {
-	Object
-	Value []Interface
+// tagList is the Tag type for List objects.
+type tagList struct{}
+
+func (tagList) Activate(vm *VM, self, target, locals, context *Object, msg *Message) *Object {
+	return self
 }
 
+func (tagList) CloneValue(value interface{}) interface{} {
+	l := value.([]*Object)
+	m := make([]*Object, len(l))
+	copy(m, l)
+	return m
+}
+
+func (tagList) String() string {
+	return "List"
+}
+
+// ListTag is the Tag for List objects. Activate returns self. CloneValue
+// creates a shallow copy of the parent's list value.
+var ListTag Tag = tagList{}
+
 // NewList creates a List with the given items.
-func (vm *VM) NewList(items ...Interface) *List {
-	return &List{
-		Object: Object{Protos: vm.CoreProto("List")},
+func (vm *VM) NewList(items ...*Object) *Object {
+	return &Object{
+		Protos: vm.CoreProto("List"),
 		Value:  items,
+		Tag:    ListTag,
 	}
 }
 
-// ListArgAt evaluates the nth argument and returns it as a List. If a stop
-// occurs during evaluation, the List will be nil, and the stop status and
-// result will be returned. If the evaluated result is not a List, the result
-// will be nil, and an exception will be raised.
-func (m *Message) ListArgAt(vm *VM, locals Interface, n int) (*List, Interface, Stop) {
+// ListArgAt evaluates the nth argument and returns it as a slice of objects
+// along with the object holding that slice. If a stop occurs during
+// evaluation, the slice will be nil, and the stop status and result will be
+// returned. If the evaluated result is not a List, the result will be nil, and
+// an exception will be returned with an ExceptionStop.
+func (m *Message) ListArgAt(vm *VM, locals *Object, n int) ([]*Object, *Object, Stop) {
 	v, s := m.EvalArgAt(vm, locals, n)
 	if s == NoStop {
-		if lst, ok := v.(*List); ok {
-			return lst, nil, NoStop
+		v.Lock()
+		lst, ok := v.Value.([]*Object)
+		v.Unlock()
+		if ok {
+			return lst, v, NoStop
 		}
 		// Not the expected type, so return an error.
-		v, s = vm.RaiseExceptionf("argument %d to %s must be List, not %s", n, m.Text, vm.TypeName(v))
+		v = vm.NewExceptionf("argument %d to %s must be List, not %s", n, m.Text, vm.TypeName(v))
+		s = ExceptionStop
 	}
 	return nil, v, s
 }
 
-// Activate returns the list.
-func (l *List) Activate(vm *VM, target, locals, context Interface, msg *Message) (Interface, Stop) {
-	return l, NoStop
-}
-
-// Clone creates a clone of this list and copies this list's values into it.
-func (l *List) Clone() Interface {
-	ll := make([]Interface, len(l.Value))
-	copy(ll, l.Value)
-	return &List{Object{Protos: []Interface{l}}, ll}
-}
-
-// String creates a simple string representation of this list.
-func (l *List) String() string {
-	return fmt.Sprintf("[list with %d items]", len(l.Value))
-}
-
 // initList initializes List on this VM.
 func (vm *VM) initList() {
-	var kind *List
 	slots := Slots{
-		"append":              vm.NewCFunction(ListAppend, kind),
-		"appendIfAbsent":      vm.NewCFunction(ListAppendIfAbsent, kind),
-		"appendSeq":           vm.NewCFunction(ListAppendSeq, kind),
-		"asString":            vm.NewCFunction(ListAsString, kind),
-		"at":                  vm.NewCFunction(ListAt, kind),
-		"atInsert":            vm.NewCFunction(ListAtInsert, kind),
-		"atPut":               vm.NewCFunction(ListAtPut, kind),
-		"capacity":            vm.NewCFunction(ListCapacity, kind),
-		"compare":             vm.NewCFunction(ListCompare, kind),
-		"contains":            vm.NewCFunction(ListContains, kind),
-		"containsAll":         vm.NewCFunction(ListContainsAll, kind),
-		"containsAny":         vm.NewCFunction(ListContainsAny, kind),
-		"containsIdenticalTo": vm.NewCFunction(ListContainsIdenticalTo, kind),
-		"foreach":             vm.NewCFunction(ListForeach, kind),
-		"indexOf":             vm.NewCFunction(ListIndexOf, kind),
-		"preallocateToSize":   vm.NewCFunction(ListPreallocateToSize, kind),
-		"prepend":             vm.NewCFunction(ListPrepend, kind),
-		"remove":              vm.NewCFunction(ListRemove, kind),
-		"removeAll":           vm.NewCFunction(ListRemoveAll, kind),
-		"removeAt":            vm.NewCFunction(ListRemoveAt, kind),
-		"reverseForeach":      vm.NewCFunction(ListReverseForeach, kind),
-		"reverseInPlace":      vm.NewCFunction(ListReverseInPlace, kind),
-		"setSize":             vm.NewCFunction(ListSetSize, kind),
-		"size":                vm.NewCFunction(ListSize, kind),
-		"slice":               vm.NewCFunction(ListSlice, kind),
-		"sliceInPlace":        vm.NewCFunction(ListSliceInPlace, kind),
-		"sortInPlace":         vm.NewCFunction(ListSortInPlace, kind),
-		"sortInPlaceBy":       vm.NewCFunction(ListSortInPlaceBy, kind),
-		"swapIndices":         vm.NewCFunction(ListSwapIndices, kind),
+		"append":              vm.NewCFunction(ListAppend, ListTag),
+		"appendIfAbsent":      vm.NewCFunction(ListAppendIfAbsent, ListTag),
+		"appendSeq":           vm.NewCFunction(ListAppendSeq, ListTag),
+		"asString":            vm.NewCFunction(ListAsString, ListTag),
+		"at":                  vm.NewCFunction(ListAt, ListTag),
+		"atInsert":            vm.NewCFunction(ListAtInsert, ListTag),
+		"atPut":               vm.NewCFunction(ListAtPut, ListTag),
+		"capacity":            vm.NewCFunction(ListCapacity, ListTag),
+		"compare":             vm.NewCFunction(ListCompare, ListTag),
+		"contains":            vm.NewCFunction(ListContains, ListTag),
+		"containsAll":         vm.NewCFunction(ListContainsAll, ListTag),
+		"containsAny":         vm.NewCFunction(ListContainsAny, ListTag),
+		"containsIdenticalTo": vm.NewCFunction(ListContainsIdenticalTo, ListTag),
+		"foreach":             vm.NewCFunction(ListForeach, ListTag),
+		"indexOf":             vm.NewCFunction(ListIndexOf, ListTag),
+		"preallocateToSize":   vm.NewCFunction(ListPreallocateToSize, ListTag),
+		"prepend":             vm.NewCFunction(ListPrepend, ListTag),
+		"remove":              vm.NewCFunction(ListRemove, ListTag),
+		"removeAll":           vm.NewCFunction(ListRemoveAll, ListTag),
+		"removeAt":            vm.NewCFunction(ListRemoveAt, ListTag),
+		"reverseForeach":      vm.NewCFunction(ListReverseForeach, ListTag),
+		"reverseInPlace":      vm.NewCFunction(ListReverseInPlace, ListTag),
+		"setSize":             vm.NewCFunction(ListSetSize, ListTag),
+		"size":                vm.NewCFunction(ListSize, ListTag),
+		"slice":               vm.NewCFunction(ListSlice, ListTag),
+		"sliceInPlace":        vm.NewCFunction(ListSliceInPlace, ListTag),
+		"sortInPlace":         vm.NewCFunction(ListSortInPlace, ListTag),
+		"sortInPlaceBy":       vm.NewCFunction(ListSortInPlaceBy, ListTag),
+		"swapIndices":         vm.NewCFunction(ListSwapIndices, ListTag),
 		"type":                vm.NewString("List"),
 		"with":                vm.NewCFunction(ListWith, nil),
 	}
 	slots["empty"] = slots["removeAll"]
 	slots["exSlice"] = slots["slice"]
 	slots["push"] = slots["append"]
-	vm.SetSlot(vm.Core, "List", &List{Object: *vm.ObjectWith(slots)})
-	vm.SetSlot(vm.BaseObject, "list", slots["with"])
+	vm.Core.SetSlot("List", &Object{
+		Slots:  slots,
+		Protos: []*Object{vm.BaseObject},
+		Value:  []*Object{},
+		Tag:    ListTag,
+	})
+	vm.BaseObject.SetSlot("list", slots["with"])
 }
 
 // ListAppend is a List method.
 //
 // append adds items to the end of the list.
-func ListAppend(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	l := target.(*List)
-	for _, m := range msg.Args {
+func ListAppend(vm *VM, target, locals Interface, msg *Message) *Object {
+	n := make([]*Object, len(msg.Args))
+	for i, m := range msg.Args {
 		r, stop := m.Eval(vm, locals)
 		if stop != NoStop {
-			return r, stop
+			// Append the values we've gotten so far.
+			target.Lock()
+			target.Value = append(target.Value.([]*Object), n[:i]...)
+			target.Unlock()
+			return vm.Stop(r, stop)
 		}
-		l.Value = append(l.Value, r)
+		n[i] = r
 	}
-	return target, NoStop
+	target.Lock()
+	target.Value = append(target.Value.([]*Object), n...)
+	target.Unlock()
+	return target
 }
 
 // ListAppendIfAbsent is a List method.
 //
 // appendIfAbsent adds items to the end of the list if they are not already in
 // it.
-func ListAppendIfAbsent(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	l := target.(*List)
+func ListAppendIfAbsent(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	l := target.Value.([]*Object)
+	target.Unlock()
+	n := make([]*Object, 0, len(msg.Args))
+	defer func() {
+		target.Lock()
+		target.Value = append(target.Value.([]*Object), n...)
+		target.Unlock()
+	}()
 outer:
 	for _, m := range msg.Args {
 		r, stop := m.Eval(vm, locals)
 		if stop != NoStop {
-			return r, stop
+			return vm.Stop(r, stop)
 		}
-		for _, v := range l.Value {
+		for _, v := range l {
 			c, stop := vm.Compare(v, r)
 			if stop != NoStop {
-				return c, stop
+				return vm.Stop(c, stop)
 			}
-			if n, ok := c.(*Number); ok && n.Value == 0 {
+			if c.Tag == NumberTag && c.Value.(float64) == 0 {
 				continue outer
 			}
 		}
-		l.Value = append(l.Value, r)
+		n = append(n, r)
 	}
-	return target, NoStop
+	return target
 }
 
 // ListAppendSeq is a List method.
 //
 // appendSeq adds the items in the given lists to the list.
-func ListAppendSeq(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	l := target.(*List)
-	for _, m := range msg.Args {
-		v, stop := m.Eval(vm, locals)
+func ListAppendSeq(vm *VM, target, locals Interface, msg *Message) *Object {
+	var n []*Object
+	k := msg.ArgCount()
+	for i := 0; i < k; i++ {
+		r, obj, stop := msg.ListArgAt(vm, locals, i)
 		if stop != NoStop {
-			return v, stop
+			target.Lock()
+			target.Value = append(target.Value.([]*Object), n...)
+			target.Unlock()
+			return vm.Stop(obj, stop)
 		}
-		if r, ok := v.(*List); ok {
-			if r == l {
-				return vm.RaiseException("can't add a list to itself")
-			}
-			l.Value = append(l.Value, r.Value...)
-		} else {
-			return vm.RaiseExceptionf("all arguments to %s must be lists, not %s", msg.Name(), vm.TypeName(v))
-		}
+		obj.Lock()
+		n = append(n, r...)
+		obj.Unlock()
 	}
-	return target, NoStop
+	target.Lock()
+	target.Value = append(target.Value.([]*Object), n...)
+	target.Unlock()
+	return target
 }
 
 // ListAsString is a List method.
 //
 // asString creates a string representation of an object.
-func ListAsString(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	l := target.(*List)
+func ListAsString(vm *VM, target, locals Interface, msg *Message) *Object {
 	b := strings.Builder{}
 	b.WriteString("list(")
-	for i, v := range l.Value {
+	target.Lock()
+	l := target.Value.([]*Object)
+	for i, v := range l {
 		b.WriteString(vm.AsString(v))
-		if i != len(l.Value)-1 {
+		if i != len(l)-1 {
 			b.WriteString(", ")
 		}
 	}
+	target.Unlock()
 	b.WriteString(")")
-	return vm.NewString(b.String()), NoStop
+	return vm.NewString(b.String())
 }
 
 // ListAt is a List method.
 //
 // at returns the nth item in the list. All out-of-bounds values are nil.
-func ListAt(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	n, err, stop := msg.NumberArgAt(vm, locals, 0)
+func ListAt(vm *VM, target, locals Interface, msg *Message) *Object {
+	n, exc, stop := msg.NumberArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return err, stop
+		return vm.Stop(exc, stop)
 	}
-	l := target.(*List)
-	k := int(n.Value)
-	if k < 0 || k >= len(l.Value) {
-		return vm.Nil, NoStop
+	k := int(n)
+	r := vm.Nil
+	target.Lock()
+	l := target.Value.([]*Object)
+	if k >= 0 && k < len(l) {
+		r = l[k]
 	}
-	return l.Value[k], NoStop
+	target.Unlock()
+	return r
 }
 
 // ListAtInsert is a List method.
 //
 // atInsert adds an item to the list at the given position, moving back
 // existing items at or past that point.
-func ListAtInsert(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	n, err, stop := msg.NumberArgAt(vm, locals, 0)
+func ListAtInsert(vm *VM, target, locals Interface, msg *Message) *Object {
+	n, exc, stop := msg.NumberArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return err, stop
+		return vm.Stop(exc, stop)
 	}
+	k := int(n)
 	r, stop := msg.EvalArgAt(vm, locals, 1)
 	if stop != NoStop {
-		return r, stop
+		return vm.Stop(r, stop)
 	}
-	l := target.(*List)
-	k := int(n.Value)
+	target.Lock()
+	l := target.Value.([]*Object)
 	switch {
-	case k < 0 || k > len(l.Value):
-		return vm.RaiseException("index out of bounds")
-	case k == len(l.Value):
-		l.Value = append(l.Value, r)
+	case k < 0 || k > len(l):
+		target.Unlock()
+		return vm.RaiseExceptionf("index out of bounds")
+	case k == len(l):
+		target.Value = append(l, r)
 	default:
 		// Make space for the new item, then copy items after its new location
 		// up a spot.
-		l.Value = append(l.Value, nil)
-		copy(l.Value[k+1:], l.Value[k:])
-		l.Value[k] = r
+		l = append(l, nil)
+		copy(l[k+1:], l[k:])
+		l[k] = r
+		target.Value = l
 	}
-	return target, NoStop
+	target.Unlock()
+	return target
 }
 
 // ListAtPut is a List method.
 //
 // atPut replaces an item in the list.
-func ListAtPut(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	n, err, stop := msg.NumberArgAt(vm, locals, 0)
+func ListAtPut(vm *VM, target, locals Interface, msg *Message) *Object {
+	n, exc, stop := msg.NumberArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return err, stop
+		return vm.Stop(exc, stop)
 	}
+	k := int(n)
 	r, stop := msg.EvalArgAt(vm, locals, 1)
 	if stop != NoStop {
-		return r, stop
+		return vm.Stop(r, stop)
 	}
-	l := target.(*List)
-	k := int(n.Value)
-	if k < 0 || k >= len(l.Value) {
-		return vm.RaiseException("index out of bounds")
+	target.Lock()
+	l := target.Value.([]*Object)
+	if k < 0 || k >= len(l) {
+		target.Unlock()
+		return vm.RaiseExceptionf("index %d out of bounds", k)
 	}
-	l.Value[k] = r
-	return target, NoStop
+	l[k] = r
+	target.Unlock()
+	return target
 }
 
 // ListCapacity is a List method.
 //
 // capacity is the number of items for which the list has allocated space.
-func ListCapacity(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	return vm.NewNumber(float64(cap(target.(*List).Value))), NoStop
+func ListCapacity(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	l := target.Value.([]*Object)
+	target.Unlock()
+	return vm.NewNumber(float64(cap(l)))
 }
 
 // ListCompare is a List method.
 //
 // compare returns -1 if the receiver is less than the argument, 1 if it is
 // greater, or 0 if they are equal.
-func ListCompare(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	l := target.(*List)
+func ListCompare(vm *VM, target, locals Interface, msg *Message) *Object {
 	v, stop := msg.EvalArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return v, stop
+		return vm.Stop(v, stop)
 	}
-	if r, ok := v.(*List); ok {
-		s1, s2 := len(l.Value), len(r.Value)
-		if s1 != s2 {
-			// This is not proper lexicographical order, but it is Io's order.
-			if s1 < s2 {
-				return vm.NewNumber(-1), NoStop
-			}
-			return vm.NewNumber(1), NoStop
-		}
-		for i, v := range l.Value {
-			x, stop := vm.Compare(v, r.Value[i])
-			if stop != NoStop {
-				return x, stop
-			}
-			if n, ok := x.(*Number); ok && n.Value != 0 {
-				return n, NoStop
-			}
-		}
-		return vm.NewNumber(0), NoStop
+	target.Lock()
+	defer target.Unlock()
+	l := target.Value.([]*Object)
+	v.Lock()
+	defer v.Unlock()
+	r, ok := v.Value.([]*Object)
+	if !ok {
+		target.Unlock()
+		v.Unlock()
+		return vm.NewNumber(float64(PtrCompare(target, v)))
 	}
-	return vm.NewNumber(float64(PtrCompare(l, v))), NoStop
+	s1, s2 := len(l), len(r)
+	if s1 != s2 {
+		// This is not proper lexicographical order, but it is Io's order.
+		if s1 < s2 {
+			return vm.NewNumber(-1)
+		}
+		return vm.NewNumber(1)
+	}
+	for i, v := range l {
+		// FIXME: performing code while holding locks
+		x, stop := vm.Compare(v, r[i])
+		if stop != NoStop {
+			return vm.Stop(x, stop)
+		}
+		if n, ok := x.Value.(float64); ok && n != 0 {
+			return x
+		}
+	}
+	return vm.NewNumber(0)
 }
 
 // ListContains is a List method.
 //
 // contains returns true if the list contains an item equal to the given
 // object.
-func ListContains(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	l := target.(*List)
+func ListContains(vm *VM, target, locals Interface, msg *Message) *Object {
 	r, stop := msg.EvalArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return r, stop
+		return vm.Stop(r, stop)
 	}
-	for _, v := range l.Value {
+	target.Lock()
+	defer target.Unlock()
+	l := target.Value.([]*Object)
+	for _, v := range l {
+		// FIXME: performing code while holding a lock
 		c, stop := vm.Compare(v, r)
 		if stop != NoStop {
-			return c, stop
+			return vm.Stop(c, stop)
 		}
-		if n, ok := c.(*Number); ok && n.Value == 0 {
-			return vm.True, NoStop
+		if n, ok := c.Value.(float64); ok && n == 0 {
+			return vm.True
 		}
 	}
-	return vm.False, NoStop
+	return vm.False
 }
 
 // ListContainsAll is a List method.
 //
 // containsAll returns true if the list contains items equal to each of the
 // given objects.
-func ListContainsAll(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	l := target.(*List)
-	r := make([]Interface, len(msg.Args))
+func ListContainsAll(vm *VM, target, locals Interface, msg *Message) *Object {
 	var stop Stop
+	r := make([]Interface, len(msg.Args))
 	for i := range msg.Args {
 		r[i], stop = msg.EvalArgAt(vm, locals, i)
 		if stop != NoStop {
-			return r[i], stop
+			return vm.Stop(r[i], stop)
 		}
 	}
+	target.Lock()
+	defer target.Unlock()
+	l := target.Value.([]*Object)
 outer:
 	for _, v := range r {
-		for _, ri := range l.Value {
+		for _, ri := range l {
+			// FIXME: performing code while holding a lock
 			c, stop := vm.Compare(ri, v)
 			if stop != NoStop {
-				return c, stop
+				return vm.Stop(c, stop)
 			}
-			if n, ok := c.(*Number); ok && n.Value == 0 {
+			if n, ok := c.Value.(float64); ok && n == 0 {
 				continue outer
 			}
 		}
-		return vm.False, NoStop
+		return vm.False
 	}
-	return vm.True, NoStop
+	return vm.True
 }
 
 // ListContainsAny is a List method.
 //
 // containsAny returns true if the list contains an item equal to any of the
 // given objects.
-func ListContainsAny(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	l := target.(*List)
+func ListContainsAny(vm *VM, target, locals Interface, msg *Message) *Object {
 	// TODO: use ID checks like ListRemove does
 	r := make([]Interface, len(msg.Args))
 	var stop Stop
 	for i := range msg.Args {
 		r[i], stop = msg.EvalArgAt(vm, locals, i)
 		if stop != NoStop {
-			return r[i], stop
+			return vm.Stop(r[i], stop)
 		}
 	}
-	for _, v := range l.Value {
+	target.Lock()
+	defer target.Unlock()
+	l := target.Value.([]*Object)
+	for _, v := range l {
 		for _, ri := range r {
+			// FIXME: performing code while holding a lock
 			c, stop := vm.Compare(ri, v)
 			if stop != NoStop {
-				return c, stop
+				return vm.Stop(c, stop)
 			}
-			if n, ok := c.(*Number); ok && n.Value == 0 {
-				return vm.True, NoStop
+			if n, ok := c.Value.(float64); ok && n == 0 {
+				return vm.True
 			}
 		}
 	}
-	return vm.False, NoStop
+	return vm.False
 }
 
 // ListContainsIdenticalTo is a List method.
 //
 // containsIdenticalTo returns true if the list contains exactly the given
 // object.
-func ListContainsIdenticalTo(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	l := target.(*List)
+func ListContainsIdenticalTo(vm *VM, target, locals Interface, msg *Message) *Object {
 	r, stop := msg.EvalArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return r, stop
+		return vm.Stop(r, stop)
 	}
-	for _, v := range l.Value {
+	target.Lock()
+	l := target.Value.([]*Object)
+	for _, v := range l {
 		if r == v {
-			return vm.True, NoStop
+			target.Unlock()
+			return vm.True
 		}
 	}
-	return vm.False, NoStop
+	target.Unlock()
+	return vm.False
 }
 
 // ListForeach is a List method.
 //
 // foreach performs a loop on each item of a list in order, optionally setting
 // index and value variables.
-func ListForeach(vm *VM, target, locals Interface, msg *Message) (result Interface, control Stop) {
+func ListForeach(vm *VM, target, locals Interface, msg *Message) (result *Object) {
 	kn, vn, hkn, hvn, ev := ForeachArgs(msg)
 	if ev == nil {
-		return vm.RaiseException("foreach requires 1, 2, or 3 arguments")
+		return vm.RaiseExceptionf("foreach requires 1, 2, or 3 arguments")
 	}
-	l := target.(*List)
-	for k, v := range l.Value {
+	target.Lock()
+	l := target.Value.([]*Object)
+	var control Stop
+	for k, v := range l {
+		// We lock and unlock for each loop iteration because we want to be
+		// able to access the list while evaluating - it seems very likely that
+		// a foreach loop would want to use atPut, for example.
+		target.Unlock()
 		if hvn {
-			vm.SetSlot(locals, vn, v)
+			locals.SetSlot(vn, v)
 			if hkn {
-				vm.SetSlot(locals, kn, vm.NewNumber(float64(k)))
+				locals.SetSlot(kn, vm.NewNumber(float64(k)))
 			}
 			result, control = ev.Eval(vm, locals)
 		} else {
@@ -405,151 +473,170 @@ func ListForeach(vm *VM, target, locals Interface, msg *Message) (result Interfa
 		switch control {
 		case NoStop, ContinueStop: // do nothing
 		case BreakStop:
-			return result, NoStop
+			return result
 		case ReturnStop, ExceptionStop:
-			return result, control
+			return vm.Stop(result, control)
 		default:
 			panic(fmt.Sprintf("iolang: invalid Stop: %v", control))
 		}
+		target.Lock()
 	}
-	return result, NoStop
+	target.Unlock()
+	return result
 }
 
 // ListIndexOf is a List method.
 //
 // indexOf returns the first index from the left of an item equal to the
 // argument. If there is no such item in the list, nil is returned.
-func ListIndexOf(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	l := target.(*List)
+func ListIndexOf(vm *VM, target, locals Interface, msg *Message) *Object {
 	r, stop := msg.EvalArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return r, stop
+		return vm.Stop(r, stop)
 	}
-	for i, v := range l.Value {
+	target.Lock()
+	defer target.Unlock()
+	l := target.Value.([]*Object)
+	for i, v := range l {
+		// FIXME: performing code while holding a lock
 		c, stop := vm.Compare(v, r)
 		if stop != NoStop {
-			return c, stop
+			return vm.Stop(c, stop)
 		}
-		if n, ok := c.(*Number); ok && n.Value == 0 {
-			return vm.NewNumber(float64(i)), NoStop
+		if n, ok := c.Value.(float64); ok && n == 0 {
+			return vm.NewNumber(float64(i))
 		}
 	}
-	return vm.Nil, NoStop
+	return vm.Nil
 }
 
 // ListPreallocateToSize is a List method.
 //
 // preallocateToSize ensures that the list has capacity for at least n items.
-func ListPreallocateToSize(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	l := target.(*List)
-	r, err, stop := msg.NumberArgAt(vm, locals, 0)
+func ListPreallocateToSize(vm *VM, target, locals Interface, msg *Message) *Object {
+	r, exc, stop := msg.NumberArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return err, stop
+		return vm.Stop(exc, stop)
 	}
-	if r.Value < 0 {
-		return vm.RaiseException("can't preallocate to negative size")
+	n := int(r)
+	if n < 0 {
+		return vm.RaiseExceptionf("can't preallocate to negative size %d", n)
 	}
-	n := int(r.Value)
-	if n > cap(l.Value) {
-		v := make([]Interface, len(l.Value), n)
-		copy(v, l.Value)
-		l.Value = v
+	target.Lock()
+	l := target.Value.([]*Object)
+	if n > cap(l) {
+		v := make([]Interface, len(l), n)
+		copy(v, l)
+		target.Value = v
 	}
-	return target, NoStop
+	target.Unlock()
+	return target
 }
 
 // ListPrepend is a List method.
 //
 // prepend adds items to the beginning of the list.
-func ListPrepend(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	l := target.(*List)
+func ListPrepend(vm *VM, target, locals Interface, msg *Message) *Object {
 	nv := make([]Interface, 0, len(msg.Args))
 	for _, m := range msg.Args {
 		r, stop := m.Eval(vm, locals)
 		if stop == NoStop {
 			nv = append(nv, r)
 		} else {
-			return r, stop
+			return vm.Stop(r, stop)
 		}
 	}
-	// We want to make sure that we use our existing space if we can.
-	n := len(nv) + len(l.Value)
-	if cap(l.Value) >= n {
-		l.Value = l.Value[:n]
-		copy(l.Value[len(nv):], l.Value)
-		copy(l.Value, nv)
+	target.Lock()
+	l := target.Value.([]*Object)
+	// Use our existing space if we can.
+	n := len(nv) + len(l)
+	if cap(l) >= n {
+		l = l[:n]
+		copy(l[len(nv):], l)
+		copy(l, nv)
 	} else {
-		l.Value = append(nv, l.Value...)
+		l = append(nv, l...)
 	}
-	return target, NoStop
+	target.Value = l
+	target.Unlock()
+	return target
 }
 
 // ListRemove is a List method.
 //
 // remove removes all occurrences of each item from the list.
-func ListRemove(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	l := target.(*List)
-	rv := make(map[Interface]struct{}, len(msg.Args))
+func ListRemove(vm *VM, target, locals Interface, msg *Message) *Object {
+	rv := make(map[*Object]struct{}, len(msg.Args))
 	for _, m := range msg.Args {
 		r, stop := m.Eval(vm, locals)
-		if stop == NoStop {
-			rv[r] = struct{}{}
-		} else {
-			return r, stop
+		if stop != NoStop {
+			return vm.Stop(r, stop)
 		}
+		rv[r] = struct{}{}
 	}
 	j := 0
-	defer func() { l.Value = l.Value[:len(l.Value)-j] }()
+	target.Lock()
+	l := target.Value.([]*Object)
+	defer func() {
+		target.Value = l[:len(l)-j]
+		target.Unlock()
+	}()
 outer:
-	for k, v := range l.Value {
+	for k, v := range l {
 		// Check whether the value exists by ID first, then check via compare.
 		if _, ok := rv[v]; ok {
 			j++
 		} else {
 			for r := range rv {
+				// FIXME: performing code while holding a lock
 				c, stop := vm.Compare(v, r)
 				if stop != NoStop {
-					return c, stop
+					return vm.Stop(c, stop)
 				}
-				if n, ok := c.(*Number); ok && n.Value == 0 {
+				if n, ok := c.Value.(float64); ok && n == 0 {
 					j++
 					continue outer
 				}
 			}
 			if k-j >= 0 {
-				l.Value[k-j] = v
+				l[k-j] = v
 			}
 		}
 	}
-	return target, NoStop
+	return target
 }
 
 // ListRemoveAll is a List method.
 //
 // removeAll removes all items from the list.
-func ListRemoveAll(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	l := target.(*List)
-	l.Value = l.Value[:0]
-	return target, NoStop
+func ListRemoveAll(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	l := target.Value.([]*Object)
+	target.Value = l[:0]
+	target.Unlock()
+	return target
 }
 
 // ListRemoveAt is a List method.
 //
 // removeAt removes the item in the given position from the list.
-func ListRemoveAt(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	l := target.(*List)
-	n, err, stop := msg.NumberArgAt(vm, locals, 0)
+func ListRemoveAt(vm *VM, target, locals Interface, msg *Message) *Object {
+	n, exc, stop := msg.NumberArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return err, stop
+		return vm.Stop(exc, stop)
 	}
-	k := int(n.Value)
-	if k < 0 || k >= len(l.Value) {
-		return vm.RaiseException("index out of bounds")
+	k := int(n)
+	target.Lock()
+	l := target.Value.([]*Object)
+	if k < 0 || k >= len(l) {
+		target.Unlock()
+		return vm.RaiseExceptionf("index %d out of bounds", k)
 	}
-	v := l.Value[k]
-	copy(l.Value[k:], l.Value[k+1:])
-	l.Value = l.Value[:len(l.Value)-1]
-	return v, NoStop
+	v := l[k]
+	copy(l[k:], l[k+1:])
+	target.Value = l[:len(l)-1]
+	target.Unlock()
+	return v
 }
 
 // ListReverseForeach is a List method.
@@ -557,73 +644,85 @@ func ListRemoveAt(vm *VM, target, locals Interface, msg *Message) (Interface, St
 // reverseForeach performs a loop on each item of a list in order, optionally
 // setting index and value variables, proceeding from the end of the list to
 // the start.
-func ListReverseForeach(vm *VM, target, locals Interface, msg *Message) (result Interface, control Stop) {
+func ListReverseForeach(vm *VM, target, locals Interface, msg *Message) (result *Object) {
 	kn, vn, hkn, hvn, ev := ForeachArgs(msg)
 	if !hvn {
-		return vm.RaiseException("reverseForeach requires 2 or 3 arguments")
+		return vm.RaiseExceptionf("reverseForeach requires 2 or 3 arguments")
 	}
-	l := target.(*List)
-	for k := len(l.Value) - 1; k >= 0; k-- {
-		v := l.Value[k]
-		vm.SetSlot(locals, vn, v)
+	target.Lock()
+	l := target.Value.([]*Object)
+	var control Stop
+	for k := len(l) - 1; k >= 0; k-- {
+		v := l[k]
+		target.Unlock()
+		locals.SetSlot(vn, v)
 		if hkn {
-			vm.SetSlot(locals, kn, vm.NewNumber(float64(k)))
+			locals.SetSlot(kn, vm.NewNumber(float64(k)))
 		}
 		result, control = ev.Eval(vm, locals)
 		switch control {
 		case NoStop, ContinueStop: // do nothing
 		case BreakStop:
-			return result, NoStop
+			return result
 		case ReturnStop, ExceptionStop:
-			return result, control
+			return vm.Stop(result, control)
 		default:
 			panic(fmt.Sprintf("iolang: invalid Stop: %v", control))
 		}
+		target.Lock()
 	}
-	return result, NoStop
+	target.Unlock()
+	return result
 }
 
 // ListReverseInPlace is a List method.
 //
 // reverseInPlace reverses the order of items in the list.
-func ListReverseInPlace(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	l := target.(*List)
-	ll := len(l.Value)
+func ListReverseInPlace(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	l := target.Value.([]*Object)
+	ll := len(l)
 	for i := 0; i < ll/2; i++ {
-		l.Value[i], l.Value[ll-1-i] = l.Value[ll-1-i], l.Value[i]
+		l[i], l[ll-1-i] = l[ll-1-i], l[i]
 	}
-	return target, NoStop
+	target.Unlock()
+	return target
 }
 
 // ListSetSize is a List method.
 //
 // setSize changes the size of the list, removing items from or adding nils to
 // the end as necessary.
-func ListSetSize(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	l := target.(*List)
-	v, err, stop := msg.NumberArgAt(vm, locals, 0)
+func ListSetSize(vm *VM, target, locals Interface, msg *Message) *Object {
+	v, exc, stop := msg.NumberArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return err, stop
+		return vm.Stop(exc, stop)
 	}
-	n := int(v.Value)
-	if n <= len(l.Value) {
-		l.Value = l.Value[:n]
+	n := int(v)
+	target.Lock()
+	l := target.Value.([]*Object)
+	if n <= len(l) {
+		target.Value = l[:n]
 	} else {
-		ll := len(l.Value)
+		ll := len(l)
 		nn := n - ll
-		l.Value = append(l.Value, make([]Interface, nn)...)
-		for i := ll; i < len(l.Value); i++ {
-			l.Value[i] = vm.Nil
+		target.Value = append(l, make([]Interface, nn)...)
+		for i := ll; i < len(l); i++ {
+			l[i] = vm.Nil
 		}
 	}
-	return target, NoStop
+	target.Unlock()
+	return target
 }
 
 // ListSize is a List method.
 //
 // size is the number of items in the list.
-func ListSize(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	return vm.NewNumber(float64(len(target.(*List).Value))), NoStop
+func ListSize(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	n := len(target.Value.([]*Object))
+	target.Unlock()
+	return vm.NewNumber(float64(n))
 }
 
 // SliceArgs gets start, stop, and step values for a standard slice-like
@@ -632,30 +731,30 @@ func ListSize(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) 
 // 	slice(start)
 // 	slice(start, stop)
 // 	slice(start, stop, step)
-func SliceArgs(vm *VM, locals Interface, msg *Message, size int) (start, step, stop int, err Interface, control Stop) {
+func SliceArgs(vm *VM, locals Interface, msg *Message, size int) (start, step, stop int, exc Interface, control Stop) {
 	start = 0
 	step = 1
 	stop = size
 	n := msg.ArgCount()
-	x, err, control := msg.NumberArgAt(vm, locals, 0)
+	x, exc, control := msg.NumberArgAt(vm, locals, 0)
 	if control != NoStop {
 		return
 	}
-	start = int(x.Value)
+	start = int(x)
 	if n >= 2 {
-		x, err, control = msg.NumberArgAt(vm, locals, 1)
+		x, exc, control = msg.NumberArgAt(vm, locals, 1)
 		if control != NoStop {
 			return
 		}
-		stop = int(x.Value)
+		stop = int(x)
 		if n >= 3 {
-			x, err, control = msg.NumberArgAt(vm, locals, 2)
+			x, exc, control = msg.NumberArgAt(vm, locals, 2)
 			if control != NoStop {
 				return
 			}
-			step = int(x.Value)
+			step = int(x)
 			if step == 0 {
-				err, control = vm.RaiseException("slice step cannot be zero")
+				exc, control = vm.NewExceptionf("slice step cannot be zero"), ExceptionStop
 				return
 			}
 		}
@@ -686,11 +785,13 @@ func fixSliceIndex(k, step, size int) int {
 // ListSlice is a List method.
 //
 // slice returns a selected linear portion of the list.
-func ListSlice(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	l := target.(*List)
-	start, step, stop, err, control := SliceArgs(vm, locals, msg, len(l.Value))
+func ListSlice(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	l := target.Value.([]*Object)
+	target.Unlock()
+	start, step, stop, exc, control := SliceArgs(vm, locals, msg, len(l))
 	if control != NoStop {
-		return err, control
+		return vm.Stop(exc, control)
 	}
 	nn := 0
 	if step > 0 {
@@ -699,31 +800,35 @@ func ListSlice(vm *VM, target, locals Interface, msg *Message) (Interface, Stop)
 		nn = (stop - start + step + 1) / step
 	}
 	if nn <= 0 {
-		return vm.NewList(), NoStop
+		return vm.NewList()
 	}
 	v := make([]Interface, 0, nn)
+	target.Lock()
 	if step > 0 {
 		for start < stop {
-			v = append(v, l.Value[start])
+			v = append(v, l[start])
 			start += step
 		}
 	} else {
 		for start > stop {
-			v = append(v, l.Value[start])
+			v = append(v, l[start])
 			start += step
 		}
 	}
-	return vm.NewList(v...), NoStop
+	target.Unlock()
+	return vm.NewList(v...)
 }
 
 // ListSliceInPlace is a List method.
 //
 // sliceInPlace reduces the list to a selected linear portion.
-func ListSliceInPlace(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	l := target.(*List)
-	start, step, stop, err, control := SliceArgs(vm, locals, msg, len(l.Value))
+func ListSliceInPlace(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	l := target.Value.([]*Object)
+	target.Unlock()
+	start, step, stop, exc, control := SliceArgs(vm, locals, msg, len(l))
 	if control != NoStop {
-		return err, control
+		return vm.Stop(exc, control)
 	}
 	nn := 0
 	if step > 0 {
@@ -731,13 +836,15 @@ func ListSliceInPlace(vm *VM, target, locals Interface, msg *Message) (Interface
 	} else {
 		nn = (stop - start + step + 1) / step
 	}
+	target.Lock()
 	if nn <= 0 {
-		l.Value = l.Value[:0]
-		return target, NoStop
+		target.Value = l[:0]
+		target.Unlock()
+		return target
 	}
 	if step > 0 {
 		for j := 0; start < stop; j++ {
-			l.Value[j] = l.Value[start]
+			l[j] = l[start]
 			start += step
 		}
 	} else {
@@ -746,26 +853,28 @@ func ListSliceInPlace(vm *VM, target, locals Interface, msg *Message) (Interface
 		// swapped as the input.
 		i, j := start, 0
 		for i > j && i > stop {
-			l.Value[j], l.Value[i] = l.Value[i], l.Value[j]
+			l[j], l[i] = l[i], l[j]
 			i += step
 			j++
 		}
 		for i > stop {
-			l.Value[j] = l.Value[start+i*step]
+			l[j] = l[start+i*step]
 			i += step
 			j++
 		}
 	}
-	l.Value = l.Value[:nn]
-	return target, NoStop
+	target.Value = l[:nn]
+	target.Unlock()
+	return target
 }
 
 type listSorter struct {
+	mu  *sync.Mutex // list's mutex
 	v   []Interface // values to sort
 	vm  *VM         // VM to use for compare, &c.
 	e   *Message    // message to send to items, arg of sortInPlace
 	l   Interface   // locals for message send or sortInPlaceBy block
-	b   *Block      // block to use in place of compare, arg of sortInPlaceBy
+	b   *Object     // block to use in place of compare, arg of sortInPlaceBy
 	m   *Message    // message to hold arguments to sortInPlaceBy block
 	err Interface   // error during compare
 	c   Stop        // control flow type during compare
@@ -776,7 +885,9 @@ func (l *listSorter) Len() int {
 }
 
 func (l *listSorter) Swap(i, j int) {
+	l.mu.Lock()
 	l.v[i], l.v[j] = l.v[j], l.v[i]
+	l.mu.Unlock()
 }
 
 func (l *listSorter) Less(i, j int) bool {
@@ -785,7 +896,9 @@ func (l *listSorter) Less(i, j int) bool {
 		return i < j
 	}
 	if l.b == nil {
+		l.mu.Lock()
 		a, b := l.v[i], l.v[j]
+		l.mu.Unlock()
 		var stop Stop
 		if l.e != nil {
 			a, stop = l.e.Send(l.vm, a, l.l)
@@ -804,16 +917,21 @@ func (l *listSorter) Less(i, j int) bool {
 			l.err, l.c = r, stop
 			return i < j
 		}
-		if n, ok := r.(*Number); ok {
-			return n.Value < 0
+		if n, ok := r.Value.(float64); ok {
+			return n < 0
 		}
 		return l.vm.AsBool(r)
 	}
+	l.mu.Lock()
 	l.m.Args[0].Memo, l.m.Args[1].Memo = l.v[i], l.v[j]
-	r, stop := l.b.reallyActivate(l.vm, l.l, l.l, l.l, l.m)
-	if stop != NoStop {
-		l.err, l.c = r, stop
+	l.mu.Unlock()
+	r := l.vm.ActivateBlock(l.b, l.l, l.l, l.l, l.m)
+	// Check whether the block gave us any control flow signal.
+	select {
+	case rs := <-l.vm.Control:
+		l.err, l.c = rs.Result, rs.Control
 		return i < j
+	default: // do nothing
 	}
 	return l.vm.AsBool(r)
 }
@@ -821,83 +939,90 @@ func (l *listSorter) Less(i, j int) bool {
 // ListSortInPlace is a List method.
 //
 // sortInPlace sorts the list according to the items' compare method.
-func ListSortInPlace(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	l := target.(*List)
+func ListSortInPlace(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	l := target.Value.([]*Object)
+	target.Unlock()
 	ls := listSorter{
-		v:  l.Value,
+		mu: &target.Mutex,
+		v:  l,
 		vm: vm,
 	}
-	if len(msg.Args) > 0 {
-		ls.e = msg.Args[0]
+	if msg.ArgCount() > 0 {
+		ls.e = msg.ArgAt(0)
 		ls.l = locals
 	}
 	sort.Sort(&ls)
 	if ls.c != NoStop {
-		return ls.err, ls.c
+		return vm.Stop(ls.err, ls.c)
 	}
-	return target, NoStop
+	return target
 }
 
 // ListSortInPlaceBy is a List method.
 //
 // sortInPlaceBy sorts the list using a given compare block.
-func ListSortInPlaceBy(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	l := target.(*List)
+func ListSortInPlaceBy(vm *VM, target, locals Interface, msg *Message) *Object {
 	r, stop := msg.EvalArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return r, stop
+		return vm.Stop(r, stop)
 	}
-	b, ok := r.(*Block)
-	if !ok {
-		return vm.RaiseException("argument 0 to List sortInPlaceBy must be Block, not " + vm.TypeName(b))
+	if r.Tag != BlockTag {
+		return vm.RaiseExceptionf("argument 0 to List sortInPlaceBy must be Block, not %s", vm.TypeName(r))
 	}
+	target.Lock()
+	l := target.Value.([]*Object)
+	target.Unlock()
 	ls := listSorter{
-		v:  l.Value,
+		mu: &target.Mutex,
+		v:  l,
 		vm: vm,
 		l:  locals,
-		b:  b,
+		b:  r,
 		m:  vm.IdentMessage("", vm.IdentMessage(""), vm.IdentMessage("")),
 	}
 	sort.Sort(&ls)
 	if ls.c != NoStop {
-		return ls.err, ls.c
+		return vm.Stop(ls.err, ls.c)
 	}
-	return target, NoStop
+	return target
 }
 
 // ListSwapIndices is a List method.
 //
 // swapIndices swaps the values in two positions in the list.
-func ListSwapIndices(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	l := target.(*List)
-	a, err, stop := msg.NumberArgAt(vm, locals, 0)
+func ListSwapIndices(vm *VM, target, locals Interface, msg *Message) *Object {
+	a, exc, stop := msg.NumberArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return err, stop
+		return vm.Stop(exc, stop)
 	}
-	b, err, stop := msg.NumberArgAt(vm, locals, 1)
+	b, exc, stop := msg.NumberArgAt(vm, locals, 1)
 	if stop != NoStop {
-		return err, stop
+		return vm.Stop(exc, stop)
 	}
-	i, j := int(a.Value), int(b.Value)
-	if i < 0 || i >= len(l.Value) || j < 0 || j >= len(l.Value) {
-		return vm.RaiseException("index out of bounds")
+	i, j := int(a), int(b)
+	target.Lock()
+	l := target.Value.([]*Object)
+	if i < 0 || i >= len(l) || j < 0 || j >= len(l) {
+		target.Unlock()
+		return vm.RaiseExceptionf("index out of bounds")
 	}
-	l.Value[i], l.Value[j] = l.Value[j], l.Value[i]
-	return target, NoStop
+	l[i], l[j] = l[j], l[i]
+	target.Unlock()
+	return target
 }
 
 // ListWith is a List method.
 //
 // with creates a new list with the given values as items.
-func ListWith(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+func ListWith(vm *VM, target, locals Interface, msg *Message) *Object {
 	v := make([]Interface, 0, len(msg.Args))
 	for _, m := range msg.Args {
 		r, stop := m.Eval(vm, locals)
-		if stop == NoStop {
-			v = append(v, r)
-		} else {
-			return r, stop
+		if stop != NoStop {
+			return vm.Stop(r, stop)
 		}
+		v = append(v, r)
 	}
-	return vm.NewList(v...), NoStop
+	return vm.NewList(v...)
 }

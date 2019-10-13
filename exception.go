@@ -4,166 +4,198 @@ import "fmt"
 
 // An Exception is an Io exception.
 type Exception struct {
-	Object
+	Err   error
 	Stack []*Message
 }
 
-// Activate returns the exception.
-func (e *Exception) Activate(vm *VM, target, locals, context Interface, msg *Message) (Interface, Stop) {
-	return e, NoStop
+// String returns the error message.
+func (e Exception) String() string {
+	return e.Err.Error()
 }
 
-// Clone creates a clone of the exception.
-func (e *Exception) Clone() Interface {
-	return &Exception{Object: Object{Protos: []Interface{e}}}
+// Error returns the error message.
+func (e Exception) Error() string {
+	return e.Err.Error()
 }
 
-// NewException creates a new Io Exception with the given error message.
-func (vm *VM) NewException(msg string) *Exception {
-	e := Exception{
-		Object: Object{
-			Slots: Slots{
-				"error":     vm.NewString(msg),
-				"coroutine": vm,
-			},
-			Protos: vm.CoreProto("Exception"),
-		},
+// Unwrap returns the wrapped error.
+func (e Exception) Unwrap() error {
+	return e.Err
+}
+
+// tagException is the Tag type for Exception objects.
+type tagException struct{}
+
+func (tagException) Activate(vm *VM, self, target, locals, context *Object, msg *Message) *Object {
+	return self
+}
+
+func (tagException) CloneValue(value interface{}) interface{} {
+	v := value.(Exception)
+	if v.Stack == nil {
+		return Exception{Err: v.Err}
 	}
-	e.Slots["error"] = vm.NewString(msg)
-	e.Slots["coroutine"] = vm
-	return &e
+	s := make([]*Message, len(v.Stack))
+	copy(s, v.Stack)
+	return Exception{Err: v.Err, Stack: s}
+}
+
+func (tagException) String() string {
+	return "Exception"
+}
+
+// ExceptionTag is the Tag for Exception objects. Activate returns the
+// exception. CloneValue creates an exception with the same error and a copy of
+// the parent exception's stack.
+var ExceptionTag tagException
+
+// NewException creates a new Exception object with the given error.
+func (vm *VM) NewException(err error) *Object {
+	return &Object{
+		Slots: Slots{
+			"coroutine": vm.Coro,
+		},
+		Protos: vm.CoreProto("Exception"),
+		Value:  Exception{Err: err},
+		Tag:    ExceptionTag,
+	}
 }
 
 // NewExceptionf creates a new Io Exception with the given formatted error
 // message.
-func (vm *VM) NewExceptionf(format string, args ...interface{}) *Exception {
-	return vm.NewException(fmt.Sprintf(format, args...))
+func (vm *VM) NewExceptionf(format string, args ...interface{}) *Object {
+	return vm.NewException(fmt.Errorf(format, args...))
 }
 
-// RaiseException returns NewException(msg).Raise().
-func (vm *VM) RaiseException(msg string) (Interface, Stop) {
-	return vm.NewException(msg).Raise()
+// RaiseException returns vm.Raise(vm.NewException(msg)).
+func (vm *VM) RaiseException(msg error) *Object {
+	return vm.Raise(vm.NewException(msg))
 }
 
-// RaiseExceptionf returns NewExceptionf(format, args...).Raise().
-func (vm *VM) RaiseExceptionf(format string, args ...interface{}) (Interface, Stop) {
-	return vm.NewExceptionf(format, args...).Raise()
+// RaiseExceptionf returns vm.Raise(vm.NewExceptionf(format, args...)).
+func (vm *VM) RaiseExceptionf(format string, args ...interface{}) *Object {
+	return vm.Raise(vm.NewExceptionf(format, args...))
 }
 
-// String returns the error message.
-func (e *Exception) String() string {
-	e.Lock()
-	s := e.Slots["error"]
-	e.Unlock()
-	return fmt.Sprint(s)
+// Raise raises an exception and returns the object.
+func (vm *VM) Raise(exc *Object) *Object {
+	return vm.Stop(exc, ExceptionStop)
 }
 
-// Error returns the error message.
-func (e *Exception) Error() string {
-	e.Lock()
-	s := e.Slots["error"]
-	e.Unlock()
-	return fmt.Sprint(s)
-}
-
-// Raise returns the exception in a Stop, so that the interpreter will treat it
-// as an exception, rather than as an object.
-func (e *Exception) Raise() (Interface, Stop) {
-	return e, ExceptionStop
-}
-
-// IoError converts an error to a raising Io exception. If it is already an Io
-// object, it will be used unchanged. Otherwise, if it is not an error, panic.
-func (vm *VM) IoError(err interface{}) (Interface, Stop) {
+// IoError converts an error to an Io exception and raises it. If it is already
+// an Io object, it will be used unchanged. Otherwise, if it is not an error,
+// panic.
+func (vm *VM) IoError(err interface{}) *Object {
 	switch e := err.(type) {
-	case Interface:
-		return e, ExceptionStop
+	case *Object:
+		return vm.Raise(e)
 	case error:
-		return vm.RaiseException(e.Error())
+		return vm.RaiseException(e)
 	}
 	panic(fmt.Sprintf("iolang.IoError: not an error: %#v", err))
 }
 
-// Must panics if the argument is an error and otherwise returns it.
-func Must(v Interface) Interface {
-	if _, ok := v.(error); ok {
-		panic(v)
-	}
-	return v
-}
-
 func (vm *VM) initException() {
-	var kind *Exception
 	slots := Slots{
 		"caughtMessage":   vm.Nil,
-		"error":           vm.Nil,
+		"error":           vm.NewCFunction(ExceptionError, ExceptionTag),
 		"nestedException": vm.Nil,
 		"originalCall":    vm.Nil,
-		"pass":            vm.NewCFunction(ExceptionPass, kind),
+		"pass":            vm.NewCFunction(ExceptionPass, ExceptionTag),
 		"raise":           vm.NewCFunction(ExceptionRaise, nil),
 		"raiseFrom":       vm.NewCFunction(ExceptionRaiseFrom, nil),
-		"stack":           vm.NewCFunction(ExceptionStack, kind),
+		"stack":           vm.NewCFunction(ExceptionStack, ExceptionTag),
 		"type":            vm.NewString("Exception"),
 	}
-	vm.SetSlot(vm.Core, "Exception", &Exception{Object: *vm.ObjectWith(slots)})
+	vm.Core.SetSlot("Exception", &Object{
+		Slots:  slots,
+		Protos: []*Object{vm.BaseObject},
+		Value:  Exception{Err: fmt.Errorf("no error")},
+		Tag:    ExceptionTag,
+	})
+}
+
+// ExceptionError is an Exception method.
+//
+// error returns the exception's error message.
+func ExceptionError(vm *VM, target, locals *Object, msg *Message) *Object {
+	target.Lock()
+	s := target.Value.(Exception).Err.Error()
+	target.Unlock()
+	return vm.NewString(s)
 }
 
 // ExceptionPass is an Exception method.
 //
 // pass re-raises a caught exception.
-func ExceptionPass(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	return target.(*Exception).Raise()
+func ExceptionPass(vm *VM, target, locals *Object, msg *Message) *Object {
+	return vm.Raise(target)
 }
 
 // ExceptionRaise is an Exception method.
 //
 // raise creates an exception with the given error message and raises it.
-func ExceptionRaise(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	s, err, stop := msg.StringArgAt(vm, locals, 0)
+func ExceptionRaise(vm *VM, target, locals *Object, msg *Message) *Object {
+	s, exc, stop := msg.StringArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return err, stop
+		return vm.Stop(exc, stop)
 	}
 	nested, stop := msg.EvalArgAt(vm, locals, 1)
 	if stop != NoStop {
-		return nested, stop
+		vm.Stop(nested, stop)
 	}
-	e := &Exception{Object: Object{Protos: vm.CoreProto("Exception")}}
-	vm.SetSlot(e, "error", s)
-	vm.SetSlot(e, "nestedException", nested)
-	return e.Raise()
+	e := vm.NewExceptionf("%v", s)
+	e.SetSlot("nestedException", nested)
+	return vm.Raise(e)
 }
 
 // ExceptionRaiseFrom is an Exception method.
 //
 // raiseFrom raises an exception from the given call site.
-func ExceptionRaiseFrom(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+func ExceptionRaiseFrom(vm *VM, target, locals *Object, msg *Message) *Object {
 	call, stop := msg.EvalArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return call, stop
+		return vm.Stop(call, stop)
 	}
-	s, err, stop := msg.StringArgAt(vm, locals, 1)
+	s, exc, stop := msg.StringArgAt(vm, locals, 1)
 	if stop != NoStop {
-		return err, stop
+		return vm.Stop(exc, stop)
 	}
 	nested, stop := msg.EvalArgAt(vm, locals, 2)
 	if stop != NoStop {
-		return nested, stop
+		return vm.Stop(nested, stop)
 	}
-	e := &Exception{Object: Object{Protos: vm.CoreProto("Exception")}}
-	vm.SetSlot(e, "error", s)
-	vm.SetSlot(e, "nestedException", nested)
-	vm.SetSlot(e, "originalCall", call)
-	return e.Raise()
+	e := vm.NewExceptionf("%v", s)
+	e.SetSlots(Slots{"nestedException": nested, "originalCall": call})
+	return vm.Raise(e)
+}
+
+// ExceptionSetError is an Exception method.
+//
+// setError sets the exception's error message.
+func ExceptionSetError(vm *VM, target, locals *Object, msg *Message) *Object {
+	s, exc, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return vm.Stop(exc, stop)
+	}
+	target.Lock()
+	e := target.Value.(Exception)
+	e.Err = fmt.Errorf("%s", s)
+	target.Value = e
+	target.Unlock()
+	return target
 }
 
 // ExceptionStack is an Exception method.
 //
 // stack returns the message stack of the exception.
-func ExceptionStack(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	e := target.(*Exception)
-	l := make([]Interface, len(e.Stack))
+func ExceptionStack(vm *VM, target, locals *Object, msg *Message) *Object {
+	e := target.Value.(*Exception)
+	target.Lock()
+	l := make([]*Object, len(e.Stack))
 	for i, m := range e.Stack {
-		l[i] = m
+		l[i] = vm.MessageObject(m)
 	}
-	return vm.NewList(l...), NoStop
+	target.Unlock()
+	return vm.NewList(l...)
 }

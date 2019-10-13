@@ -9,10 +9,15 @@ import (
 // TestPerform tests that objects can receive and possibly forward messages to
 // activate slots and produce appropriate results.
 func TestPerform(t *testing.T) {
-	res := &performTester{Object: Object{Protos: []Interface{testVM.BaseObject}}}
+	pt := &performTester{obj: &Object{Protos: []Interface{testVM.BaseObject}}}
+	res := &Object{
+		Protos: []*Object{testVM.BaseObject},
+		Value:  pt,
+		Tag:    performTesterTag{},
+	}
 	anc := testVM.ObjectWith(Slots{"t": res})
 	target := anc.Clone()
-	testVM.SetSlot(target, "forward", testVM.NewCFunction(performTestForward, nil))
+	target.SetSlot("forward", testVM.NewCFunction(performTestForward, nil))
 	tm := testVM.IdentMessage("t")
 	cases := map[string]struct {
 		o       Interface
@@ -40,31 +45,38 @@ func TestPerform(t *testing.T) {
 					t.Errorf("wrong control flow: want <anything> (ExceptionStop), got %v (%v)", r, stop)
 				}
 			}
-			if m := atomic.LoadInt32(&res.activated); m != n {
+			if m := atomic.LoadInt32(&pt.act); m != n {
 				t.Errorf("wrong activation count: want %d, have %d", n, m)
 			}
-			atomic.StoreInt32(&res.activated, 0)
+			atomic.StoreInt32(&pt.act, 0)
 		})
 	}
 }
 
 type performTester struct {
-	Object
-	activated int32
+	act int32
+	obj *Object
 }
 
-func (p *performTester) Clone() Interface {
-	return &performTester{Object: Object{Protos: []Interface{p}}}
+type performTesterTag struct{}
+
+func (performTesterTag) Activate(vm *VM, self, target, locals, context *Object, msg *Message) *Object {
+	v := self.Value.(*performTester)
+	atomic.AddInt32(&v.act, 1)
+	return v.obj.Activate(vm, target, locals, context, msg)
 }
 
-func (p *performTester) Activate(vm *VM, target, locals, context Interface, msg *Message) (Interface, Stop) {
-	atomic.AddInt32(&p.activated, 1)
-	return p.Object.Activate(vm, target, locals, context, msg)
+func (performTesterTag) CloneValue(value interface{}) interface{} {
+	return &performTester{obj: value.(*performTester).obj.Clone()}
 }
 
-func performTestForward(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+func (performTesterTag) String() string {
+	return "performTester"
+}
+
+func performTestForward(vm *VM, target, locals Interface, msg *Message) *Object {
 	nn := strings.ToLower(msg.Name())
-	if v, proto := vm.GetSlot(target, nn); proto != nil {
+	if v, proto := target.GetSlot(nn); proto != nil {
 		return v.Activate(vm, target, locals, proto, vm.IdentMessage(nn))
 	}
 	return vm.RaiseExceptionf("%s does not respond to %s", vm.TypeName(target), msg.Name())
@@ -127,6 +139,6 @@ func TestPerformNilResult(t *testing.T) {
 	}
 }
 
-func nilResult(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	return nil, NoStop
+func nilResult(vm *VM, target, locals Interface, msg *Message) *Object {
+	return nil
 }

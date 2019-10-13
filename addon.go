@@ -36,7 +36,7 @@ func (vm *VM) initPlugin() {
 		"open":        vm.NewCFunction(AddonOpen, nil),
 		"type":        vm.NewString("Addon"),
 	}
-	vm.SetSlot(vm.Core, "Addon", vm.ObjectWith(slots))
+	vm.Core.SetSlot("Addon", vm.ObjectWith(slots))
 }
 
 // LoadAddon loads an addon. It returns a channel over which the addon object
@@ -50,7 +50,7 @@ func (vm *VM) LoadAddon(addon Addon) chan Interface {
 // reallyLoadAddon is the method the scheduler calls to set up an addon proto.
 func (vm *VM) reallyLoadAddon(addon Addon) Interface {
 	p := addon.Instance(vm)
-	vm.SetSlot(vm.Addons, addon.AddonName(), p)
+	vm.Addons.SetSlot(addon.AddonName(), p)
 	m := addon.Script(vm)
 	if m != nil {
 		r, stop := m.Send(vm, p, p)
@@ -64,16 +64,19 @@ func (vm *VM) reallyLoadAddon(addon Addon) Interface {
 // AddonOpen is an Addon method.
 //
 // open loads the addon at the receiver's path and returns the addon's object.
-func AddonOpen(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	p, proto := vm.GetSlot(target, "path")
+func AddonOpen(vm *VM, target, locals Interface, msg *Message) *Object {
+	p, proto := target.GetSlot("path")
 	if proto == nil {
-		return vm.RaiseException("addon path unset")
+		return vm.RaiseExceptionf("addon path unset")
 	}
-	path, ok := p.(*Sequence)
+	p.Lock()
+	path, ok := p.Value.(Sequence)
 	if !ok {
+		p.Unlock()
 		return vm.RaiseExceptionf("addon path must be Sequence, not %s", vm.TypeName(p))
 	}
 	plug, err := plugin.Open(path.String())
+	p.Unlock()
 	if err != nil {
 		return vm.IoError(err)
 	}
@@ -86,7 +89,7 @@ func AddonOpen(vm *VM, target, locals Interface, msg *Message) (Interface, Stop)
 		return vm.RaiseExceptionf("%s is not an iolang addon", path)
 	}
 	ch := vm.LoadAddon(f(vm))
-	return <-ch, NoStop
+	return <-ch
 }
 
 // havePlugins indicates whether Go's plugin system is available on the current

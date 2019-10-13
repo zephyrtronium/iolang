@@ -1,3 +1,5 @@
+// +build ignore
+
 package iolang
 
 /*
@@ -36,7 +38,7 @@ func (c *Call) Clone() Interface {
 	}
 }
 */
-
+/*
 // NewCall creates a Call object sent from sender to the target's actor using
 // the message msg.
 func (vm *VM) NewCall(sender, actor Interface, msg *Message, target, context Interface) Interface {
@@ -60,7 +62,7 @@ func (vm *VM) initCall() {
 		"evalArgAt": vm.NewCFunction(CallEvalArgAt, nil),
 		"type":      vm.NewString("Call"),
 	}
-	vm.SetSlot(vm.Core, "Call", vm.ObjectWith(slots))
+	vm.Core.SetSlot("Call", vm.ObjectWith(slots))
 }
 
 // CallArgAt is a Call method.
@@ -68,7 +70,7 @@ func (vm *VM) initCall() {
 // argAt returns the nth argument to the call, or nil if n is out of bounds.
 // The argument is returned as the original message and is not evaluated.
 func CallArgAt(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	s, proto := vm.GetSlot(target, "message")
+	s, proto := target.GetSlot("message")
 	if proto == nil {
 		return vm.RaiseException("no message slot for Call argAt")
 	}
@@ -91,7 +93,7 @@ func CallArgAt(vm *VM, target, locals Interface, msg *Message) (Interface, Stop)
 //
 // argCount returns the number of arguments passed in the call.
 func CallArgCount(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	s, proto := vm.GetSlot(target, "message")
+	s, proto := target.GetSlot("message")
 	if proto == nil {
 		return vm.RaiseException("no message slot for Call argCount")
 	}
@@ -107,7 +109,7 @@ func CallArgCount(vm *VM, target, locals Interface, msg *Message) (Interface, St
 // evalArgAt evaluates the nth argument to the call in the context of the
 // sender.
 func CallEvalArgAt(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	s, proto := vm.GetSlot(target, "message")
+	s, proto := target.GetSlot("message")
 	if proto == nil {
 		return vm.RaiseException("no message slot for Call evalArgAt")
 	}
@@ -115,7 +117,7 @@ func CallEvalArgAt(vm *VM, target, locals Interface, msg *Message) (Interface, S
 	if !ok {
 		return vm.RaiseException("call message must be Message, not " + vm.TypeName(s))
 	}
-	snd, proto := vm.GetSlot(target, "sender")
+	snd, proto := target.GetSlot("sender")
 	if proto == nil {
 		return vm.RaiseException("no sender slot for Call evalArgAt")
 	}
@@ -125,3 +127,4 @@ func CallEvalArgAt(vm *VM, target, locals Interface, msg *Message) (Interface, S
 	}
 	return m.EvalArgAt(vm, snd, int(v.Value))
 }
+*/

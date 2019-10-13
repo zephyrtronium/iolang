@@ -3,60 +3,117 @@ package iolang
 import (
 	"bytes"
 	"strings"
+	"sync"
 )
 
 // A Block is a reusable, portable set of executable messages. Essentially a
 // function.
 type Block struct {
-	Object
-	Message     *Message
-	Self        Interface
-	ArgNames    []string
+	// RWMutex protects the block value so that it cannot be changed while
+	// being performed. This lock is acquired for reading by vm.ActivateBlock;
+	// normal users should not need to acquire it directly.
+	sync.RWMutex
+
+	// Message is the message that the block performs.
+	Message *Message
+	// Self is the block's lexical scope. If nil, then the block is a method,
+	// and the scope becomes the receiver of the message that activated the
+	// block.
+	Self *Object
+	// ArgNames is the list of argument slot names.
+	ArgNames []string
+
+	// Activatable controls whether the block performs its message or returns
+	// itself when activated.
 	Activatable bool
-	PassStops   bool
+	// PassStops controls whether the block resends control flow signals that
+	// are returned from evaluating its message.
+	PassStops bool
 }
 
-// Activate performs the messages in this block if the block is activatable.
-// Otherwise, this block is returned.
-func (b *Block) Activate(vm *VM, target, locals, context Interface, msg *Message) (Interface, Stop) {
+// tagBlock is the Tag type for Block objects.
+type tagBlock struct{}
+
+func (tagBlock) Activate(vm *VM, self, target, locals, context *Object, msg *Message) *Object {
 	// If this block isn't actually activatable, then it should be the result
 	// of activation.
+	b := self.Value.(*Block)
 	if !b.Activatable {
-		return b, NoStop
+		return self
 	}
-	return b.reallyActivate(vm, target, locals, context, msg)
+	return vm.ActivateBlock(self, target, locals, context, msg)
 }
 
-func (b *Block) reallyActivate(vm *VM, target, locals, context Interface, msg *Message) (Interface, Stop) {
-	scope := b.Self
-	if scope == nil {
-		scope = target
-	}
-	call := vm.NewCall(locals, b, msg, target, context)
-	blkLocals := vm.NewLocals(scope, call)
-	for i, arg := range b.ArgNames {
-		x, stop := msg.EvalArgAt(vm, locals, i)
-		if stop != NoStop {
-			return x, stop
-		}
-		vm.SetSlot(blkLocals, arg, x)
-	}
-	result, stop := b.Message.Eval(vm, blkLocals)
-	if b.PassStops || stop == ExceptionStop {
-		return result, stop
-	}
-	return result, NoStop
-}
-
-// Clone creates a clone of the block with a deep copy of its message.
-func (b *Block) Clone() Interface {
+func (tagBlock) CloneValue(value interface{}) interface{} {
+	b := value.(*Block)
+	b.RLock()
+	defer b.RUnlock()
 	return &Block{
-		Object:      Object{Protos: []Interface{b}},
 		Message:     b.Message.DeepCopy(),
 		Self:        b.Self,
 		ArgNames:    append([]string{}, b.ArgNames...),
 		Activatable: b.Activatable,
 		PassStops:   b.PassStops,
+	}
+}
+
+func (tagBlock) String() string {
+	return "Block"
+}
+
+// BlockTag is the Tag for Block objects. Activate activates the block if it is
+// activatable and otherwise returns the block. CloneValue creates a new block
+// with a deep copy of the parent's message.
+var BlockTag tagBlock
+
+// ActivateBlock activates a block directly, regardless of the value of its
+// Activatable flag. Panics if blk is not a Block object.
+func (vm *VM) ActivateBlock(blk, target, locals, context *Object, msg *Message) *Object {
+	b := blk.Value.(*Block)
+	b.RLock()
+	scope := b.Self
+	if scope == nil {
+		scope = target
+	}
+	call := vm.NewCall(locals, blk, msg, target, context)
+	blkLocals := vm.NewLocals(scope, call)
+	// We don't want to be holding the block's lock while evaluating its code
+	// or arguments in case any of them refer to the block itself. Copy out the
+	// information we need while we are still holding the lock.
+	args := append([]string{}, b.ArgNames...)
+	m := b.Message
+	pass := b.PassStops
+	b.RUnlock()
+	for i, arg := range args {
+		x, stop := msg.EvalArgAt(vm, locals, i)
+		if stop != NoStop {
+			return vm.Stop(x, stop)
+		}
+		blkLocals.SetSlot(arg, x)
+	}
+	result, stop := m.Eval(vm, blkLocals)
+	if pass || stop == ExceptionStop {
+		return vm.Stop(result, stop)
+	}
+	return result
+}
+
+// NewBlock creates a new Block object for a message. If scope is nil, then the
+// returned block is a method, and it is activatable; otherwise, it is a
+// lexically scoped block that is not activatable.
+func (vm *VM) NewBlock(msg *Message, scope *Object, args ...string) *Object {
+	if msg == nil {
+		msg = vm.CachedMessage(vm.Nil)
+	}
+	return &Object{
+		Protos: vm.CoreProto("Block"),
+		Value: &Block{
+			Message:     msg,
+			Self:        scope,
+			ArgNames:    args,
+			Activatable: scope == nil,
+		},
+		Tag: BlockTag,
 	}
 }
 
@@ -72,24 +129,44 @@ func (vm *VM) NewLocals(self, call Interface) *Object {
 	return lc
 }
 
+// NewCall creates a Call object sent from sender to the target's actor using
+// the message msg.
+func (vm *VM) NewCall(sender, actor Interface, msg *Message, target, context Interface) Interface {
+	return &Object{
+		Slots: Slots{
+			"activated":   actor,
+			"coroutine":   vm.Coro,
+			"message":     vm.MessageObject(msg),
+			"sender":      sender,
+			"slotContext": context,
+			"target":      target,
+		},
+		Protos: vm.CoreProto("Call"),
+	}
+}
+
 func (vm *VM) initBlock() {
-	var kind *Block
 	slots := Slots{
-		"argumentNames":    vm.NewCFunction(BlockArgumentNames, kind),
-		"asString":         vm.NewCFunction(BlockAsString, kind),
-		"call":             vm.NewCFunction(BlockCall, kind),
-		"message":          vm.NewCFunction(BlockMessage, kind),
-		"passStops":        vm.NewCFunction(BlockPassStops, kind),
-		"performOn":        vm.NewCFunction(BlockPerformOn, kind),
-		"scope":            vm.NewCFunction(BlockScope, kind),
-		"setArgumentNames": vm.NewCFunction(BlockSetArgumentNames, kind),
-		"setMessage":       vm.NewCFunction(BlockSetMessage, kind),
-		"setPassStops":     vm.NewCFunction(BlockSetPassStops, kind),
-		"setScope":         vm.NewCFunction(BlockSetScope, kind),
+		"argumentNames":    vm.NewCFunction(BlockArgumentNames, BlockTag),
+		"asString":         vm.NewCFunction(BlockAsString, BlockTag),
+		"call":             vm.NewCFunction(BlockCall, BlockTag),
+		"message":          vm.NewCFunction(BlockMessage, BlockTag),
+		"passStops":        vm.NewCFunction(BlockPassStops, BlockTag),
+		"performOn":        vm.NewCFunction(BlockPerformOn, BlockTag),
+		"scope":            vm.NewCFunction(BlockScope, BlockTag),
+		"setArgumentNames": vm.NewCFunction(BlockSetArgumentNames, BlockTag),
+		"setMessage":       vm.NewCFunction(BlockSetMessage, BlockTag),
+		"setPassStops":     vm.NewCFunction(BlockSetPassStops, BlockTag),
+		"setScope":         vm.NewCFunction(BlockSetScope, BlockTag),
 		"type":             vm.NewString("Block"),
 	}
 	slots["code"] = slots["asString"]
-	vm.SetSlot(vm.Core, "Block", &Block{Object: *vm.ObjectWith(slots)})
+	vm.Core.SetSlot("Block", &Object{
+		Slots:  slots,
+		Protos: []*Object{vm.BaseObject},
+		Value:  &Block{},
+		Tag:    BlockTag,
+	})
 }
 
 func (vm *VM) initLocals() {
@@ -101,7 +178,7 @@ func (vm *VM) initLocals() {
 	}
 	slots["forward"] = vm.NewCFunction(LocalsForward, nil)
 	slots["updateSlot"] = vm.NewCFunction(LocalsUpdateSlot, nil)
-	vm.SetSlot(vm.Core, "Locals", &Object{Slots: slots, Protos: []Interface{}})
+	vm.Core.SetSlot("Locals", &Object{Slots: slots, Protos: []Interface{}})
 }
 
 // ObjectBlock is an Object method.
@@ -114,24 +191,23 @@ func (vm *VM) initLocals() {
 //   block(x, x +(1))
 //   io> succ call(3)
 //   4
-func ObjectBlock(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	if msg.ArgCount() == 0 {
-		return &Block{
-			Object:  Object{Protos: vm.CoreProto("Block")},
-			Message: vm.CachedMessage(vm.Nil),
-			Self:    locals,
-		}, NoStop
+func ObjectBlock(vm *VM, target, locals Interface, msg *Message) *Object {
+	n := msg.ArgCount()
+	if n == 0 {
+		return &Object{
+			Protos: vm.CoreProto("Block"),
+			Value: &Block{
+				Message: vm.CachedMessage(vm.Nil),
+				Self:    locals,
+			},
+			Tag: BlockTag,
+		}
 	}
-	blk := Block{
-		Object:   Object{Protos: vm.CoreProto("Block")},
-		Message:  msg.ArgAt(len(msg.Args) - 1),
-		Self:     locals,
-		ArgNames: make([]string, len(msg.Args)-1),
+	args := make([]string, n-1)
+	for i, arg := range msg.Args[:n-1] {
+		args[i] = arg.Name()
 	}
-	for i, arg := range msg.Args[:len(msg.Args)-1] {
-		blk.ArgNames[i] = arg.Name()
-	}
-	return &blk, NoStop
+	return vm.NewBlock(msg.ArgAt(n-1), locals, args...)
 }
 
 // ObjectMethod is an Object method, which is less redundant than it sounds.
@@ -145,32 +221,39 @@ func ObjectBlock(vm *VM, target, locals Interface, msg *Message) (Interface, Sto
 //   method(+(1))
 //   io> 3 succ
 //   4
-func ObjectMethod(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	r, _ := ObjectBlock(vm, target, locals, msg)
-	blk := r.(*Block)
-	blk.Activatable = true
-	blk.Self = nil
-	return blk, NoStop
+func ObjectMethod(vm *VM, target, locals Interface, msg *Message) *Object {
+	n := msg.ArgCount()
+	if n == 0 {
+		return vm.NewBlock(nil, nil)
+	}
+	args := make([]string, n-1)
+	for i, arg := range msg.Args[:n-1] {
+		args[i] = arg.Name()
+	}
+	return vm.NewBlock(msg.ArgAt(n-1), nil, args...)
 }
 
 // BlockArgumentNames is a Block method.
 //
 // argumentNames returns a list of the argument names of the block.
-func BlockArgumentNames(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	blk := target.(*Block)
-	l := make([]Interface, len(blk.ArgNames))
+func BlockArgumentNames(vm *VM, target, locals Interface, msg *Message) *Object {
+	blk := target.Value.(*Block)
+	blk.RLock()
+	l := make([]*Object, len(blk.ArgNames))
 	for i, n := range blk.ArgNames {
 		l[i] = vm.NewString(n)
 	}
-	return vm.NewList(l...), NoStop
+	blk.RUnlock()
+	return vm.NewList(l...)
 }
 
 // BlockAsString is a Block method.
 //
 // asString creates a string representation of an object.
-func BlockAsString(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	blk := target.(*Block)
+func BlockAsString(vm *VM, target, locals Interface, msg *Message) *Object {
+	blk := target.Value.(*Block)
 	b := bytes.Buffer{}
+	blk.RLock()
 	if blk.Self == nil {
 		b.WriteString("method(")
 	} else {
@@ -183,39 +266,45 @@ func BlockAsString(vm *VM, target, locals Interface, msg *Message) (Interface, S
 	b.WriteByte('\n')
 	blk.Message.stringRecurse(vm, &b)
 	b.WriteString("\n)")
-	return vm.NewString(b.String()), NoStop
+	blk.RUnlock()
+	return vm.NewString(b.String())
 }
 
 // BlockCall is a Block method.
 //
 // call activates a block.
-func BlockCall(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	return target.(*Block).reallyActivate(vm, target, locals, locals, msg)
+func BlockCall(vm *VM, target, locals Interface, msg *Message) *Object {
+	return vm.ActivateBlock(target, locals, locals, locals, msg)
 }
 
 // BlockMessage is a Block method.
 //
 // message returns the block's message.
-func BlockMessage(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	return target.(*Block).Message, NoStop
+func BlockMessage(vm *VM, target, locals Interface, msg *Message) *Object {
+	blk := target.Value.(*Block)
+	blk.RLock()
+	defer blk.RUnlock()
+	return vm.MessageObject(blk.Message)
 }
 
 // BlockPassStops is a Block method.
 //
 // passStops returns whether the block returns control flow signals upward.
-func BlockPassStops(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	return vm.IoBool(target.(*Block).PassStops), NoStop
+func BlockPassStops(vm *VM, target, locals Interface, msg *Message) *Object {
+	blk := target.Value.(*Block)
+	blk.RLock()
+	defer blk.RUnlock()
+	return vm.IoBool(blk.PassStops)
 }
 
 // BlockPerformOn is a Block method.
 //
 // performOn executes the block in the context of the argument. Optional
 // arguments may be supplied to give non-default locals and message.
-func BlockPerformOn(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	blk := target.(*Block)
+func BlockPerformOn(vm *VM, target, locals Interface, msg *Message) *Object {
 	nt, stop := msg.EvalArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return nt, stop
+		return vm.Stop(nt, stop)
 	}
 	nl := locals
 	nm := msg
@@ -223,37 +312,33 @@ func BlockPerformOn(vm *VM, target, locals Interface, msg *Message) (Interface, 
 	if msg.ArgCount() > 1 {
 		nl, stop = msg.EvalArgAt(vm, locals, 1)
 		if stop != NoStop {
-			return nl, stop
+			return vm.Stop(nl, stop)
 		}
 		if msg.ArgCount() > 2 {
-			r, stop := msg.EvalArgAt(vm, locals, 2)
+			var exc *Object
+			nm, exc, stop = msg.MessageArgAt(vm, locals, 2)
 			if stop != NoStop {
-				return r, stop
-			}
-			var ok bool
-			if nm, ok = r.(*Message); !ok {
-				return vm.RaiseException("argument 2 to performOn must evaluate to a Message")
+				return vm.Stop(exc, stop)
 			}
 			if msg.ArgCount() > 3 {
 				nc, stop = msg.EvalArgAt(vm, locals, 3)
 				if stop != NoStop {
-					return nc, stop
+					return vm.Stop(nc, stop)
 				}
 			}
 		}
 	}
-	return blk.reallyActivate(vm, nt, nl, nc, nm)
+	return vm.ActivateBlock(target, nt, nl, nc, nm)
 }
 
 // BlockScope is a Block method.
 //
 // scope returns the scope of the block, or nil if the block is a method.
-func BlockScope(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	blk := target.(*Block)
-	if blk.Self == nil {
-		return vm.Nil, NoStop
-	}
-	return blk.Self, NoStop
+func BlockScope(vm *VM, target, locals Interface, msg *Message) *Object {
+	blk := target.Value.(*Block)
+	blk.RLock()
+	defer blk.RUnlock()
+	return blk.Self
 }
 
 // BlockSetArgumentNames is a Block method.
@@ -261,104 +346,108 @@ func BlockScope(vm *VM, target, locals Interface, msg *Message) (Interface, Stop
 // setArgumentNames changes the names of the arguments of the block. This does
 // not modify the block code, so some arguments might change to context lookups
 // and vice-versa.
-func BlockSetArgumentNames(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	blk := target.(*Block)
+func BlockSetArgumentNames(vm *VM, target, locals Interface, msg *Message) *Object {
+	blk := target.Value.(*Block)
 	l := make([]string, len(msg.Args))
 	for i := range msg.Args {
-		s, _, stop := msg.StringArgAt(vm, locals, i)
+		s, exc, stop := msg.StringArgAt(vm, locals, i)
 		if stop != NoStop {
-			return vm.RaiseException("all arguments to setArgumentNames must be strings")
+			return vm.Stop(exc, stop)
 		}
-		l[i] = s.String()
+		l[i] = s
 	}
+	blk.Lock()
 	blk.ArgNames = l
-	return target, NoStop
+	blk.Unlock()
+	return target
 }
 
 // BlockSetMessage is a Block method.
 //
 // setMessage changes the message executed by the block.
-func BlockSetMessage(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	blk := target.(*Block)
-	r, stop := msg.EvalArgAt(vm, locals, 0)
+func BlockSetMessage(vm *VM, target, locals Interface, msg *Message) *Object {
+	blk := target.Value.(*Block)
+	m, exc, stop := msg.MessageArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return r, stop
+		return vm.Stop(exc, stop)
 	}
-	m, ok := r.(*Message)
-	if !ok {
-		return vm.RaiseException("argument to setMessage must evaluate to a Message")
-	}
+	blk.Lock()
 	blk.Message = m
-	return target, NoStop
+	blk.Unlock()
+	return target
 }
 
 // BlockSetPassStops is a Block method.
 //
 // setPassStops changes whether the block allows control flow signals to
 // propagate out to the block's caller.
-func BlockSetPassStops(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	blk := target.(*Block)
+func BlockSetPassStops(vm *VM, target, locals Interface, msg *Message) *Object {
+	blk := target.Value.(*Block)
 	r, stop := msg.EvalArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return r, stop
+		return vm.Stop(r, stop)
 	}
-	blk.PassStops = vm.AsBool(r)
-	return target, NoStop
+	t := vm.AsBool(r)
+	blk.Lock()
+	blk.PassStops = t
+	blk.Unlock()
+	return target
 }
 
 // BlockSetScope is a Block method.
 //
 // setScope changes the context of the block. If nil, the block becomes a
 // method.
-func BlockSetScope(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	blk := target.(*Block)
+func BlockSetScope(vm *VM, target, locals Interface, msg *Message) *Object {
+	blk := target.Value.(*Block)
 	r, stop := msg.EvalArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return r, stop
+		return vm.Stop(r, stop)
 	}
+	blk.Lock()
 	if r == vm.Nil {
 		blk.Self = nil
 	} else {
 		blk.Self = r
 	}
-	return target, NoStop
+	blk.Unlock()
+	return target
 }
 
 // LocalsForward is a Locals method.
 //
 // forward handles messages to which the object does not respond.
-func LocalsForward(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	self, ok := vm.GetLocalSlot(target, "self")
+func LocalsForward(vm *VM, target, locals Interface, msg *Message) *Object {
+	self, ok := target.GetLocalSlot("self")
 	if ok && self != target {
-		return vm.Perform(self, locals, msg)
+		return vm.Stop(vm.Perform(self, locals, msg))
 	}
-	return vm.Nil, NoStop
+	return vm.Nil
 }
 
 // LocalsUpdateSlot is a Locals method.
 //
 // updateSlot changes the value of an existing slot.
-func LocalsUpdateSlot(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	name, err, stop := msg.StringArgAt(vm, locals, 0)
+func LocalsUpdateSlot(vm *VM, target, locals Interface, msg *Message) *Object {
+	slot, exc, stop := msg.StringArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return err, stop
+		return vm.Stop(exc, stop)
 	}
-	slot := name.String()
-	_, proto := vm.GetSlot(target, slot)
+	_, proto := target.GetSlot(slot)
 	if proto != nil {
 		// The slot exists on the locals object.
 		v, stop := msg.EvalArgAt(vm, locals, 1)
 		if stop != NoStop {
-			return v, stop
+			return vm.Stop(v, stop)
 		}
-		vm.SetSlot(target, slot, v)
-		return v, NoStop
+		target.SetSlot(slot, v)
+		return v
 	}
 	// If the slot doesn't exist on the locals, forward to self, which is the
 	// block scope or method receiver.
-	self, proto := vm.GetSlot(target, "self")
+	self, proto := target.GetSlot("self")
 	if proto != nil {
-		return vm.Perform(self, locals, msg)
+		return vm.Stop(vm.Perform(self, locals, msg))
 	}
 	return vm.RaiseExceptionf("no slot named %s in %s", slot, vm.TypeName(target))
 }

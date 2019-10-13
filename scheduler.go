@@ -4,8 +4,6 @@ import "sync"
 
 // Scheduler helps manage a group of Io coroutines.
 type Scheduler struct {
-	Object
-
 	// Main is the first coroutine in the VM, instantiated with NewVM().
 	Main *VM
 
@@ -33,6 +31,9 @@ type Scheduler struct {
 	loaded map[string]struct{}
 }
 
+// SchedulerTag is the Tag for the Scheduler.
+const SchedulerTag = BasicTag("Scheduler")
+
 // waitpair is a pair of coroutines such that a depends on b.
 type waitpair struct {
 	a, b *VM
@@ -47,24 +48,12 @@ type addontriple struct {
 	ch   chan Interface
 }
 
-// Activate returns the scheduler.
-func (s *Scheduler) Activate(vm *VM, target, locals, context Interface, msg *Message) (Interface, Stop) {
-	return s, NoStop
-}
-
-// Clone returns the scheduler. In this implementation, the scheduler is a
-// singleton; actual clones are not allowed.
-func (s *Scheduler) Clone() Interface {
-	return s
-}
-
 func (vm *VM) initScheduler() {
 	slots := Slots{
 		"type":          vm.NewString("Scheduler"),
 		"yieldingCoros": vm.NewCFunction(SchedulerYieldingCoros, nil),
 	}
 	sched := &Scheduler{
-		Object: Object{Slots: slots, Protos: []Interface{vm.BaseObject}},
 		Main:   vm,
 		coros:  map[*VM]*VM{vm: nil},
 		start:  make(chan waitpair), // TODO: buffer?
@@ -74,7 +63,12 @@ func (vm *VM) initScheduler() {
 		loaded: make(map[string]struct{}),
 	}
 	vm.Sched = sched
-	vm.SetSlot(vm.Core, "Scheduler", sched)
+	vm.Core.SetSlot("Scheduler", &Object{
+		Slots:  slots,
+		Protos: []*Object{vm.BaseObject},
+		Value:  sched,
+		Tag:    SchedulerTag,
+	})
 	go sched.schedule()
 }
 
@@ -105,7 +99,7 @@ loop:
 				for c := s.coros[w.b]; c != nil; c = s.coros[c] {
 					if c == w.a {
 						s.m.Unlock()
-						w.a.Stop <- RemoteStop{w.a.NewException("deadlock"), ExceptionStop}
+						w.a.Control <- RemoteStop{w.a.NewExceptionf("deadlock"), ExceptionStop}
 						continue loop
 					}
 				}
@@ -134,7 +128,7 @@ loop:
 			s.loaded[a.add.AddonName()] = struct{}{}
 			// Create a new coroutine to run the init script for the addon, in
 			// case it ends up waiting on Main.
-			c := a.coro.Clone().(*VM)
+			c := a.coro.VMFor(a.coro.Coro.Clone())
 			go func() {
 				s.start <- waitpair{a.coro, c}
 				s.finish <- c
@@ -149,14 +143,14 @@ loop:
 //
 // yieldingCoros returns a list of all coroutines which are waiting on another
 // coroutine.
-func SchedulerYieldingCoros(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+func SchedulerYieldingCoros(vm *VM, target, locals Interface, msg *Message) *Object {
 	var l []Interface
 	vm.Sched.m.Lock()
 	for a, b := range vm.Sched.coros {
 		if b != nil {
-			l = append(l, a)
+			l = append(l, a.Coro)
 		}
 	}
 	vm.Sched.m.Unlock()
-	return vm.NewList(l...), NoStop
+	return vm.NewList(l...)
 }

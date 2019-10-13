@@ -1,5 +1,5 @@
 // +build !static_addons
-// +build linux,cgo +build darwin,cgo
+// +build linux,cgo darwin,cgo
 
 // Keep build constraints updated as the requirements to use package plugin
 // change.

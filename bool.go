@@ -1,7 +1,7 @@
 package iolang
 
 func (vm *VM) initTrue() {
-	vm.True.Protos = []Interface{vm.BaseObject}
+	vm.True.Protos = []*Object{vm.BaseObject}
 	object := vm.BaseObject.Slots
 	s := vm.NewString("true")
 	vm.True.Slots = Slots{
@@ -17,11 +17,11 @@ func (vm *VM) initTrue() {
 		"then":           object["evalArgAndReturnNil"],
 		"type":           s,
 	}
-	vm.SetSlot(vm.Core, "true", vm.True)
+	vm.Core.SetSlot("true", vm.True)
 }
 
 func (vm *VM) initFalse() {
-	vm.False.Protos = []Interface{vm.BaseObject}
+	vm.False.Protos = []*Object{vm.BaseObject}
 	object := vm.BaseObject.Slots
 	s := vm.NewString("false")
 	vm.False.Slots = Slots{
@@ -38,11 +38,11 @@ func (vm *VM) initFalse() {
 		"then":           vm.False,
 		"type":           s,
 	}
-	vm.SetSlot(vm.Core, "false", vm.False)
+	vm.Core.SetSlot("false", vm.False)
 }
 
 func (vm *VM) initNil() {
-	vm.Nil.Protos = []Interface{vm.BaseObject}
+	vm.Nil.Protos = []*Object{vm.BaseObject}
 	object := vm.BaseObject.Slots
 	s := vm.NewString("nil")
 	vm.Nil.Slots = Slots{
@@ -64,5 +64,5 @@ func (vm *VM) initNil() {
 		"then":           vm.Nil,
 		"type":           s,
 	}
-	vm.SetSlot(vm.Core, "nil", vm.Nil)
+	vm.Core.SetSlot("nil", vm.Nil)
 }

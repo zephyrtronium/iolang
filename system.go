@@ -53,7 +53,7 @@ func (vm *VM) initSystem() {
 	} else {
 		slots["launchPath"] = vm.Nil
 	}
-	vm.SetSlot(vm.Core, "System", vm.ObjectWith(slots))
+	vm.Core.SetSlot("System", vm.ObjectWith(slots))
 }
 
 func (vm *VM) initArgs(args []string) {
@@ -61,8 +61,8 @@ func (vm *VM) initArgs(args []string) {
 	for i, v := range args {
 		l[i] = vm.NewString(v)
 	}
-	s, _ := vm.GetLocalSlot(vm.Core, "System")
-	vm.SetSlot(s, "args", vm.NewList(l...))
+	s, _ := vm.Core.GetLocalSlot("System")
+	s.SetSlot("args", vm.NewList(l...))
 }
 
 // SetLaunchScript sets the System launchScript slot to the given string, as a
@@ -70,32 +70,32 @@ func (vm *VM) initArgs(args []string) {
 // default System launchScript value is nil, which signifies an interactive
 // session.
 func (vm *VM) SetLaunchScript(path string) {
-	s, ok := vm.GetLocalSlot(vm.Core, "System")
+	s, ok := vm.Core.GetLocalSlot("System")
 	if !ok {
 		// No System. Is a "DOES NOT COMPUTE" joke sufficiently witty here?
 		panic("iolang.SetLaunchScript: no Core System")
 	}
-	vm.SetSlot(s, "launchScript", vm.NewString(path))
+	s.SetSlot("launchScript", vm.NewString(path))
 }
 
 // SystemActiveCpus is a System method.
 //
 // activeCpus returns the number of CPUs available for coroutines.
-func SystemActiveCpus(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	return vm.NewNumber(float64(runtime.GOMAXPROCS(0))), NoStop
+func SystemActiveCpus(vm *VM, target, locals Interface, msg *Message) *Object {
+	return vm.NewNumber(float64(runtime.GOMAXPROCS(0)))
 }
 
 // SystemExit is a System method.
 //
 // exit exits the process with an exit code which defaults to 0.
-func SystemExit(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+func SystemExit(vm *VM, target, locals Interface, msg *Message) *Object {
 	code := 0
 	if len(msg.Args) > 0 {
-		n, err, stop := msg.NumberArgAt(vm, locals, 0)
+		n, exc, stop := msg.NumberArgAt(vm, locals, 0)
 		if stop != NoStop {
-			return err, stop
+			return vm.Stop(exc, stop)
 		}
-		code = int(n.Value)
+		code = int(n)
 	}
 	os.Exit(code)
 	panic("unreachable")
@@ -105,35 +105,35 @@ func SystemExit(vm *VM, target, locals Interface, msg *Message) (Interface, Stop
 //
 // getEnvironmentVariable returns the value of the environment variable with
 // the given name, or nil if it does not exist.
-func SystemGetEnvironmentVariable(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	name, err, stop := msg.StringArgAt(vm, locals, 0)
+func SystemGetEnvironmentVariable(vm *VM, target, locals Interface, msg *Message) *Object {
+	name, exc, stop := msg.StringArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return err, stop
+		return vm.Stop(exc, stop)
 	}
-	s, ok := os.LookupEnv(name.String())
+	s, ok := os.LookupEnv(name)
 	if ok {
-		return vm.NewString(s), NoStop
+		return vm.NewString(s)
 	}
-	return vm.Nil, NoStop
+	return vm.Nil
 }
 
 // SystemSetEnvironmentVariable is a System method.
 //
 // setEnvironmentVariable sets the value of an environment variable.
-func SystemSetEnvironmentVariable(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	name, aerr, stop := msg.StringArgAt(vm, locals, 0)
+func SystemSetEnvironmentVariable(vm *VM, target, locals Interface, msg *Message) *Object {
+	name, exc, stop := msg.StringArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return aerr, stop
+		return vm.Stop(exc, stop)
 	}
-	val, aerr, stop := msg.StringArgAt(vm, locals, 1)
+	val, exc, stop := msg.StringArgAt(vm, locals, 1)
 	if stop != NoStop {
-		return aerr, stop
+		return vm.Stop(exc, stop)
 	}
-	err := os.Setenv(name.String(), val.String())
+	err := os.Setenv(name, val)
 	if err != nil {
 		return vm.IoError(err)
 	}
-	return target, NoStop
+	return target
 }
 
 // SystemSetLobby is a System method.
@@ -141,18 +141,18 @@ func SystemSetEnvironmentVariable(vm *VM, target, locals Interface, msg *Message
 // setLobby changes the Lobby. This had garbage collection implications in the
 // original Io, but is mostly irrelevant in this implementation due to use of
 // Go's GC.
-func SystemSetLobby(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+func SystemSetLobby(vm *VM, target, locals Interface, msg *Message) *Object {
 	o, stop := msg.EvalArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return o, stop
+		return vm.Stop(o, stop)
 	}
 	vm.Lobby = o
-	return target, NoStop
+	return target
 }
 
 // SystemThisProcessPid is a System method.
 //
 // thisProcessPid returns the pid of this process.
-func SystemThisProcessPid(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	return vm.NewNumber(float64(os.Getpid())), NoStop
+func SystemThisProcessPid(vm *VM, target, locals Interface, msg *Message) *Object {
+	return vm.NewNumber(float64(os.Getpid()))
 }

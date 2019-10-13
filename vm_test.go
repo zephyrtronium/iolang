@@ -29,7 +29,7 @@ func TestNewVMAttrs(t *testing.T) {
 	attrs := []string{
 		"Lobby", "Core", "Addons",
 		"BaseObject", "True", "False", "Nil", "Operators",
-		"Sched", "Stop",
+		"Sched", "Control", "Coro",
 	}
 	v := reflect.ValueOf(testVM).Elem()
 	for _, attr := range attrs {
@@ -60,7 +60,7 @@ func TestLobbySlots(t *testing.T) {
 func TestLobbyProtos(t *testing.T) {
 	// Lobby's proto is a generic object that has Core and Addon slots and Core
 	// and Addons as protos. Check that this is all correct.
-	protos := testVM.Lobby.RawProtos()
+	protos := testVM.Lobby.Protos
 	switch len(protos) {
 	case 0:
 		t.Fatal("Lobby has no protos")
@@ -73,7 +73,7 @@ func TestLobbyProtos(t *testing.T) {
 	CheckSlots(t, p, slots)
 	p.Lock()
 	defer p.Unlock()
-	opro := p.RawProtos()
+	opro := p.Protos
 	switch len(opro) {
 	case 0, 1:
 		t.Fatal("Lobby proto has too few protos")

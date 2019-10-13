@@ -3,8 +3,9 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"github.com/zephyrtronium/iolang"
 	"os"
+
+	"github.com/zephyrtronium/iolang"
 
 	"runtime"
 	"runtime/pprof"
@@ -13,7 +14,7 @@ import (
 func main() {
 	vm := iolang.NewVM(os.Args[1:]...)
 	setupStaticAddons(vm)
-	vm.SetSlots(vm.Lobby, iolang.Slots{
+	vm.Lobby.SetSlots(iolang.Slots{
 		"ps1":       vm.NewString("io> "),
 		"ps2":       vm.NewString("... "),
 		"isRunning": vm.True,
@@ -22,13 +23,22 @@ func main() {
 	vm.MustDoString(`Lobby setSlot("exit", method(Lobby setSlot("isRunning", false)))`)
 
 	stdin := bufio.NewScanner(os.Stdin)
-	for isRunning, _ := vm.GetSlot(vm.Lobby, "isRunning"); vm.AsBool(isRunning); isRunning, _ = vm.GetSlot(vm.Lobby, "isRunning") {
-		ps1, _ := vm.GetSlot(vm.Lobby, "ps1")
-		fmt.Print(ps1.(*iolang.Sequence).String())
+	for isRunning, _ := vm.Lobby.GetSlot("isRunning"); vm.AsBool(isRunning); isRunning, _ = vm.Lobby.GetSlot("isRunning") {
+		p := "io> "
+		ps1, _ := vm.Lobby.GetSlot("ps1")
+		if ps1 != nil {
+			s, ok := ps1.Value.(iolang.Sequence)
+			if ok {
+				ps1.Lock()
+				p = s.String()
+				ps1.Unlock()
+			}
+		}
+		fmt.Print(p)
 		ok := stdin.Scan()
 		x, stop := vm.DoString(stdin.Text(), "Command Line")
 		if stop == iolang.ExceptionStop {
-			if ex, ok := x.(*iolang.Exception); ok {
+			if ex, ok := x.Value.(iolang.Exception); ok {
 				fmt.Println("Exception:")
 				for i := len(ex.Stack) - 1; i >= 0; i-- {
 					m := ex.Stack[i]
@@ -51,21 +61,21 @@ func main() {
 	fmt.Println(stdin.Err())
 }
 
-func profiled(vm *iolang.VM, target, locals iolang.Interface, msg *iolang.Message) (iolang.Interface, iolang.Stop) {
-	cpu, aerr, stop := msg.StringArgAt(vm, locals, 0)
+func profiled(vm *iolang.VM, target, locals iolang.Interface, msg *iolang.Message) iolang.Interface {
+	cpu, exc, stop := msg.StringArgAt(vm, locals, 0)
 	if stop != iolang.NoStop {
-		return aerr, stop
+		return vm.Stop(exc, stop)
 	}
-	mem, aerr, stop := msg.StringArgAt(vm, locals, 1)
+	mem, exc, stop := msg.StringArgAt(vm, locals, 1)
 	if stop != iolang.NoStop {
-		return aerr, stop
+		return vm.Stop(exc, stop)
 	}
-	cf, err := os.Create(cpu.String())
+	cf, err := os.Create(cpu)
 	if err != nil {
 		return vm.IoError(err)
 	}
 	defer cf.Close()
-	mf, err := os.Create(mem.String())
+	mf, err := os.Create(mem)
 	if err != nil {
 		return vm.IoError(err)
 	}
@@ -80,5 +90,5 @@ func profiled(vm *iolang.VM, target, locals iolang.Interface, msg *iolang.Messag
 	if err = pprof.WriteHeapProfile(mf); err != nil {
 		return vm.IoError(err)
 	}
-	return v, stop
+	return vm.Stop(v, stop)
 }

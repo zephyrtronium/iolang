@@ -1,5 +1,7 @@
 package iolang
 
+import "fmt"
+
 func (vm *VM) initOpTable() {
 	ops := map[string]Interface{
 		"?":      vm.NewNumber(0),
@@ -51,13 +53,13 @@ func (vm *VM) initOpTable() {
 		"type":                 vm.NewString("OperatorTable"),
 	}
 	vm.Operators = vm.ObjectWith(slots)
-	vm.SetSlot(vm.Core, "OperatorTable", vm.Operators)
+	vm.Core.SetSlot("OperatorTable", vm.Operators)
 	// This method can be called post-initialization if both Core's and
 	// Core Message's OperatorTable slots are removed. In that case, we want to
 	// set the slot on both of those.
-	msg, ok := vm.GetLocalSlot(vm.Core, "Message")
+	msg, ok := vm.Core.GetLocalSlot("Message")
 	if ok {
-		vm.SetSlot(msg, "OperatorTable", vm.Operators)
+		msg.SetSlot("OperatorTable", vm.Operators)
 	}
 }
 
@@ -159,24 +161,24 @@ func (ll *shufLevel) finish() {
 
 // doLevel shuffles one level. The new stack top, extra messages to be
 // shuffled, and any syntax error are returned.
-func (ll *shufLevel) doLevel(vm *VM, ops, asgns map[string]Interface, m *Message) (nl *shufLevel, next []*Message, err *Exception) {
+func (ll *shufLevel) doLevel(vm *VM, ops, asgns map[string]Interface, m *Message) (nl *shufLevel, next []*Message, err error) {
 	if op, ok := asgns[m.Name()]; ok {
 		// Assignment operator.
 		lhs := ll.m
 		if lhs == nil {
 			// Assigning to nothing is illegal.
-			err = vm.NewExceptionf("%s assigning to nothing", m.Name())
+			err = fmt.Errorf("%s assigning to nothing", m.Name())
 			return ll, nil, err
 		}
 		if len(m.Args) > 1 {
 			// Assignment operators are allowed to have only zero or
 			// one argument.
-			err = vm.NewExceptionf("too many arguments to %s", m.Name())
+			err = fmt.Errorf("too many arguments to %s", m.Name())
 			return ll, nil, err
 		}
 		if m.Next.IsTerminator() && len(m.Args) == 0 {
 			// Assigning nothing to something is illegal.
-			err = vm.NewExceptionf("%s requires a value to assign", m.Name())
+			err = fmt.Errorf("%s requires a value to assign", m.Name())
 			return ll, nil, err
 		}
 		if len(lhs.Args) > 0 {
@@ -208,7 +210,7 @@ func (ll *shufLevel) doLevel(vm *VM, ops, asgns map[string]Interface, m *Message
 			// implemented sanely and safely. This would be the time and place
 			// to make that change, but I don't think it's a good idea to
 			// diverge so far from Io early in development.
-			err = vm.NewExceptionf("message preceding %s must have no args", m.Name())
+			err = fmt.Errorf("message preceding %s must have no args", m.Name())
 			return ll, nil, err
 		}
 
@@ -232,9 +234,9 @@ func (ll *shufLevel) doLevel(vm *VM, ops, asgns map[string]Interface, m *Message
 		lhs.Args = []*Message{vm.StringMessage(lhs.Name()), m.Next}
 		next = append(next, m.Next)
 		// 3. Change lhs's name to the assign operator's call.
-		calls, ok := op.(*Sequence)
+		calls, ok := op.Value.(Sequence)
 		if !ok {
-			err = vm.NewExceptionf("OperatorTable assignOperators at(%q) must be Sequence, not %s", m.Name(), vm.TypeName(op))
+			err = fmt.Errorf("OperatorTable assignOperators at(%q) must be Sequence, not %s", m.Name(), vm.TypeName(op))
 			return ll, nil, err
 		}
 		lhs.Text = calls.String()
@@ -260,9 +262,9 @@ func (ll *shufLevel) doLevel(vm *VM, ops, asgns map[string]Interface, m *Message
 		lhs.Memo = nil
 	} else if op, ok = ops[m.Name()]; ok {
 		// Non-assignment operator.
-		prec, ok := op.(*Number)
+		prec, ok := op.Value.(float64)
 		if !ok {
-			err = vm.NewExceptionf("OperatorTable operators at(%q) must be Number, not %s", m.Name(), vm.TypeName(op))
+			err = fmt.Errorf("OperatorTable operators at(%q) must be Number, not %s", m.Name(), vm.TypeName(op))
 			return ll, nil, err
 		}
 		if len(m.Args) > 0 {
@@ -274,7 +276,7 @@ func (ll *shufLevel) doLevel(vm *VM, ops, asgns map[string]Interface, m *Message
 			m.InsertAfter(vm.IdentMessage("", m.Args...))
 			m.Args = nil
 		}
-		ll = ll.pop(prec.Value).push(m, prec.Value)
+		ll = ll.pop(prec).push(m, prec)
 	} else if m.IsTerminator() {
 		ll = ll.pop(leastBindingOp)
 		ll.attachReplace(m)
@@ -288,8 +290,9 @@ func (ll *shufLevel) doLevel(vm *VM, ops, asgns map[string]Interface, m *Message
 // OpShuffle performs operator-precedence reordering of a message. If the
 // message (or one of its protos) has an OperatorTable slot that contains an
 // *OpTable, it is used for operators; otherwise, the VM's default OpTable is
-// used.
-func (vm *VM) OpShuffle(m *Message) (err *Exception) {
+// used. Panics if msg is not a Message object.
+func (vm *VM) OpShuffle(msg *Object) (err error) {
+	m := msg.Value.(*Message)
 	if m == nil {
 		return nil
 	}
@@ -306,19 +309,24 @@ func (vm *VM) OpShuffle(m *Message) (err *Exception) {
 		// happen because the message begins with __noShuffling__. :)
 		return nil
 	}
-	operators, proto := vm.GetSlot(m, "OperatorTable")
+	operators, proto := msg.GetSlot("OperatorTable")
 	if proto == nil {
 		operators = vm.Operators
 	}
-	var ops, asgn *Map
+	var ops, asgn map[string]*Object
 	for {
-		opsx, _ := vm.GetSlot(operators, "operators")
-		asgnx, _ := vm.GetSlot(operators, "assignOperators")
-		ops, _ = opsx.(*Map)
-		asgn, _ = asgnx.(*Map)
+		opsx, _ := operators.GetSlot("operators")
+		asgnx, _ := operators.GetSlot("assignOperators")
+		if opsx == nil || asgnx == nil {
+			vm.initOpTable()
+			opsx, _ = operators.GetSlot("operators")
+			asgnx, _ = operators.GetSlot("assignOperators")
+		}
+		ops, _ = opsx.Value.(map[string]*Object)
+		asgn, _ = asgnx.Value.(map[string]*Object)
 		if ops == nil || asgn == nil {
 			vm.initOpTable()
-			operators, _ = vm.GetLocalSlot(vm.Core, "OperatorTable")
+			operators, _ = vm.Core.GetLocalSlot("OperatorTable")
 		} else {
 			break
 		}
@@ -333,7 +341,7 @@ func (vm *VM) OpShuffle(m *Message) (err *Exception) {
 		expr := exprs[len(exprs)-1]
 		exprs = exprs[:len(exprs)-1]
 		for {
-			ll, next, err = ll.doLevel(vm, ops.Value, asgn.Value, expr)
+			ll, next, err = ll.doLevel(vm, ops, asgn, expr)
 			if err != nil {
 				return err
 			}

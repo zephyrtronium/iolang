@@ -6,122 +6,254 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/zephyrtronium/contains"
 )
 
-// Interface is the interface which all Io objects satisfy. To satisfy this
-// interface, *Object's method set must be embedded, then Clone implemented to
-// return a value of the new type and Activate implemented to return the result
-// of activating the object.
-type Interface interface {
-	// Activate produces a result. For most objects, this returns self.
-	Activate(vm *VM, target, locals, context Interface, msg *Message) (result Interface, control Stop)
-	// Clone creates an object with empty slots and this object as its only
-	// proto.
-	Clone() Interface
-
-	// The following methods are for direct access to the object properties.
-	// They are not synchronized; the object lock must be held to use or modify
-	// slots and protos.
-
-	// Lock blocks until acquiring the object's lock.
-	Lock()
-	// Unlock releases the object's lock.
-	Unlock()
-
-	// RawSlots returns the slot map.
-	RawSlots() Slots
-	// RawSetSlots sets the object's slot map.
-	RawSetSlots(slots Slots)
-	// Protos returns the object's protos list directly.
-	RawProtos() []Interface
-	// SetProtos sets the object's protos list.
-	RawSetProtos(protos []Interface)
-
-	// UniqueID returns a number unique to the object.
-	UniqueID() uintptr
-}
-
 // Slots holds the set of messages to which an object responds.
-type Slots map[string]Interface
+type Slots = map[string]*Object
 
 // Object is the basic type of Io. Everything is an Object.
 type Object struct {
-	// l is a lock which should be held when accessing slots or protos
-	// directly. It is first in the object so that a pointer to the object is a
-	// pointer to the lock.
-	l sync.Mutex
+	// Mutex is a lock which must be held when accessing the slots or protos of
+	// the object, or the value of the object if it is or may be mutable.
+	sync.Mutex
 
 	// Slots is the set of messages to which this object responds.
 	Slots Slots
 	// Protos are the set of objects to which messages are forwarded, in
 	// depth-first order without duplicates, when this object cannot respond.
-	Protos []Interface
+	Protos []*Object
+
+	// Value is the object's type-specific primitive value.
+	Value interface{}
+	// Tag is the type indicator of the object.
+	Tag Tag
+
+	// protoSet is the set of protos checked during GetSlot.
+	protoSet contains.Set
+	// protoStack is the stack of protos to check during GetSlot.
+	protoStack []*Object
+
+	// TODO: I think the current implementation of UniqueID is wrong, since the
+	// GC can move objects. Better would be something like a goroutine serving
+	// uintptrs for each new object. Maybe make a new VM method to create an
+	// object with a given Value and Tag.
 }
 
-// Activate activates the object. If the isActivatable slot is true, and the
-// activate slot exists, then this activates that slot; otherwise, it returns
-// the object.
-func (o *Object) Activate(vm *VM, target, locals, context Interface, msg *Message) (Interface, Stop) {
-	ok, proto := vm.GetSlot(o, "isActivatable")
-	// We can't use vm.AsBool even though it's one of the few situations where
-	// we'd want to, because it will attempt to activate the isTrue slot, which
-	// is typically a plain Object, which will activate this method and recurse
-	// infinitely.
-	if proto == nil || ok == vm.False || ok == vm.Nil {
-		return o, NoStop
+type Interface = *Object
+
+// Tag is a type indicator for iolang objects. Tag values must be comparable.
+// Tags for different types must not be equal, meaning they must have different
+// underlying types or different values otherwise.
+type Tag interface {
+	// Activate activates an object that has this tag. The self argument is the
+	// object which has this tag, target is the object that received the
+	// message, and context is the object that actually had the slot.
+	Activate(vm *VM, self, target, locals, context *Object, msg *Message) *Object
+	// CloneValue takes the Value of an existing object and returns the Value
+	// of a clone of that object.
+	CloneValue(value interface{}) interface{}
+
+	// String returns the name of the type associated with this tag.
+	String() string
+}
+
+// Activate activates the object.
+func (o *Object) Activate(vm *VM, target, locals, context *Object, msg *Message) *Object {
+	if o.Tag == nil {
+		// Basic object. Check the isActivatable slot.
+		ok, proto := o.GetSlot("isActivatable")
+		// We can't use vm.AsBool even though it's one of the few situations
+		// where we'd want to, because it will attempt to activate the isTrue
+		// slot, which is typically a plain object, which will activate this
+		// method and recurse infinitely.
+		if proto == nil || ok == vm.False || ok == vm.Nil {
+			return o
+		}
+		act, proto := o.GetSlot("activate")
+		if proto != nil {
+			return act.Activate(vm, target, locals, context, msg)
+		}
+		return o
 	}
-	act, proto := vm.GetSlot(o, "activate")
-	if proto != nil {
-		return act.Activate(vm, target, locals, context, msg)
-	}
-	return o, NoStop
+	return o.Tag.Activate(vm, o, target, locals, context, msg)
 }
 
 // Clone returns a new object with empty slots and this object as its only
-// proto.
-func (o *Object) Clone() Interface {
-	return &Object{Protos: []Interface{o}}
+// proto. The clone's tag is the same as its parent's, and its primitive value
+// is produced by the tag's CloneValue method. Returns nil if the object's tag
+// is nil.
+func (o *Object) Clone() *Object {
+	var v interface{}
+	if o.Tag != nil {
+		o.Lock()
+		v = o.Tag.CloneValue(o.Value)
+		o.Unlock()
+	}
+	return &Object{
+		Protos: []*Object{o},
+		Value:  v,
+		Tag:    o.Tag,
+	}
 }
 
-// Lock blocks until acquiring the object's lock. This lock is to synchronize
-// only slots and protos, not values.
-func (o *Object) Lock() {
-	o.l.Lock()
+// GetSlot checks the object and its ancestors in depth-first order without
+// cycles for a slot, returning the slot value and the proto which had it.
+// proto is nil if and only if the slot was not found. This method acquires the
+// object's lock, as well as the lock of each ancestor in turn.
+func (o *Object) GetSlot(slot string) (value, proto *Object) {
+	if o == nil {
+		return nil, nil
+	}
+	// An object can have slots checked from multiple coroutines, so we need to
+	// hold the lock the entire time we might be modifying its protoStack and
+	// protoSet. This means we need to check its local slots outside the main
+	// loop, which might make some programs faster anyway.
+	o.Lock()
+	if o.Slots != nil {
+		if r, ok := o.Slots[slot]; ok {
+			o.Unlock()
+			return r, o
+		}
+	}
+	o.protoSet.Add(o.UniqueID())
+	for i := len(o.Protos) - 1; i >= 0; i-- {
+		if p := o.Protos[i]; o.protoSet.Add(p.UniqueID()) {
+			o.protoStack = append(o.protoStack, p)
+		}
+	}
+	// Recursion is easy, but it can cause deadlocks, since we need to hold
+	// each proto's lock to check its respective protos. This stack-based
+	// approach is a bit messy, but it allows us to hold each ancestor's lock
+	// only while grabbing its (current) protos.
+	for len(o.protoStack) > 0 {
+		rp := o.protoStack[len(o.protoStack)-1] // grab the top
+		rp.Lock()
+		if rp.Slots != nil {
+			if r, ok := rp.Slots[slot]; ok {
+				rp.Unlock()
+				o.protoSet.Reset()
+				o.protoStack = o.protoStack[:0]
+				o.Unlock()
+				return r, rp
+			}
+		}
+		o.protoStack = o.protoStack[:len(o.protoStack)-1] // actually pop
+		for i := len(rp.Protos) - 1; i >= 0; i-- {
+			if p := rp.Protos[i]; o.protoSet.Add(p.UniqueID()) {
+				o.protoStack = append(o.protoStack, p)
+			}
+		}
+		rp.Unlock()
+	}
+	o.protoSet.Reset()
+	o.Unlock()
+	return nil, nil
 }
 
-// Unlock releases the object's lock.
-func (o *Object) Unlock() {
-	o.l.Unlock()
+// GetLocalSlot checks only the object's own slots for a slot.
+func (o *Object) GetLocalSlot(slot string) (value *Object, ok bool) {
+	if o == nil {
+		return nil, false
+	}
+	o.Lock()
+	if o.Slots == nil {
+		o.Unlock()
+		return nil, false
+	}
+	value, ok = o.Slots[slot]
+	o.Unlock()
+	return value, ok
 }
 
-// RawSlots returns the object's slot map directly. It is not synchronized;
-// callers must hold the object's lock to use this safely.
-func (o *Object) RawSlots() Slots {
-	return o.Slots
+// SetSlot sets a local slot's value.
+func (o *Object) SetSlot(slot string, value *Object) {
+	o.Lock()
+	if o.Slots == nil {
+		o.Slots = Slots{}
+	}
+	o.Slots[slot] = value
+	o.Unlock()
 }
 
-// RawSetSlots sets the object's slot map directly. It is not synchronized;
-// callers must hold the object's lock to use this safely.
-func (o *Object) RawSetSlots(slots Slots) {
-	o.Slots = slots
+// SetSlots sets multiple slots more efficiently than using SetSlot for each.
+func (o *Object) SetSlots(slots Slots) {
+	o.Lock()
+	if o.Slots == nil {
+		o.Slots = Slots{}
+	}
+	for slot, value := range slots {
+		o.Slots[slot] = value
+	}
+	o.Unlock()
 }
 
-// RawProtos returns the object's protos list directly. It is not synchronized;
-// callers must hold the object's lock to use this safely.
-func (o *Object) RawProtos() []Interface {
-	return o.Protos
+// RemoveSlot removes slots from the object's local slots, if they are present.
+func (o *Object) RemoveSlot(slots ...string) {
+	o.Lock()
+	if o.Slots != nil {
+		for _, slot := range slots {
+			delete(o.Slots, slot)
+		}
+	}
+	o.Unlock()
 }
 
-// RawSetProtos sets the object's protos list directly. It is not synchronized;
-// callers must hold the object's lock to use this safely.
-func (o *Object) RawSetProtos(protos []Interface) {
-	o.Protos = protos
+// IsKindOf evaluates whether the object has kind as any of its ancestors, or
+// is itself kind.
+func (o *Object) IsKindOf(kind *Object) bool {
+	if o == nil {
+		return false
+	}
+	// Unlike in GetSlot, we aren't in the hot path for message passing, so we
+	// can behave a bit more simply. In particular, we can use our own set and
+	// stack, so we don't have to hold the object's lock the whole time, and we
+	// can traverse the graph in any order instead of specifically depth-first.
+	protos := []*Object{o}
+	set := contains.Set{}
+	set.Add(o.UniqueID())
+	for len(protos) > 0 {
+		proto := protos[len(protos)-1]
+		protos = protos[:len(protos)-1]
+		if proto == kind {
+			return true
+		}
+		proto.Lock()
+		for _, p := range proto.Protos {
+			if set.Add(p.UniqueID()) {
+				protos = append(protos, p)
+			}
+		}
+		proto.Unlock()
+	}
+	return false
+}
+
+// BasicTag is a special Tag type for basic primitive types which do not have
+// special activation and whose clones have values that are shallow copies of
+// their parents.
+type BasicTag string
+
+// Activate returns self.
+func (t BasicTag) Activate(vm *VM, self, target, locals, context *Object, msg *Message) *Object {
+	return self
+}
+
+// CloneValue returns value.
+func (t BasicTag) CloneValue(value interface{}) interface{} {
+	return value
+}
+
+// String returns the receiver.
+func (t BasicTag) String() string {
+	return string(t)
 }
 
 // initObject sets up the "base" object that is the first proto of all other
 // built-in types.
 func (vm *VM) initObject() {
-	vm.BaseObject.Protos = []Interface{vm.Lobby}
+	vm.BaseObject.Protos = []*Object{vm.Lobby}
 	slots := Slots{
 		"":                     vm.NewCFunction(ObjectEvalArg, nil),
 		"!=":                   vm.NewCFunction(ObjectNotEqual, nil),
@@ -202,32 +334,46 @@ func (vm *VM) initObject() {
 	slots["returnIfNonNil"] = slots["return"]
 	slots["uniqueHexId"] = slots["uniqueId"]
 	vm.BaseObject.Slots = slots
-	vm.SetSlot(vm.Core, "Object", vm.BaseObject)
+	vm.Core.SetSlot("Object", vm.BaseObject)
 }
 
 // ObjectWith creates a new object with the given slots and with the VM's
 // Core Object as its proto.
 func (vm *VM) ObjectWith(slots Slots) *Object {
-	return &Object{Slots: slots, Protos: []Interface{vm.BaseObject}}
+	return &Object{
+		Slots:  slots,
+		Protos: []Interface{vm.BaseObject},
+	}
 }
 
 // TypeName gets the name of the type of an object by activating its type slot.
 // If there is no such slot, the Go type name will be returned.
 func (vm *VM) TypeName(o Interface) string {
-	if typ, proto := vm.GetSlot(o, "type"); proto != nil {
+	if typ, proto := o.GetSlot("type"); proto != nil {
 		return vm.AsString(typ)
+	}
+	if o.Tag != nil {
+		return o.Tag.String()
 	}
 	return fmt.Sprintf("%T", o)
 }
 
 // SimpleActivate activates an object using the identifier message named with
-// text and with the given arguments. This does not propagate control flow.
+// text and with the given arguments. Any control flow signals sent while
+// activating the object are consumed and ignored. (Normally, the value paired
+// with a stop is the returned result from any CFunction; this behavior should
+// only make a difference if an Exception value is the result, or if the
+// control flow is sent from a different coroutine.)
 func (vm *VM) SimpleActivate(o, self, locals Interface, text string, args ...Interface) Interface {
 	a := make([]*Message, len(args))
 	for i, arg := range args {
 		a[i] = vm.CachedMessage(arg)
 	}
-	result, _ := o.Activate(vm, self, locals, self, vm.IdentMessage(text, a...))
+	result := o.Activate(vm, self, locals, self, vm.IdentMessage(text, a...))
+	select {
+	case <-vm.Control: // do nothing
+	default: // do nothing
+	}
 	return result
 }
 
@@ -235,39 +381,36 @@ func (vm *VM) SimpleActivate(o, self, locals Interface, text string, args ...Int
 //
 // clone creates a new object with empty slots and the cloned object as its
 // proto.
-func ObjectClone(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+func ObjectClone(vm *VM, target, locals Interface, msg *Message) *Object {
 	clone := target.Clone()
-	if init, proto := vm.GetSlot(target, "init"); proto != nil {
-		r, s := init.Activate(vm, clone, locals, proto, vm.IdentMessage("init"))
-		if s != NoStop {
-			return r, s
-		}
+	if init, proto := target.GetSlot("init"); proto != nil {
+		init.Activate(vm, clone, locals, proto, vm.IdentMessage("init"))
 	}
-	return clone, NoStop
+	return clone
 }
 
 // ObjectCloneWithoutInit is an Object method.
 //
 // cloneWithoutInit creates a new object with empty slots and the cloned object
 // as its proto, without checking for an init slot.
-func ObjectCloneWithoutInit(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	return target.Clone(), NoStop
+func ObjectCloneWithoutInit(vm *VM, target, locals Interface, msg *Message) *Object {
+	return target.Clone()
 }
 
 // ObjectSetSlot is an Object method.
 //
 // setSlot sets the value of a slot on this object. It is typically invoked via
 // the := operator.
-func ObjectSetSlot(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	slot, err, stop := msg.StringArgAt(vm, locals, 0)
+func ObjectSetSlot(vm *VM, target, locals Interface, msg *Message) *Object {
+	slot, exc, stop := msg.StringArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return err, stop
+		return vm.Stop(exc, stop)
 	}
 	v, stop := msg.EvalArgAt(vm, locals, 1)
 	if stop == NoStop {
-		vm.SetSlot(target, slot.String(), v)
+		target.SetSlot(slot, v)
 	}
-	return v, stop
+	return vm.Stop(v, stop)
 }
 
 // ObjectUpdateSlot is an Object method.
@@ -275,212 +418,199 @@ func ObjectSetSlot(vm *VM, target, locals Interface, msg *Message) (Interface, S
 // updateSlot raises an exception if the target does not have the given slot,
 // and otherwise sets the value of a slot on this object. This is typically
 // invoked via the = operator.
-func ObjectUpdateSlot(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	slot, err, stop := msg.StringArgAt(vm, locals, 0)
+func ObjectUpdateSlot(vm *VM, target, locals Interface, msg *Message) *Object {
+	slot, exc, stop := msg.StringArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return err, stop
+		return vm.Stop(exc, stop)
 	}
 	v, stop := msg.EvalArgAt(vm, locals, 1)
 	if stop == NoStop {
-		s := slot.String()
-		_, proto := vm.GetSlot(target, s)
+		_, proto := target.GetSlot(slot)
 		if proto == nil {
-			return vm.RaiseExceptionf("slot %s not found", s)
+			return vm.RaiseExceptionf("slot %s not found", slot)
 		}
-		vm.SetSlot(target, s, v)
+		target.SetSlot(slot, v)
 	}
-	return v, stop
+	return vm.Stop(v, stop)
 }
 
 // ObjectGetSlot is an Object method.
 //
 // getSlot gets the value of a slot. The slot is never activated.
-func ObjectGetSlot(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	slot, err, stop := msg.StringArgAt(vm, locals, 0)
+func ObjectGetSlot(vm *VM, target, locals Interface, msg *Message) *Object {
+	slot, obj, stop := msg.StringArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return err, stop
+		return vm.Stop(obj, stop)
 	}
-	v, _ := vm.GetSlot(target, slot.String())
-	if v != nil {
-		return v, NoStop
-	}
-	return vm.Nil, NoStop
+	v, _ := target.GetSlot(slot)
+	return v
 }
 
 // ObjectGetLocalSlot is an Object method.
 //
 // getLocalSlot gets the value of a slot on the receiver, not checking its
 // protos. The slot is not activated.
-func ObjectGetLocalSlot(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	slot, err, stop := msg.StringArgAt(vm, locals, 0)
+func ObjectGetLocalSlot(vm *VM, target, locals Interface, msg *Message) *Object {
+	slot, exc, stop := msg.StringArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return err, stop
+		return vm.Stop(exc, stop)
 	}
-	v, _ := vm.GetLocalSlot(target, slot.String())
-	if v != nil {
-		return v, NoStop
-	}
-	return vm.Nil, NoStop
+	v, _ := target.GetLocalSlot(slot)
+	return v
 }
 
 // ObjectHasLocalSlot is an Object method.
 //
 // hasLocalSlot returns whether the object has the given slot name, not
 // checking its protos.
-func ObjectHasLocalSlot(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	s, err, stop := msg.StringArgAt(vm, locals, 0)
+func ObjectHasLocalSlot(vm *VM, target, locals Interface, msg *Message) *Object {
+	slot, exc, stop := msg.StringArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return err, stop
+		return vm.Stop(exc, stop)
 	}
-	_, ok := vm.GetLocalSlot(target, s.String())
-	return vm.IoBool(ok), NoStop
+	_, ok := target.GetLocalSlot(slot)
+	return vm.IoBool(ok)
 }
 
 // ObjectSlotNames is an Object method.
 //
 // slotNames returns a list of the names of the slots on this object.
-func ObjectSlotNames(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+func ObjectSlotNames(vm *VM, target, locals Interface, msg *Message) *Object {
 	target.Lock()
-	slots := target.RawSlots()
-	names := make([]Interface, 0, len(slots))
-	for name := range slots {
+	names := make([]Interface, 0, len(target.Slots))
+	for name := range target.Slots {
 		names = append(names, vm.NewString(name))
 	}
 	target.Unlock()
-	return vm.NewList(names...), NoStop
+	return vm.NewList(names...)
 }
 
 // ObjectSlotValues is an Object method.
 //
 // slotValues returns a list of the values of the slots on this obect.
-func ObjectSlotValues(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+func ObjectSlotValues(vm *VM, target, locals Interface, msg *Message) *Object {
 	target.Lock()
-	slots := target.RawSlots()
-	vals := make([]Interface, 0, len(slots))
-	for _, val := range slots {
+	vals := make([]Interface, 0, len(target.Slots))
+	for _, val := range target.Slots {
 		vals = append(vals, val)
 	}
 	target.Unlock()
-	return vm.NewList(vals...), NoStop
+	return vm.NewList(vals...)
 }
 
 // ObjectProtos is an Object method.
 //
 // protos returns a list of the receiver's protos.
-func ObjectProtos(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+func ObjectProtos(vm *VM, target, locals Interface, msg *Message) *Object {
 	target.Lock()
-	protos := target.RawProtos()
-	v := make([]Interface, len(protos))
-	copy(v, protos)
+	v := make([]Interface, len(target.Protos))
+	copy(v, target.Protos)
 	target.Unlock()
-	return vm.NewList(v...), NoStop
+	return vm.NewList(v...)
 }
 
 // ObjectEvalArg is an Object method.
 //
 // evalArg evaluates and returns its argument. It is typically invoked via the
 // empty string slot, i.e. parentheses with no preceding message.
-func ObjectEvalArg(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+func ObjectEvalArg(vm *VM, target, locals Interface, msg *Message) *Object {
 	// The original Io implementation has an assertion that there is at least
 	// one argument; this will instead return vm.Nil. It wouldn't be difficult
 	// to mimic Io's behavior, but ehhh.
-	return msg.EvalArgAt(vm, locals, 0)
+	return vm.Stop(msg.EvalArgAt(vm, locals, 0))
 }
 
 // ObjectEvalArgAndReturnSelf is an Object method.
 //
 // evalArgAndReturnSelf evaluates its argument and returns this object.
-func ObjectEvalArgAndReturnSelf(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+func ObjectEvalArgAndReturnSelf(vm *VM, target, locals Interface, msg *Message) *Object {
 	result, stop := msg.EvalArgAt(vm, locals, 0)
 	if stop == NoStop {
-		return target, NoStop
+		return target
 	}
-	return result, stop
+	return vm.Stop(result, stop)
 }
 
 // ObjectEvalArgAndReturnNil is an Object method.
 //
 // evalArgAndReturnNil evaluates its argument and returns nil.
-func ObjectEvalArgAndReturnNil(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+func ObjectEvalArgAndReturnNil(vm *VM, target, locals Interface, msg *Message) *Object {
 	result, stop := msg.EvalArgAt(vm, locals, 0)
 	if stop == NoStop {
-		return vm.Nil, NoStop
+		return vm.Nil
 	}
-	return result, stop
+	return vm.Stop(result, stop)
 }
 
 // ObjectDo is an Object method.
 //
 // do evaluates its message in the context of the receiver.
-func ObjectDo(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+func ObjectDo(vm *VM, target, locals Interface, msg *Message) *Object {
 	r, stop := msg.EvalArgAt(vm, target, 0)
 	if stop != NoStop {
-		return r, stop
+		return vm.Stop(r, stop)
 	}
-	return target, NoStop
+	return target
 }
 
 // ObjectLexicalDo is an Object method.
 //
 // lexicalDo appends the lexical context to the receiver's protos, evaluates
 // the message in the context of the receiver, then removes the added proto.
-func ObjectLexicalDo(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+func ObjectLexicalDo(vm *VM, target, locals Interface, msg *Message) *Object {
 	target.Lock()
-	protos := target.RawProtos()
-	n := len(protos)
-	protos = append(protos, locals)
-	target.RawSetProtos(protos)
+	n := len(target.Protos)
+	target.Protos = append(target.Protos, locals)
 	target.Unlock()
 	result, stop := msg.EvalArgAt(vm, target, 0)
 	target.Lock()
-	protos = target.RawProtos()
-	copy(protos[n:], protos[n+1:])
-	target.RawSetProtos(protos[:len(protos)-1])
+	copy(target.Protos[n:], target.Protos[n+1:])
+	target.Protos = target.Protos[:len(target.Protos)-1]
 	target.Unlock()
 	if stop != NoStop {
-		return result, stop
+		return vm.Stop(result, stop)
 	}
-	return target, NoStop
+	return target
 }
 
 // ObjectAsString is an Object method.
 //
 // asString creates a string representation of an object.
-func ObjectAsString(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+func ObjectAsString(vm *VM, target, locals Interface, msg *Message) *Object {
 	// Non-standard, but if the object is one of the important basic objects,
 	// return a more informative name.
 	switch target {
 	case vm.BaseObject:
-		return vm.NewString(fmt.Sprintf("Core Object_%p", target)), NoStop
+		return vm.NewString(fmt.Sprintf("Core Object_%p", target))
 	case vm.Lobby:
-		return vm.NewString(fmt.Sprintf("Lobby_%p", target)), NoStop
+		return vm.NewString(fmt.Sprintf("Lobby_%p", target))
 	case vm.Core:
-		return vm.NewString(fmt.Sprintf("Core_%p", target)), NoStop
+		return vm.NewString(fmt.Sprintf("Core_%p", target))
 	}
-	if stringer, ok := target.(fmt.Stringer); ok {
-		return vm.NewString(stringer.String()), NoStop
+	if stringer, ok := target.Value.(fmt.Stringer); ok {
+		return vm.NewString(stringer.String())
 	}
-	return vm.NewString(fmt.Sprintf("%T_%p", target, target)), NoStop
+	return vm.NewString(fmt.Sprintf("%s_%p", vm.TypeName(target), target))
 }
 
 // ObjectAsGoRepr is an Object method.
 //
 // asGoRepr returns a string containing a Go-syntax representation of the
-// object.
-func ObjectAsGoRepr(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	return vm.NewString(fmt.Sprintf("%#v", target)), NoStop
+// object's value.
+func ObjectAsGoRepr(vm *VM, target, locals Interface, msg *Message) *Object {
+	return vm.NewString(fmt.Sprintf("%#v", target.Value))
 }
 
 // Compare uses the compare method of x to compare to y. The result should be a
 // *Number holding -1, 0, or 1, if the compare method is proper and no
 // exception occurs. Any Stop will be returned.
 func (vm *VM) Compare(x, y Interface) (Interface, Stop) {
-	cmp, proto := vm.GetSlot(x, "compare")
+	cmp, proto := x.GetSlot("compare")
 	if proto == nil {
 		// No compare method.
 		return vm.NewNumber(float64(PtrCompare(x, y))), NoStop
 	}
-	return cmp.Activate(vm, x, x, proto, vm.IdentMessage("compare", vm.CachedMessage(y)))
+	return vm.Status(cmp.Activate(vm, x, x, proto, vm.IdentMessage("compare", vm.CachedMessage(y))))
 }
 
 // ObjectCompare is an Object method.
@@ -488,12 +618,12 @@ func (vm *VM) Compare(x, y Interface) (Interface, Stop) {
 // compare returns -1 if the receiver is less than the argument, 1 if it is
 // greater, or 0 if they are equal. The default order is the order of the
 // numeric values of the objects' addresses.
-func ObjectCompare(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+func ObjectCompare(vm *VM, target, locals Interface, msg *Message) *Object {
 	v, stop := msg.EvalArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return v, stop
+		return vm.Stop(v, stop)
 	}
-	return vm.NewNumber(float64(PtrCompare(target, v))), NoStop
+	return vm.NewNumber(float64(PtrCompare(target, v)))
 }
 
 // PtrCompare returns a compare value for the pointers of two objects. It
@@ -513,505 +643,505 @@ func PtrCompare(x, y Interface) int {
 // ObjectLess is an Object method.
 //
 // x <(y) returns true if the result of x compare(y) is -1.
-func ObjectLess(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+func ObjectLess(vm *VM, target, locals Interface, msg *Message) *Object {
 	x, stop := msg.EvalArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return x, stop
+		return vm.Stop(x, stop)
 	}
 	c, stop := vm.Compare(target, x)
 	if stop != NoStop {
-		return c, stop
+		return vm.Stop(c, stop)
 	}
-	if n, ok := c.(*Number); ok {
-		return vm.IoBool(n.Value < 0), NoStop
+	if n, ok := c.Value.(float64); ok {
+		return vm.IoBool(n < 0)
 	}
-	return vm.IoBool(PtrCompare(target, c) < 0), NoStop
+	return vm.IoBool(PtrCompare(target, c) < 0)
 }
 
 // ObjectLessOrEqual is an Object method.
 //
 // x <=(y) returns true if the result of x compare(y) is not 1.
-func ObjectLessOrEqual(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+func ObjectLessOrEqual(vm *VM, target, locals Interface, msg *Message) *Object {
 	x, stop := msg.EvalArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return x, stop
+		return vm.Stop(x, stop)
 	}
 	c, stop := vm.Compare(target, x)
 	if stop != NoStop {
-		return c, stop
+		return vm.Stop(c, stop)
 	}
-	if n, ok := c.(*Number); ok {
-		return vm.IoBool(n.Value <= 0), NoStop
+	if n, ok := c.Value.(float64); ok {
+		return vm.IoBool(n <= 0)
 	}
-	return vm.IoBool(PtrCompare(target, c) <= 0), NoStop
+	return vm.IoBool(PtrCompare(target, c) <= 0)
 }
 
 // ObjectEqual is an Object method.
 //
 // x ==(y) returns true if the result of x compare(y) is 0.
-func ObjectEqual(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+func ObjectEqual(vm *VM, target, locals Interface, msg *Message) *Object {
 	x, stop := msg.EvalArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return x, stop
+		return vm.Stop(x, stop)
 	}
 	c, stop := vm.Compare(target, x)
 	if stop != NoStop {
-		return c, stop
+		return vm.Stop(c, stop)
 	}
-	if n, ok := c.(*Number); ok {
-		return vm.IoBool(n.Value == 0), NoStop
+	if n, ok := c.Value.(float64); ok {
+		return vm.IoBool(n == 0)
 	}
-	return vm.IoBool(PtrCompare(target, c) == 0), NoStop
+	return vm.IoBool(PtrCompare(target, c) == 0)
 }
 
 // ObjectNotEqual is an Object method.
 //
 // x !=(y) returns true if the result of x compare(y) is not 0.
-func ObjectNotEqual(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+func ObjectNotEqual(vm *VM, target, locals Interface, msg *Message) *Object {
 	x, stop := msg.EvalArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return x, stop
+		return vm.Stop(x, stop)
 	}
 	c, stop := vm.Compare(target, x)
 	if stop != NoStop {
-		return c, stop
+		return vm.Stop(c, stop)
 	}
-	if n, ok := c.(*Number); ok {
-		return vm.IoBool(n.Value != 0), NoStop
+	if n, ok := c.Value.(float64); ok {
+		return vm.IoBool(n != 0)
 	}
-	return vm.IoBool(PtrCompare(target, c) != 0), NoStop
+	return vm.IoBool(PtrCompare(target, c) != 0)
 }
 
 // ObjectGreaterOrEqual is an Object method.
 //
 // x >=(y) returns true if the result of x compare(y) is not -1.
-func ObjectGreaterOrEqual(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+func ObjectGreaterOrEqual(vm *VM, target, locals Interface, msg *Message) *Object {
 	x, stop := msg.EvalArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return x, stop
+		return vm.Stop(x, stop)
 	}
 	c, stop := vm.Compare(target, x)
 	if stop != NoStop {
-		return c, stop
+		return vm.Stop(c, stop)
 	}
-	if n, ok := c.(*Number); ok {
-		return vm.IoBool(n.Value >= 0), NoStop
+	if n, ok := c.Value.(float64); ok {
+		return vm.IoBool(n >= 0)
 	}
-	return vm.IoBool(PtrCompare(target, c) >= 0), NoStop
+	return vm.IoBool(PtrCompare(target, c) >= 0)
 }
 
 // ObjectGreater is an Object method.
 //
 // x >(y) returns true if the result of x compare(y) is 1.
-func ObjectGreater(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+func ObjectGreater(vm *VM, target, locals Interface, msg *Message) *Object {
 	x, stop := msg.EvalArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return x, stop
+		return vm.Stop(x, stop)
 	}
 	c, stop := vm.Compare(target, x)
 	if stop != NoStop {
-		return c, stop
+		return vm.Stop(c, stop)
 	}
-	if n, ok := c.(*Number); ok {
-		return vm.IoBool(n.Value > 0), NoStop
+	if n, ok := c.Value.(float64); ok {
+		return vm.IoBool(n > 0)
 	}
-	return vm.IoBool(PtrCompare(target, c) > 0), NoStop
+	return vm.IoBool(PtrCompare(target, c) > 0)
 }
 
 // ObjectTry is an Object method.
 //
 // try executes its message, returning any exception that occurs or nil if none
 // does. Any other control flow (continue, break, return) is passed normally.
-func ObjectTry(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+func ObjectTry(vm *VM, target, locals Interface, msg *Message) *Object {
 	r, stop := msg.EvalArgAt(vm, locals, 0)
 	switch stop {
 	case NoStop: // do nothing
 	case ContinueStop, BreakStop, ReturnStop:
-		return r, stop
+		return vm.Stop(r, stop)
 	case ExceptionStop:
-		return r, NoStop
+		return r
 	default:
-		panic(fmt.Sprintf("try: invalid stop status %#v", stop))
+		panic(fmt.Sprintf("try: invalid stop status %v", stop))
 	}
-	return vm.Nil, NoStop
+	return vm.Nil
 }
 
 // ObjectAncestorWithSlot is an Object method.
 //
 // ancestorWithSlot returns the proto which owns the given slot.
-func ObjectAncestorWithSlot(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	s, err, stop := msg.StringArgAt(vm, locals, 0)
+func ObjectAncestorWithSlot(vm *VM, target, locals Interface, msg *Message) *Object {
+	slot, exc, stop := msg.StringArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return err, stop
+		return vm.Stop(exc, stop)
 	}
-	ss := s.String()
 	target.Lock()
-	opro := target.RawProtos()
-	protos := make([]Interface, len(opro))
-	copy(protos, opro)
+	protos := make([]Interface, len(target.Protos))
+	copy(protos, target.Protos)
 	target.Unlock()
 	for _, p := range protos {
 		// TODO: this finds the slot on target if target is in its own protos
-		_, proto := vm.GetSlot(p, ss)
+		_, proto := p.GetSlot(slot)
 		if proto != nil {
-			return proto, NoStop
+			return proto
 		}
 	}
-	return vm.Nil, NoStop
+	return vm.Nil
 }
 
 // ObjectAppendProto is an Object method.
 //
 // appendProto adds an object as a proto to the object.
-func ObjectAppendProto(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+func ObjectAppendProto(vm *VM, target, locals Interface, msg *Message) *Object {
 	v, stop := msg.EvalArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return v, stop
+		return vm.Stop(v, stop)
 	}
 	target.Lock()
-	target.RawSetProtos(append(target.RawProtos(), v))
+	target.Protos = append(target.Protos, v)
 	target.Unlock()
-	return target, NoStop
+	return target
 }
 
 // ObjectContextWithSlot is an Object method.
 //
 // contextWithSlot returns the first of the receiver or its protos which
 // contains the given slot.
-func ObjectContextWithSlot(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	s, err, stop := msg.StringArgAt(vm, locals, 0)
+func ObjectContextWithSlot(vm *VM, target, locals Interface, msg *Message) *Object {
+	slot, exc, stop := msg.StringArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return err, stop
+		return vm.Stop(exc, stop)
 	}
-	_, proto := vm.GetSlot(target, s.String())
-	if proto != nil {
-		return proto, NoStop
-	}
-	return vm.Nil, NoStop
+	_, proto := target.GetSlot(slot)
+	return proto
 }
 
 // ObjectDoFile is an Object method.
 //
 // doFile executes the file at the given path in the context of the receiver.
-func ObjectDoFile(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	s, aerr, stop := msg.StringArgAt(vm, locals, 0)
+func ObjectDoFile(vm *VM, target, locals Interface, msg *Message) *Object {
+	nm, exc, stop := msg.StringArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return aerr, stop
+		return vm.Stop(exc, stop)
 	}
-	f, ferr := os.Open(s.String())
-	if ferr != nil {
-		return vm.IoError(ferr)
+	f, err := os.Open(nm)
+	if err != nil {
+		return vm.IoError(err)
 	}
 	m, err := vm.Parse(f, f.Name())
 	if err != nil {
 		return vm.IoError(err)
 	}
-	return vm.DoMessage(m, target)
+	return vm.Stop(vm.DoMessage(m, target))
 }
 
 // ObjectDoMessage is an Object method.
 //
 // doMessage sends the message to the receiver.
-func ObjectDoMessage(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	m, err, stop := msg.MessageArgAt(vm, locals, 0)
+func ObjectDoMessage(vm *VM, target, locals Interface, msg *Message) *Object {
+	m, exc, stop := msg.MessageArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return err, stop
+		return vm.Stop(exc, stop)
 	}
 	ctxt := target
 	if msg.ArgCount() > 1 {
 		ctxt, stop = msg.EvalArgAt(vm, locals, 1)
 		if stop != NoStop {
-			return ctxt, stop
+			return vm.Stop(ctxt, stop)
 		}
 	}
-	return m.Send(vm, target, ctxt)
+	return vm.Stop(m.Send(vm, target, ctxt))
 }
 
 // ObjectDoString is an Object method.
 //
 // doString executes the string in the context of the receiver.
-func ObjectDoString(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	s, aerr, stop := msg.StringArgAt(vm, locals, 0)
+func ObjectDoString(vm *VM, target, locals Interface, msg *Message) *Object {
+	s, exc, stop := msg.StringArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return aerr, stop
+		return vm.Stop(exc, stop)
 	}
-	src := strings.NewReader(s.String())
+	src := strings.NewReader(s)
 	label := "doString"
 	if msg.ArgCount() > 1 {
-		l, err, stop := msg.StringArgAt(vm, locals, 1)
+		l, exc, stop := msg.StringArgAt(vm, locals, 1)
 		if stop != NoStop {
-			return err, stop
+			return vm.Stop(exc, stop)
 		}
-		label = l.String()
+		label = l
 	}
 	m, err := vm.Parse(src, label)
 	if err != nil {
 		return vm.IoError(err)
 	}
-	return m.Eval(vm, target)
+	return vm.Stop(m.Eval(vm, target))
 }
 
 // ObjectForeachSlot is a Object method.
 //
 // foreachSlot performs a loop on each slot of an object.
-func ObjectForeachSlot(vm *VM, target, locals Interface, msg *Message) (result Interface, control Stop) {
+func ObjectForeachSlot(vm *VM, target, locals Interface, msg *Message) (result *Object) {
 	kn, vn, hkn, _, ev := ForeachArgs(msg)
 	if !hkn {
-		return vm.RaiseException("foreachSlot requires 2 or 3 args")
+		return vm.RaiseExceptionf("foreachSlot requires 2 or 3 args")
 	}
 	// To be safe in a parallel world, we need to make a copy of the target's
 	// slots while holding its lock.
 	target.Lock()
-	ts := target.RawSlots()
-	slots := make(Slots, len(ts))
-	for k, v := range ts {
+	slots := make(Slots, len(target.Slots))
+	for k, v := range target.Slots {
 		slots[k] = v
 	}
 	target.Unlock()
+	var control Stop
 	for k, v := range slots {
-		vm.SetSlot(locals, vn, v)
+		locals.SetSlot(vn, v)
 		if hkn {
-			vm.SetSlot(locals, kn, vm.NewString(k))
+			locals.SetSlot(kn, vm.NewString(k))
 		}
 		result, control = ev.Eval(vm, locals)
 		switch control {
 		case NoStop, ContinueStop: // do nothing
 		case BreakStop:
-			return result, NoStop
+			return result
 		case ReturnStop, ExceptionStop:
-			return result, control
+			return vm.Stop(result, control)
 		default:
 			panic(fmt.Sprintf("iolang: invalid Stop: %v", control))
 		}
 	}
-	return result, NoStop
+	return result
 }
 
 // ObjectIsIdenticalTo is an Object method.
 //
 // isIdenticalTo returns whether the object is the same as the argument.
-func ObjectIsIdenticalTo(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+func ObjectIsIdenticalTo(vm *VM, target, locals Interface, msg *Message) *Object {
 	r, stop := msg.EvalArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return r, stop
+		return vm.Stop(r, stop)
 	}
-	return vm.IoBool(target == r), NoStop
+	return vm.IoBool(target == r)
 }
 
 // ObjectIsKindOf is an Object method.
 //
 // isKindOf returns whether the object is the argument or has the argument
 // among its protos.
-func ObjectIsKindOf(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+func ObjectIsKindOf(vm *VM, target, locals Interface, msg *Message) *Object {
 	r, stop := msg.EvalArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return r, stop
+		return vm.Stop(r, stop)
 	}
-	return vm.IoBool(vm.IsKindOf(target, r)), NoStop
+	return vm.IoBool(target.IsKindOf(r))
 }
 
 // ObjectMessage is an Object method.
 //
 // message returns the argument message.
-func ObjectMessage(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+func ObjectMessage(vm *VM, target, locals Interface, msg *Message) *Object {
 	if msg.ArgCount() > 0 {
-		return msg.ArgAt(0), NoStop
+		return vm.MessageObject(msg.ArgAt(0))
 	}
-	return vm.Nil, NoStop
+	return vm.Nil
 }
 
 // ObjectPerform is an Object method.
 //
 // perform executes the method named by the first argument using the remaining
 // argument messages as arguments to the method.
-func ObjectPerform(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+func ObjectPerform(vm *VM, target, locals Interface, msg *Message) *Object {
 	r, stop := msg.EvalArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return r, stop
+		return vm.Stop(r, stop)
 	}
-	switch a := r.(type) {
-	case *Sequence:
+	r.Lock()
+	switch a := r.Value.(type) {
+	case Sequence:
 		// String name, arguments are messages.
 		name := a.String()
+		r.Unlock()
 		m := vm.IdentMessage(name, msg.Args[1:]...)
 		for i, arg := range m.Args {
 			m.Args[i] = arg.DeepCopy()
 		}
-		return vm.Perform(target, locals, m)
+		return vm.Stop(vm.Perform(target, locals, m))
 	case *Message:
 		// Message argument, which provides both the name and the args.
+		r.Unlock()
 		if msg.ArgCount() > 1 {
-			return vm.RaiseException("perform takes a single argument when using a Message as an argument")
+			return vm.RaiseExceptionf("perform takes a single argument when using a Message as an argument")
 		}
-		return vm.Perform(target, locals, a)
+		return vm.Stop(vm.Perform(target, locals, a))
 	}
-	return vm.RaiseException("argument 0 to perform must be Sequence or Message, not " + vm.TypeName(r))
+	return vm.RaiseExceptionf("argument 0 to perform must be Sequence or Message, not %s", vm.TypeName(r))
 }
 
 // ObjectPerformWithArgList is an Object method.
 //
 // performWithArgList activates the given method with arguments given in the
 // second argument as a list.
-func ObjectPerformWithArgList(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	s, err, stop := msg.StringArgAt(vm, locals, 0)
+func ObjectPerformWithArgList(vm *VM, target, locals Interface, msg *Message) *Object {
+	name, exc, stop := msg.StringArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return err, stop
+		return vm.Stop(exc, stop)
 	}
-	l, err, stop := msg.ListArgAt(vm, locals, 1)
+	l, obj, stop := msg.ListArgAt(vm, locals, 1)
 	if stop != NoStop {
-		return err, stop
+		return vm.Stop(obj, stop)
 	}
-	name := s.String()
 	m := vm.IdentMessage(name)
-	for _, arg := range l.Value {
+	obj.Lock()
+	for _, arg := range l {
 		m.Args = append(m.Args, vm.CachedMessage(arg))
 	}
-	return vm.Perform(target, locals, m)
+	obj.Unlock()
+	return vm.Stop(vm.Perform(target, locals, m))
 }
 
 // ObjectPrependProto is an Object method.
 //
 // prependProto adds a new proto as the first in the object's protos.
-func ObjectPrependProto(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+func ObjectPrependProto(vm *VM, target, locals Interface, msg *Message) *Object {
 	p, stop := msg.EvalArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return p, stop
+		return vm.Stop(p, stop)
 	}
 	target.Lock()
-	protos := append(target.RawProtos(), p)
+	protos := append(target.Protos, p)
 	copy(protos[1:], protos)
 	protos[0] = p
+	target.Protos = protos
 	target.Unlock()
-	return target, NoStop
+	return target
 }
 
 // ObjectRemoveAllProtos is an Object method.
 //
 // removeAllProtos removes all protos from the object.
-func ObjectRemoveAllProtos(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+func ObjectRemoveAllProtos(vm *VM, target, locals Interface, msg *Message) *Object {
 	target.Lock()
-	target.RawSetProtos([]Interface{})
+	target.Protos = []Interface{}
 	target.Unlock()
-	return target, NoStop
+	return target
 }
 
 // ObjectRemoveAllSlots is an Object method.
 //
 // removeAllSlots removes all slots from the object.
-func ObjectRemoveAllSlots(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+func ObjectRemoveAllSlots(vm *VM, target, locals Interface, msg *Message) *Object {
 	target.Lock()
-	target.RawSetSlots(Slots{})
+	target.Slots = Slots{}
 	target.Unlock()
-	return target, NoStop
+	return target
 }
 
 // ObjectRemoveProto is an Object method.
 //
 // removeProto removes the given object from the object's protos.
-func ObjectRemoveProto(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+func ObjectRemoveProto(vm *VM, target, locals Interface, msg *Message) *Object {
 	p, stop := msg.EvalArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return p, stop
+		return vm.Stop(p, stop)
 	}
 	target.Lock()
-	protos := target.RawProtos()
-	n := make([]Interface, 0, len(protos))
-	for _, proto := range protos {
+	n := make([]Interface, 0, len(target.Protos))
+	for _, proto := range target.Protos {
 		if proto != p {
 			n = append(n, proto)
 		}
 	}
-	target.RawSetProtos(n)
+	target.Protos = n
 	target.Unlock()
-	return target, NoStop
+	return target
 }
 
 // ObjectRemoveSlot is an Object method.
 //
 // removeSlot removes the given slot from the object.
-func ObjectRemoveSlot(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	s, err, stop := msg.StringArgAt(vm, locals, 0)
+func ObjectRemoveSlot(vm *VM, target, locals Interface, msg *Message) *Object {
+	slot, exc, stop := msg.StringArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return err, stop
+		return vm.Stop(exc, stop)
 	}
-	vm.RemoveSlot(target, s.String())
-	return target, NoStop
+	target.RemoveSlot(slot)
+	return target
 }
 
 // ObjectSetProto is an Object method.
 //
 // setProto sets the object's proto list to have only the given object.
-func ObjectSetProto(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+func ObjectSetProto(vm *VM, target, locals Interface, msg *Message) *Object {
 	p, stop := msg.EvalArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return p, stop
+		return vm.Stop(p, stop)
 	}
 	target.Lock()
-	target.RawSetProtos(append(target.RawProtos()[:0], p))
+	target.Protos = append(target.Protos[:0], p)
 	target.Unlock()
-	return target, NoStop
+	return target
 }
 
 // ObjectSetProtos is an Object method.
 //
 // setProtos sets the object's protos to the objects in the given list.
-func ObjectSetProtos(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	l, err, stop := msg.ListArgAt(vm, locals, 0)
+func ObjectSetProtos(vm *VM, target, locals Interface, msg *Message) *Object {
+	l, obj, stop := msg.ListArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return err, stop
+		return vm.Stop(obj, stop)
 	}
 	target.Lock()
-	target.RawSetProtos(append(target.RawProtos()[:0], l.Value...))
+	obj.Lock()
+	target.Protos = append(target.Protos[:0], l...)
 	target.Unlock()
-	return target, NoStop
+	obj.Unlock()
+	return target
 }
 
 // ObjectShallowCopy is an Object method.
 //
 // shallowCopy creates a new object with the receiver's slots and protos.
-func ObjectShallowCopy(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	o, ok := target.(*Object)
-	if !ok {
-		return vm.RaiseException("shallowCopy cannot be used on primitives")
+func ObjectShallowCopy(vm *VM, target, locals Interface, msg *Message) *Object {
+	if target.Tag != nil {
+		return vm.RaiseExceptionf("shallowCopy cannot be used on primitives")
 	}
-	o.Lock()
-	defer o.Unlock()
-	n := &Object{Slots: make(Slots, len(o.Slots)), Protos: make([]Interface, len(o.Protos))}
+	target.Lock()
+	defer target.Unlock()
+	n := &Object{Slots: make(Slots, len(target.Slots)), Protos: make([]Interface, len(target.Protos))}
 	// The shallow copy in Io doesn't actually copy the protos...
-	copy(n.Protos, o.Protos)
-	for slot, value := range o.Slots {
+	copy(n.Protos, target.Protos)
+	for slot, value := range target.Slots {
 		n.Slots[slot] = value
 	}
-	return n, NoStop
+	return n
 }
 
 // ObjectThisContext is an Object method.
 //
 // thisContext returns the current slot context, which is the receiver.
-func ObjectThisContext(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	return target, NoStop
+func ObjectThisContext(vm *VM, target, locals Interface, msg *Message) *Object {
+	return target
 }
 
 // ObjectThisLocalContext is an Object method.
 //
 // thisLocalContext returns the current locals object.
-func ObjectThisLocalContext(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	return locals, NoStop
+func ObjectThisLocalContext(vm *VM, target, locals Interface, msg *Message) *Object {
+	return locals
 }
 
 // ObjectThisMessage is an Object method.
 //
 // thisMessage returns the message which activated this method, which is likely
 // to be thisMessage.
-func ObjectThisMessage(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	return msg, NoStop
+func ObjectThisMessage(vm *VM, target, locals Interface, msg *Message) *Object {
+	return vm.MessageObject(msg)
 }
 
 // ObjectUniqueId is an Object method.
 //
 // uniqueId returns a string representation of the object's address.
-func ObjectUniqueId(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	return vm.NewString(fmt.Sprintf("%#x", target.UniqueID())), NoStop
+func ObjectUniqueId(vm *VM, target, locals Interface, msg *Message) *Object {
+	return vm.NewString(fmt.Sprintf("%#x", target.UniqueID()))
 }
 
 // ObjectWait is an Object method.
@@ -1019,11 +1149,11 @@ func ObjectUniqueId(vm *VM, target, locals Interface, msg *Message) (Interface, 
 // wait pauses execution in the current coroutine for the given number of
 // seconds. The coroutine must be re-scheduled after waking up, which can
 // result in the actual wait time being longer by an unpredictable amount.
-func ObjectWait(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	v, err, stop := msg.NumberArgAt(vm, locals, 0)
+func ObjectWait(vm *VM, target, locals Interface, msg *Message) *Object {
+	v, exc, stop := msg.NumberArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return err, stop
+		return vm.Stop(exc, stop)
 	}
-	time.Sleep(time.Duration(v.Value * float64(time.Second)))
-	return vm.Nil, NoStop
+	time.Sleep(time.Duration(v * float64(time.Second)))
+	return vm.Nil
 }

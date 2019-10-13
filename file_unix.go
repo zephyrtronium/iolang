@@ -1,5 +1,6 @@
 // +build !windows
 // +build !plan9
+// +build !wasm
 
 package iolang
 
@@ -13,8 +14,10 @@ import (
 // FileLastAccessDate is a File method.
 //
 // lastAccessDate returns the date at which the file was last accessed.
-func FileLastAccessDate(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	f := target.(*File)
+func FileLastAccessDate(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	f := target.Value.(File)
+	target.Unlock()
 	fi, err := os.Stat(f.Path)
 	if err != nil {
 		return vm.IoError(err)
@@ -24,15 +27,17 @@ func FileLastAccessDate(vm *VM, target, locals Interface, msg *Message) (Interfa
 	if !ok {
 		panic(fmt.Sprintf("iolang: %T.Sys() returned wrong type %T", fi, si))
 	}
-	return vm.NewDate(time.Unix(s.Atim.Unix())), NoStop
+	return vm.NewDate(time.Unix(s.Atim.Unix()))
 }
 
 // FileLastInfoChangeDate is a File method.
 //
 // lastInfoChangeDate returns the date at which the file's metadata was last
 // changed.
-func FileLastInfoChangeDate(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	f := target.(*File)
+func FileLastInfoChangeDate(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	f := target.Value.(File)
+	target.Unlock()
 	fi, err := os.Stat(f.Path)
 	if err != nil {
 		return vm.IoError(err)
@@ -42,5 +47,5 @@ func FileLastInfoChangeDate(vm *VM, target, locals Interface, msg *Message) (Int
 	if !ok {
 		panic(fmt.Sprintf("iolang: %T.Sys() returned wrong type %T", fi, si))
 	}
-	return vm.NewDate(time.Unix(s.Ctim.Unix())), NoStop
+	return vm.NewDate(time.Unix(s.Ctim.Unix()))
 }

@@ -11,7 +11,6 @@ import (
 
 // A File is an object allowing interfacing with the operating system's files.
 type File struct {
-	Object
 	File *os.File
 	// Path is in the OS's convention internally, but Io-facing methods convert
 	// it to slash-separated.
@@ -20,48 +19,61 @@ type File struct {
 	EOF  bool // no equivalent to feof() in Go
 }
 
+// tagFile is the Tag type for File objects.
+type tagFile struct{}
+
+func (tagFile) Activate(vm *VM, self, target, locals, context *Object, msg *Message) *Object {
+	return self
+}
+
+func (tagFile) CloneValue(value interface{}) interface{} {
+	return File{Mode: "update"}
+}
+
+func (tagFile) String() string {
+	return "File"
+}
+
+// FileTag is the Tag for File objects. Activate returns self. CloneValue
+// returns a new, unopened file with an empty path and mode set to "update".
+var FileTag Tag = tagFile{}
+
 // NewFile creates a File object with the given file. The mode string should
 // be one of "read", "update", or "append", depending on the flags used when
 // opening the file.
-func (vm *VM) NewFile(file *os.File, mode string) *File {
+func (vm *VM) NewFile(file *os.File, mode string) *Object {
 	f := File{
-		Object: Object{Protos: vm.CoreProto("File")},
-		File:   file,
-		Mode:   mode,
+		File: file,
+		Mode: mode,
 	}
 	if file != nil {
 		f.Path = file.Name()
 	}
-	return &f
+	return &Object{
+		Protos: vm.CoreProto("File"),
+		Value:  f,
+		Tag:    FileTag,
+	}
 }
 
 // NewFileAt creates a File object unopened at the given path. The mode will be
 // set to "read". The path should use the OS's separator convention.
-func (vm *VM) NewFileAt(path string) *File {
-	return &File{
-		Object: Object{Protos: vm.CoreProto("File")},
-		Path:   path,
-		Mode:   "read",
-	}
-}
-
-// Activate returns the file.
-func (f *File) Activate(vm *VM, target, locals, context Interface, msg *Message) (Interface, Stop) {
-	return f, NoStop
-}
-
-// Clone creates a clone of this file with no associated file.
-func (f *File) Clone() Interface {
-	return &File{
-		Object: Object{Protos: []Interface{f}},
-		Mode:   "update",
+func (vm *VM) NewFileAt(path string) *Object {
+	return &Object{
+		Protos: vm.CoreProto("File"),
+		Value: File{
+			Path: path,
+			Mode: "read",
+		},
+		Tag: FileTag,
 	}
 }
 
 // ReadLine reads one line from the file such that the file cursor will be
 // positioned after the first encountered newline. The line without the newline
-// is returned, along with any error, which may include io.EOF.
-func (f *File) ReadLine() (line []byte, err error) {
+// is returned, along with any error, which may include io.EOF. If the file
+// reaches EOF while reading, then the returned eof value will be true.
+func (f File) ReadLine() (line []byte, eof bool, err error) {
 	// Basically, we get to reimplement fgets because we can't predict how
 	// bufio would interact with other methods, there's no other fgets
 	// equivalent in the standard library, and Io uses fgets. :)
@@ -118,71 +130,75 @@ func (f *File) ReadLine() (line []byte, err error) {
 		if n > 0 {
 			err = nil
 		} else {
-			f.EOF = true
+			eof = true
 		}
 	}
 	return
 }
 
 func (vm *VM) initFile() {
-	var kind *File
 	slots := Slots{
-		"asBuffer":           vm.NewCFunction(FileAsBuffer, kind),
-		"at":                 vm.NewCFunction(FileAt, kind),
-		"atPut":              vm.NewCFunction(FileAtPut, kind),
-		"close":              vm.NewCFunction(FileClose, kind),
-		"contents":           vm.NewCFunction(FileContents, kind),
-		"descriptor":         vm.NewCFunction(FileDescriptor, kind),
-		"exists":             vm.NewCFunction(FileExists, kind),
-		"flush":              vm.NewCFunction(FileFlush, kind),
-		"foreach":            vm.NewCFunction(FileForeach, kind),
-		"foreachLine":        vm.NewCFunction(FileForeachLine, kind),
-		"isAtEnd":            vm.NewCFunction(FileIsAtEnd, kind),
-		"isDirectory":        vm.NewCFunction(FileIsDirectory, kind),
-		"isLink":             vm.NewCFunction(FileIsLink, kind),
-		"isOpen":             vm.NewCFunction(FileIsOpen, kind),
-		"isPipe":             vm.NewCFunction(FileIsPipe, kind),
-		"isRegularFile":      vm.NewCFunction(FileIsRegularFile, kind),
-		"isSocket":           vm.NewCFunction(FileIsSocket, kind),
-		"isUserExecutable":   vm.NewCFunction(FileIsUserExecutable, kind),
-		"lastDataChangeDate": vm.NewCFunction(FileLastDataChangeDate, kind),
-		"mode":               vm.NewCFunction(FileMode, kind),
-		"moveTo":             vm.NewCFunction(FileMoveTo, kind),
-		"name":               vm.NewCFunction(FileName, kind),
-		"open":               vm.NewCFunction(FileOpen, kind),
-		"openForAppending":   vm.NewCFunction(FileOpenForAppending, kind),
-		"openForReading":     vm.NewCFunction(FileOpenForReading, kind),
-		"openForUpdating":    vm.NewCFunction(FileOpenForUpdating, kind),
-		"path":               vm.NewCFunction(FilePath, kind),
-		"position":           vm.NewCFunction(FilePosition, kind),
-		"positionAtEnd":      vm.NewCFunction(FilePositionAtEnd, kind),
-		"protectionMode":     vm.NewCFunction(FileProtectionMode, kind),
-		"readBufferOfLength": vm.NewCFunction(FileReadBufferOfLength, kind),
-		"readLine":           vm.NewCFunction(FileReadLine, kind),
-		"readLines":          vm.NewCFunction(FileReadLines, kind),
-		"readStringOfLength": vm.NewCFunction(FileReadStringOfLength, kind),
-		"readToEnd":          vm.NewCFunction(FileReadToEnd, kind),
-		"rewind":             vm.NewCFunction(FileRewind, kind),
-		"setPath":            vm.NewCFunction(FileSetPath, kind),
-		"setPosition":        vm.NewCFunction(FileSetPosition, kind),
-		"size":               vm.NewCFunction(FileSize, kind),
+		"asBuffer":           vm.NewCFunction(FileAsBuffer, FileTag),
+		"at":                 vm.NewCFunction(FileAt, FileTag),
+		"atPut":              vm.NewCFunction(FileAtPut, FileTag),
+		"close":              vm.NewCFunction(FileClose, FileTag),
+		"contents":           vm.NewCFunction(FileContents, FileTag),
+		"descriptor":         vm.NewCFunction(FileDescriptor, FileTag),
+		"exists":             vm.NewCFunction(FileExists, FileTag),
+		"flush":              vm.NewCFunction(FileFlush, FileTag),
+		"foreach":            vm.NewCFunction(FileForeach, FileTag),
+		"foreachLine":        vm.NewCFunction(FileForeachLine, FileTag),
+		"isAtEnd":            vm.NewCFunction(FileIsAtEnd, FileTag),
+		"isDirectory":        vm.NewCFunction(FileIsDirectory, FileTag),
+		"isLink":             vm.NewCFunction(FileIsLink, FileTag),
+		"isOpen":             vm.NewCFunction(FileIsOpen, FileTag),
+		"isPipe":             vm.NewCFunction(FileIsPipe, FileTag),
+		"isRegularFile":      vm.NewCFunction(FileIsRegularFile, FileTag),
+		"isSocket":           vm.NewCFunction(FileIsSocket, FileTag),
+		"isUserExecutable":   vm.NewCFunction(FileIsUserExecutable, FileTag),
+		"lastDataChangeDate": vm.NewCFunction(FileLastDataChangeDate, FileTag),
+		"mode":               vm.NewCFunction(FileMode, FileTag),
+		"moveTo":             vm.NewCFunction(FileMoveTo, FileTag),
+		"name":               vm.NewCFunction(FileName, FileTag),
+		"open":               vm.NewCFunction(FileOpen, FileTag),
+		"openForAppending":   vm.NewCFunction(FileOpenForAppending, FileTag),
+		"openForReading":     vm.NewCFunction(FileOpenForReading, FileTag),
+		"openForUpdating":    vm.NewCFunction(FileOpenForUpdating, FileTag),
+		"path":               vm.NewCFunction(FilePath, FileTag),
+		"position":           vm.NewCFunction(FilePosition, FileTag),
+		"positionAtEnd":      vm.NewCFunction(FilePositionAtEnd, FileTag),
+		"protectionMode":     vm.NewCFunction(FileProtectionMode, FileTag),
+		"readBufferOfLength": vm.NewCFunction(FileReadBufferOfLength, FileTag),
+		"readLine":           vm.NewCFunction(FileReadLine, FileTag),
+		"readLines":          vm.NewCFunction(FileReadLines, FileTag),
+		"readStringOfLength": vm.NewCFunction(FileReadStringOfLength, FileTag),
+		"readToEnd":          vm.NewCFunction(FileReadToEnd, FileTag),
+		"rewind":             vm.NewCFunction(FileRewind, FileTag),
+		"setPath":            vm.NewCFunction(FileSetPath, FileTag),
+		"setPosition":        vm.NewCFunction(FileSetPosition, FileTag),
+		"size":               vm.NewCFunction(FileSize, FileTag),
 		"temporaryFile":      vm.NewCFunction(FileTemporaryFile, nil),
-		"truncateToSize":     vm.NewCFunction(FileTruncateToSize, kind),
+		"truncateToSize":     vm.NewCFunction(FileTruncateToSize, FileTag),
 		"type":               vm.NewString("File"),
-		"write":              vm.NewCFunction(FileWrite, kind),
+		"write":              vm.NewCFunction(FileWrite, FileTag),
 
 		// Methods with platform-dependent implementations:
-		"lastAccessDate":     vm.NewCFunction(FileLastAccessDate, kind),
-		"lastInfoChangeDate": vm.NewCFunction(FileLastInfoChangeDate, kind),
+		"lastAccessDate":     vm.NewCFunction(FileLastAccessDate, FileTag),
+		"lastInfoChangeDate": vm.NewCFunction(FileLastInfoChangeDate, FileTag),
 	}
 	slots["descriptorId"] = slots["descriptor"]
-	vm.SetSlot(vm.Core, "File", &File{Object: *vm.ObjectWith(slots)})
+	vm.Core.SetSlot("File", &Object{
+		Slots:  slots,
+		Protos: []*Object{vm.BaseObject},
+		Value:  File{},
+		Tag:    FileTag,
+	})
 
 	stdin := vm.NewFile(os.Stdin, "read")
 	stdout := vm.NewFile(os.Stdout, "")
 	stderr := vm.NewFile(os.Stderr, "")
-	vm.SetSlot(stdout, "mode", vm.Nil)
-	vm.SetSlot(stderr, "mode", vm.Nil)
+	stdout.SetSlot("mode", vm.Nil)
+	stderr.SetSlot("mode", vm.Nil)
 	slots["standardInput"] = stdin
 	slots["standardOutput"] = stdout
 	slots["standardError"] = stderr
@@ -191,30 +207,34 @@ func (vm *VM) initFile() {
 // FileAsBuffer is a File method.
 //
 // asBuffer reads the contents of the file into a Sequence.
-func FileAsBuffer(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	f := target.(*File)
+func FileAsBuffer(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	f := target.Value.(File)
+	target.Unlock()
 	b, err := ioutil.ReadFile(f.Path)
 	if err != nil {
 		return vm.IoError(err)
 	}
-	return vm.NewSequence(b, true, "utf8"), NoStop
+	return vm.NewSequence(b, true, "utf8")
 }
 
 // FileAt is a File method.
 //
 // at returns as a Number the byte in the file at a given position.
-func FileAt(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	f := target.(*File)
-	n, err, stop := msg.NumberArgAt(vm, locals, 0)
+func FileAt(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	f := target.Value.(File)
+	target.Unlock()
+	n, exc, stop := msg.NumberArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return err, stop
+		return vm.Stop(exc, stop)
 	}
 	b := []byte{0}
-	switch _, err := f.File.ReadAt(b, int64(n.Value)); err {
+	switch _, err := f.File.ReadAt(b, int64(n)); err {
 	case nil:
-		return vm.NewNumber(float64(b[0])), NoStop
+		return vm.NewNumber(float64(b[0]))
 	case io.EOF:
-		return vm.Nil, NoStop
+		return vm.Nil
 	default:
 		return vm.IoError(err)
 	}
@@ -223,27 +243,31 @@ func FileAt(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
 // FileAtPut is a File method.
 //
 // atPut writes a single byte to the file at a given position.
-func FileAtPut(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	f := target.(*File)
-	n, err, stop := msg.NumberArgAt(vm, locals, 0)
+func FileAtPut(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	f := target.Value.(File)
+	target.Unlock()
+	n, exc, stop := msg.NumberArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return err, stop
+		return vm.Stop(exc, stop)
 	}
-	c, err, stop := msg.NumberArgAt(vm, locals, 1)
+	c, exc, stop := msg.NumberArgAt(vm, locals, 1)
 	if stop != NoStop {
-		return err, stop
+		return vm.Stop(exc, stop)
 	}
-	if _, err := f.File.WriteAt([]byte{byte(c.Value)}, int64(n.Value)); err != nil {
+	if _, err := f.File.WriteAt([]byte{byte(c)}, int64(n)); err != nil {
 		return vm.IoError(err)
 	}
-	return target, NoStop
+	return target
 }
 
 // FileClose is a File method.
 //
 // close closes the file.
-func FileClose(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	f := target.(*File)
+func FileClose(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	f := target.Value.(File)
+	target.Unlock()
 	switch f.File {
 	case nil, os.Stdin, os.Stdout, os.Stderr:
 		// Do nothing.
@@ -254,48 +278,54 @@ func FileClose(vm *VM, target, locals Interface, msg *Message) (Interface, Stop)
 		}
 		f.File = nil
 	}
-	return target, NoStop
+	return target
 }
 
 // FileContents is a File method.
 //
 // contents reads the contents of the file into a buffer object. Same as
 // asBuffer, but can also read standardInput.
-func FileContents(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	f := target.(*File)
+func FileContents(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	f := target.Value.(File)
+	target.Unlock()
 	if f.File == os.Stdin {
 		b, err := ioutil.ReadAll(f.File)
 		if err != nil {
 			return vm.IoError(err)
 		}
-		return vm.NewSequence(b, true, "utf8"), NoStop
+		return vm.NewSequence(b, true, "utf8")
 	}
 	b, err := ioutil.ReadFile(f.Path)
 	if err != nil {
 		return vm.IoError(err)
 	}
-	return vm.NewSequence(b, true, "utf8"), NoStop
+	return vm.NewSequence(b, true, "utf8")
 }
 
 // FileDescriptor is a File method.
 //
 // descriptor returns the underlying file descriptor as a Number.
-func FileDescriptor(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	f := target.(*File)
-	return vm.NewNumber(float64(f.File.Fd())), NoStop
+func FileDescriptor(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	f := target.Value.(File)
+	target.Unlock()
+	return vm.NewNumber(float64(f.File.Fd()))
 }
 
 // FileExists is a File method.
 //
 // exists returns whether a file with this file's path exists.
-func FileExists(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	f := target.(*File)
+func FileExists(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	f := target.Value.(File)
+	target.Unlock()
 	_, err := os.Stat(f.Path)
 	if err == nil {
-		return vm.True, NoStop
+		return vm.True
 	}
 	if os.IsNotExist(err) {
-		return vm.False, NoStop
+		return vm.False
 	}
 	return vm.IoError(err)
 }
@@ -304,23 +334,28 @@ func FileExists(vm *VM, target, locals Interface, msg *Message) (Interface, Stop
 //
 // flush synchronizes the file state between the program and the operating
 // system.
-func FileFlush(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	f := target.(*File)
+func FileFlush(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	f := target.Value.(File)
+	target.Unlock()
 	if err := f.File.Sync(); err != nil {
 		return vm.IoError(err)
 	}
-	return target, NoStop
+	return target
 }
 
 // FileForeach is a File method.
 //
 // foreach executes a message for each byte of the file.
-func FileForeach(vm *VM, target, locals Interface, msg *Message) (result Interface, control Stop) {
+func FileForeach(vm *VM, target, locals Interface, msg *Message) (result *Object) {
 	kn, vn, hkn, hvn, ev := ForeachArgs(msg)
 	if ev == nil {
-		return vm.RaiseException("foreach requires 2 or 3 arguments")
+		return vm.RaiseExceptionf("foreach requires 2 or 3 arguments")
 	}
-	f := target.(*File)
+	target.Lock()
+	f := target.Value.(File)
+	target.Unlock()
+	var control Stop
 	if info, err := f.File.Stat(); err == nil && info.Mode().IsRegular() {
 		// Regular file, so we can read into a buffer and then seek back if we
 		// encounter a Stop.
@@ -335,18 +370,18 @@ func FileForeach(vm *VM, target, locals Interface, msg *Message) (result Interfa
 			for _, c := range b[:n] {
 				v := vm.NewNumber(float64(c))
 				if hvn {
-					vm.SetSlot(locals, vn, v)
+					locals.SetSlot(vn, v)
 					if hkn {
-						vm.SetSlot(locals, kn, vm.NewNumber(float64(k)))
+						locals.SetSlot(kn, vm.NewNumber(float64(k)))
 					}
 				}
 				result, control = ev.Send(vm, v, locals)
 				switch control {
 				case NoStop, ContinueStop: // do nothing
 				case BreakStop:
-					return result, NoStop
+					return result
 				case ReturnStop, ExceptionStop:
-					return result, control
+					return vm.Stop(result, control)
 				default:
 					panic(fmt.Sprintf("iolang: invalid Stop: %v", control))
 				}
@@ -376,54 +411,63 @@ func FileForeach(vm *VM, target, locals Interface, msg *Message) (result Interfa
 			}
 			v := vm.NewNumber(float64(b[0]))
 			if hvn {
-				vm.SetSlot(locals, vn, v)
+				locals.SetSlot(vn, v)
 				if hkn {
-					vm.SetSlot(locals, kn, vm.NewNumber(float64(k)))
+					locals.SetSlot(kn, vm.NewNumber(float64(k)))
 				}
 			}
 			result, control = ev.Send(vm, v, locals)
 			switch control {
 			case NoStop, ContinueStop: // do nothing
 			case BreakStop:
-				return result, NoStop
+				return result
 			case ReturnStop, ExceptionStop:
-				return result, control
+				return vm.Stop(result, control)
 			default:
 				panic(fmt.Sprintf("iolang: invalid Stop: %v", control))
 			}
 		}
 	}
-	return result, NoStop
+	return result
 }
 
 // FileForeachLine is a File method.
 //
 // foreachLine executes a message for each line of the file.
-func FileForeachLine(vm *VM, target, locals Interface, msg *Message) (result Interface, control Stop) {
+func FileForeachLine(vm *VM, target, locals Interface, msg *Message) (result *Object) {
 	kn, vn, hkn, hvn, ev := ForeachArgs(msg)
 	if ev == nil {
-		return vm.RaiseException("foreach requires 1, 2, or 3 arguments")
+		return vm.RaiseExceptionf("foreach requires 1, 2, or 3 arguments")
 	}
-	f := target.(*File)
+	target.Lock()
+	f := target.Value.(File)
+	target.Unlock()
 	k := 0
-	// f.ReadLine implements the same logic as FileForeach above.
+	var control Stop
 	for {
-		line, err := f.ReadLine()
+		// f.ReadLine implements the same logic as FileForeach above.
+		line, eof, err := f.ReadLine()
+		if eof {
+			f.EOF = true
+			target.Lock()
+			target.Value = f
+			target.Unlock()
+		}
 		if line != nil {
 			v := vm.NewSequence(line, true, "latin1")
 			if hvn {
-				vm.SetSlot(locals, vn, v)
+				locals.SetSlot(vn, v)
 				if hkn {
-					vm.SetSlot(locals, kn, vm.NewNumber(float64(k)))
+					locals.SetSlot(kn, vm.NewNumber(float64(k)))
 				}
 			}
 			result, control = ev.Send(vm, v, locals)
 			switch control {
 			case NoStop, ContinueStop: // do nothing
 			case BreakStop:
-				return result, NoStop
+				return result
 			case ReturnStop, ExceptionStop:
-				return result, control
+				return vm.Stop(result, control)
 			default:
 				panic(fmt.Sprintf("iolang: invalid Stop: %v", control))
 			}
@@ -433,150 +477,176 @@ func FileForeachLine(vm *VM, target, locals Interface, msg *Message) (result Int
 			k++
 		}
 	}
-	return result, NoStop
+	return result
 }
 
 // FileIsAtEnd is a File method.
 //
 // isAtEnd returns true if the file is at EOF.
-func FileIsAtEnd(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	f := target.(*File)
-	return vm.IoBool(f.EOF), NoStop
+func FileIsAtEnd(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	f := target.Value.(File)
+	target.Unlock()
+	return vm.IoBool(f.EOF)
 }
 
 // FileIsDirectory is a File method.
 //
 // isDirectory returns true if the path of the file is a directory.
-func FileIsDirectory(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	f := target.(*File)
+func FileIsDirectory(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	f := target.Value.(File)
+	target.Unlock()
 	fi, err := os.Stat(f.Path)
 	if err != nil {
 		return vm.IoError(err)
 	}
-	return vm.IoBool(fi.IsDir()), NoStop
+	return vm.IoBool(fi.IsDir())
 }
 
 // FileIsLink is a File method.
 //
 // isLink returns true if the path of the file is a symbolic link.
-func FileIsLink(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	f := target.(*File)
+func FileIsLink(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	f := target.Value.(File)
+	target.Unlock()
 	fi, err := os.Lstat(f.Path)
 	if err != nil {
 		return vm.IoError(err)
 	}
-	return vm.IoBool(fi.Mode()&os.ModeSymlink != 0), NoStop
+	return vm.IoBool(fi.Mode()&os.ModeSymlink != 0)
 }
 
 // FileIsOpen is a File method.
 //
 // isOpen returns true if the file is open.
-func FileIsOpen(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	f := target.(*File)
-	return vm.IoBool(f.File != nil), NoStop
+func FileIsOpen(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	f := target.Value.(File)
+	target.Unlock()
+	return vm.IoBool(f.File != nil)
 }
 
 // FileIsPipe is a File method.
 //
 // isPipe returns true if the path of the file is a named pipe.
-func FileIsPipe(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	f := target.(*File)
+func FileIsPipe(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	f := target.Value.(File)
+	target.Unlock()
 	fi, err := os.Stat(f.Path)
 	if err != nil {
 		return vm.IoError(err)
 	}
-	return vm.IoBool(fi.Mode()&os.ModeNamedPipe != 0), NoStop
+	return vm.IoBool(fi.Mode()&os.ModeNamedPipe != 0)
 }
 
 // FileIsRegularFile is a File method.
 //
 // isRegularFile returns true if the path of the file is a regular file.
-func FileIsRegularFile(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	f := target.(*File)
+func FileIsRegularFile(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	f := target.Value.(File)
+	target.Unlock()
 	fi, err := os.Stat(f.Path)
 	if err != nil {
 		return vm.IoError(err)
 	}
-	return vm.IoBool(fi.Mode().IsRegular()), NoStop
+	return vm.IoBool(fi.Mode().IsRegular())
 }
 
 // FileIsSocket is a File method.
 //
 // isSocket returns true if the path of the file is a socket.
-func FileIsSocket(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	f := target.(*File)
+func FileIsSocket(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	f := target.Value.(File)
+	target.Unlock()
 	fi, err := os.Stat(f.Path)
 	if err != nil {
 		return vm.IoError(err)
 	}
-	return vm.IoBool(fi.Mode()&os.ModeSocket != 0), NoStop
+	return vm.IoBool(fi.Mode()&os.ModeSocket != 0)
 }
 
 // FileIsUserExecutable is a File method.
 //
 // isUserExecutable returns true if the path of the file is executable by its
 // owner. Always false on Windows.
-func FileIsUserExecutable(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	f := target.(*File)
+func FileIsUserExecutable(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	f := target.Value.(File)
+	target.Unlock()
 	fi, err := os.Stat(f.Path)
 	if err != nil {
 		return vm.IoError(err)
 	}
-	return vm.IoBool(fi.Mode().Perm()&0100 != 0), NoStop
+	return vm.IoBool(fi.Mode().Perm()&0100 != 0)
 }
 
 // FileLastDataChangeDate is a File method.
 //
 // lastDataChangeDate returns the date at which the file's contents were last
 // modified.
-func FileLastDataChangeDate(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	f := target.(*File)
+func FileLastDataChangeDate(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	f := target.Value.(File)
+	target.Unlock()
 	fi, err := os.Stat(f.Path)
 	if err != nil {
 		return vm.IoError(err)
 	}
-	return vm.NewDate(fi.ModTime()), NoStop
+	return vm.NewDate(fi.ModTime())
 }
 
 // FileMode is a File method.
 //
 // mode returns a string describing the file's mode; one of "read", "update",
 // or "append".
-func FileMode(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	f := target.(*File)
-	return vm.NewString(f.Mode), NoStop
+func FileMode(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	f := target.Value.(File)
+	target.Unlock()
+	return vm.NewString(f.Mode)
 }
 
 // FileMoveTo is a File method.
 //
 // moveTo moves the file at the file's path to the given path.
-func FileMoveTo(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	f := target.(*File)
-	s, err, stop := msg.StringArgAt(vm, locals, 0)
+func FileMoveTo(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	f := target.Value.(File)
+	target.Unlock()
+	s, exc, stop := msg.StringArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return err, stop
+		return vm.Stop(exc, stop)
 	}
-	to := filepath.FromSlash(s.String())
+	to := filepath.FromSlash(s)
 	if err := os.Rename(f.Path, to); err != nil {
 		return vm.IoError(err)
 	}
-	return target, NoStop
+	return target
 }
 
 // FileName is a File method.
 //
 // FileName returns the name of the file or directory at the file's path,
 // similar to UNIX basename.
-func FileName(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	f := target.(*File)
-	return vm.NewString(filepath.Base(f.Path)), NoStop
+func FileName(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	f := target.Value.(File)
+	target.Unlock()
+	return vm.NewString(filepath.Base(f.Path))
 }
 
 // FileOpen is a File method.
 //
 // open opens the file.
-func FileOpen(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	f := target.(*File)
+func FileOpen(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	f := target.Value.(File)
+	target.Unlock()
 	if f.File == nil {
 		var err error
 		switch f.Mode {
@@ -593,130 +663,174 @@ func FileOpen(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) 
 			return vm.IoError(err)
 		}
 	}
-	return target, NoStop
+	target.Lock()
+	target.Value = f
+	target.Unlock()
+	return target
 }
 
 // FileOpenForAppending is a File method.
 //
 // openForAppending opens the file for appending.
-func FileOpenForAppending(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	f := target.(*File)
+func FileOpenForAppending(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	f := target.Value.(File)
 	f.Mode = "append"
+	target.Value = f
+	target.Unlock()
 	return FileOpen(vm, target, locals, msg)
 }
 
 // FileOpenForReading is a File method.
 //
 // openForReading opens the file for reading.
-func FileOpenForReading(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	f := target.(*File)
+func FileOpenForReading(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	f := target.Value.(File)
 	f.Mode = "read"
+	target.Value = f
+	target.Unlock()
 	return FileOpen(vm, target, locals, msg)
 }
 
 // FileOpenForUpdating is a File method.
 //
 // openForUpdating opens the file for updating.
-func FileOpenForUpdating(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	f := target.(*File)
+func FileOpenForUpdating(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	f := target.Value.(File)
 	f.Mode = "update"
+	target.Value = f
+	target.Unlock()
 	return FileOpen(vm, target, locals, msg)
 }
 
 // FilePath is a File method.
 //
 // path returns the file's absolute path.
-func FilePath(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	f := target.(*File)
-	return vm.NewString(filepath.ToSlash(f.Path)), NoStop
+func FilePath(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	f := target.Value.(File)
+	target.Unlock()
+	return vm.NewString(filepath.ToSlash(f.Path))
 }
 
 // FilePosition is a File method.
 //
 // position returns the current position of the file cursor.
-func FilePosition(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	f := target.(*File)
+func FilePosition(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	f := target.Value.(File)
+	target.Unlock()
 	p, err := f.File.Seek(0, io.SeekCurrent)
 	if err != nil {
 		return vm.IoError(err)
 	}
-	return vm.NewNumber(float64(p)), NoStop
+	return vm.NewNumber(float64(p))
 }
 
 // FilePositionAtEnd is a File method.
 //
 // positionAtEnd moves the file cursor to the end of the file.
-func FilePositionAtEnd(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	f := target.(*File)
+func FilePositionAtEnd(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	f := target.Value.(File)
+	target.Unlock()
 	_, err := f.File.Seek(0, io.SeekEnd)
 	if err != nil {
 		return vm.IoError(err)
 	}
 	f.EOF = false
-	return target, NoStop
+	target.Lock()
+	target.Value = f
+	target.Unlock()
+	return target
 }
 
 // FileProtectionMode is a File method.
 //
 // protectionMode returns the stat mode of the path of the file as a Number.
-func FileProtectionMode(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	f := target.(*File)
+func FileProtectionMode(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	f := target.Value.(File)
+	target.Unlock()
 	fi, err := os.Stat(f.Path)
 	if err != nil {
 		return vm.IoError(err)
 	}
-	return vm.NewNumber(float64(fi.Mode())), NoStop
+	return vm.NewNumber(float64(fi.Mode()))
 }
 
 // FileReadBufferOfLength is a File method.
 //
 // readBufferOfLength reads the specified number of bytes into a Sequence.
-func FileReadBufferOfLength(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	f := target.(*File)
-	count, aerr, stop := msg.NumberArgAt(vm, locals, 0)
+func FileReadBufferOfLength(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	f := target.Value.(File)
+	target.Unlock()
+	count, exc, stop := msg.NumberArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return aerr, stop
+		return vm.Stop(exc, stop)
 	}
-	if count.Value < 0 {
-		return vm.RaiseException("can't read negative bytes")
+	if count < 0 {
+		return vm.RaiseExceptionf("can't read negative bytes")
 	}
-	b := make([]byte, int(count.Value))
+	b := make([]byte, int(count))
 	n, err := f.File.Read(b)
 	if n > 0 {
-		return vm.NewSequence(b, true, "utf8"), NoStop
+		return vm.NewSequence(b, true, "utf8")
 	}
 	if err != nil {
 		if err != io.EOF {
 			return vm.IoError(err)
 		}
 		f.EOF = true
+		target.Lock()
+		target.Value = f
+		target.Unlock()
 	}
-	return vm.Nil, NoStop
+	return vm.Nil
 }
 
 // FileReadLine is a File method.
 //
 // readLine reads a line from the file.
-func FileReadLine(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	f := target.(*File)
-	b, err := f.ReadLine()
+func FileReadLine(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	f := target.Value.(File)
+	target.Unlock()
+	b, eof, err := f.ReadLine()
+	if eof {
+		f.EOF = true
+		target.Lock()
+		target.Value = f
+		target.Unlock()
+	}
 	if err != nil {
 		if err == io.EOF && len(b) == 0 {
-			return vm.Nil, NoStop
+			return vm.Nil
 		}
 		return vm.IoError(err)
 	}
-	return vm.NewSequence(b, true, "utf8"), NoStop
+	return vm.NewSequence(b, true, "utf8")
 }
 
 // FileReadLines is a File method.
 //
 // readLines returns a List containing all lines in the file.
-func FileReadLines(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	f := target.(*File)
+func FileReadLines(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	f := target.Value.(File)
+	target.Unlock()
 	l := []Interface{}
 	for {
-		b, err := f.ReadLine()
+		b, eof, err := f.ReadLine()
+		if eof {
+			f.EOF = true
+			target.Lock()
+			target.Value = f
+			target.Unlock()
+		}
 		if err != nil && err != io.EOF {
 			return vm.IoError(err)
 		}
@@ -727,51 +841,58 @@ func FileReadLines(vm *VM, target, locals Interface, msg *Message) (Interface, S
 		}
 	}
 	if len(l) > 0 {
-		return vm.NewList(l...), NoStop
+		return vm.NewList(l...)
 	}
-	return vm.Nil, NoStop
+	return vm.Nil
 }
 
 // FileReadStringOfLength is a File method.
 //
 // readStringOfLength reads a string up to the given length from the file.
-func FileReadStringOfLength(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	f := target.(*File)
-	count, aerr, stop := msg.NumberArgAt(vm, locals, 0)
+func FileReadStringOfLength(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	f := target.Value.(File)
+	target.Unlock()
+	count, exc, stop := msg.NumberArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return aerr, stop
+		return vm.Stop(exc, stop)
 	}
-	if count.Value < 0 {
-		return vm.RaiseException("can't read negative bytes")
+	if count < 0 {
+		return vm.RaiseExceptionf("can't read negative bytes")
 	}
-	b := make([]byte, int(count.Value))
+	b := make([]byte, int(count))
 	n, err := f.File.Read(b)
 	if n > 0 {
-		return vm.NewSequence(b, false, "utf8"), NoStop
+		return vm.NewSequence(b, false, "utf8")
 	}
 	if err != nil {
 		if err != io.EOF {
 			return vm.IoError(err)
 		}
 		f.EOF = true
+		target.Lock()
+		target.Value = f
+		target.Unlock()
 	}
-	return vm.Nil, NoStop
+	return vm.Nil
 }
 
 // FileReadToEnd is a File method.
 //
 // readToEnd reads chunks of a given size (default 4096) to the end of the file
 // and returns a Sequence containing the bytes read.
-func FileReadToEnd(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	f := target.(*File)
+func FileReadToEnd(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	f := target.Value.(File)
+	target.Unlock()
 	sz := 4096
 	if len(msg.Args) > 0 {
-		n, err, stop := msg.NumberArgAt(vm, locals, 0)
+		n, exc, stop := msg.NumberArgAt(vm, locals, 0)
 		if stop != NoStop {
-			return err, stop
+			return vm.Stop(exc, stop)
 		}
-		if n.Value >= 1 {
-			sz = int(n.Value)
+		if n >= 1 {
+			sz = int(n)
 		}
 	}
 	b := make([]byte, sz)
@@ -783,6 +904,11 @@ func FileReadToEnd(vm *VM, target, locals Interface, msg *Message) (Interface, S
 				return vm.IoError(err)
 			}
 			f.EOF = true
+			target.Lock()
+			target.Value = f
+			target.Unlock()
+			v = append(v, b[:n]...)
+			break
 		}
 		if n > 0 {
 			v = append(v, b[:n]...)
@@ -791,59 +917,73 @@ func FileReadToEnd(vm *VM, target, locals Interface, msg *Message) (Interface, S
 		}
 	}
 	if len(v) > 0 {
-		return vm.NewSequence(v, true, "utf8"), NoStop
+		return vm.NewSequence(v, true, "utf8")
 	}
-	return vm.Nil, NoStop
+	return vm.Nil
 }
 
 // FileRemove is a File method.
 //
 // remove removes the file at the file's path.
-func FileRemove(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	f := target.(*File)
+func FileRemove(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	f := target.Value.(File)
+	target.Unlock()
 	err := os.Remove(f.Path)
 	if err != nil && !os.IsNotExist(err) {
 		return vm.IoError(err)
 	}
-	return target, NoStop
+	return target
 }
 
 // FileRewind is a File method.
 //
 // rewind returns the file cursor to the beginning of the file.
-func FileRewind(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	f := target.(*File)
+func FileRewind(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	f := target.Value.(File)
+	target.Unlock()
 	_, err := f.File.Seek(0, io.SeekStart)
 	if err != nil {
 		return vm.IoError(err)
 	}
 	f.EOF = false
-	return target, NoStop
+	target.Lock()
+	target.Value = f
+	target.Unlock()
+	return target
 }
 
 // FileSetPath is a File method.
 //
 // setPath sets the file's path.
-func FileSetPath(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	f := target.(*File)
-	s, err, stop := msg.StringArgAt(vm, locals, 0)
+func FileSetPath(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	f := target.Value.(File)
+	target.Unlock()
+	s, exc, stop := msg.StringArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return err, stop
+		return vm.Stop(exc, stop)
 	}
-	f.Path = filepath.FromSlash(s.String())
-	return target, NoStop
+	f.Path = filepath.FromSlash(s)
+	target.Lock()
+	target.Value = f
+	target.Unlock()
+	return target
 }
 
 // FileSetPosition is a File method.
 //
 // setPosition changes the file cursor's location.
-func FileSetPosition(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	f := target.(*File)
-	n, aerr, stop := msg.NumberArgAt(vm, locals, 0)
+func FileSetPosition(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	f := target.Value.(File)
+	target.Unlock()
+	n, exc, stop := msg.NumberArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return aerr, stop
+		return vm.Stop(exc, stop)
 	}
-	_, err := f.File.Seek(int64(n.Value), io.SeekStart)
+	_, err := f.File.Seek(int64(n), io.SeekStart)
 	if err != nil {
 		return vm.IoError(err)
 	}
@@ -852,63 +992,75 @@ func FileSetPosition(vm *VM, target, locals Interface, msg *Message) (Interface,
 	// between the seek and the next read, in which case claiming EOF is
 	// misleading. It's also easier to implement it this way.
 	f.EOF = false
-	return target, NoStop
+	target.Lock()
+	target.Value = f
+	target.Unlock()
+	return target
 }
 
 // FileSize is a File method.
 //
 // size determines the file size.
-func FileSize(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	f := target.(*File)
+func FileSize(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	f := target.Value.(File)
+	target.Unlock()
 	fi, err := os.Stat(f.Path)
 	if err != nil {
 		return vm.IoError(err)
 	}
-	return vm.NewNumber(float64(fi.Size())), NoStop
+	return vm.NewNumber(float64(fi.Size()))
 }
 
 // FileTemporaryFile is a File method.
 //
 // temporaryFile creates a file that did not exist previously. It is not
 // guaranteed to be removed at any point.
-func FileTemporaryFile(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+func FileTemporaryFile(vm *VM, target, locals Interface, msg *Message) *Object {
 	fp, err := ioutil.TempFile("", "iolang_temp")
 	if err != nil {
 		return vm.IoError(err)
 	}
-	return vm.NewFile(fp, "update"), NoStop
+	return vm.NewFile(fp, "update")
 }
 
 // FileTruncateToSize is a File method.
 //
 // truncateToSize truncates the file to the given size.
-func FileTruncateToSize(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	f := target.(*File)
-	n, aerr, stop := msg.NumberArgAt(vm, locals, 0)
+func FileTruncateToSize(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	f := target.Value.(File)
+	target.Unlock()
+	n, exc, stop := msg.NumberArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return aerr, stop
+		return vm.Stop(exc, stop)
 	}
-	err := f.File.Truncate(int64(n.Value))
+	err := f.File.Truncate(int64(n))
 	if err != nil {
 		return vm.IoError(err)
 	}
-	return target, NoStop
+	return target
 }
 
 // FileWrite is a File method.
 //
 // write writes its arguments to the file.
-func FileWrite(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
-	f := target.(*File)
+func FileWrite(vm *VM, target, locals Interface, msg *Message) *Object {
+	target.Lock()
+	f := target.Value.(File)
+	target.Unlock()
 	for i := range msg.Args {
-		s, aerr, stop := msg.StringArgAt(vm, locals, i)
+		s, obj, stop := msg.SequenceArgAt(vm, locals, i)
 		if stop != NoStop {
-			return aerr, stop
+			return vm.Stop(obj, stop)
 		}
-		_, err := f.File.Write(s.Bytes())
+		obj.Lock()
+		v := s.Bytes()
+		obj.Unlock()
+		_, err := f.File.Write(v)
 		if err != nil {
 			return vm.IoError(err)
 		}
 	}
-	return target, NoStop
+	return target
 }

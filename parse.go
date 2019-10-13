@@ -29,7 +29,7 @@ func (vm *VM) Parse(source io.Reader, label string) (msg *Message, err error) {
 	if err != nil {
 		return msg, err
 	}
-	if err := vm.OpShuffle(msg); err != nil {
+	if err := vm.OpShuffle(vm.MessageObject(msg)); err != nil {
 		return msg, err
 	}
 	return msg, err
@@ -60,7 +60,7 @@ func (vm *VM) ParseScanner(src io.RuneScanner, label string) (msg *Message, err 
 }
 
 func (vm *VM) parseRecurse(open rune, src io.RuneScanner, tokens chan token, label string) (tok token, msg *Message, err error) {
-	msg = &Message{Object: Object{Protos: vm.CoreProto("Message")}, Label: label}
+	msg = &Message{Label: label}
 	m := msg
 	defer func() {
 		if msg.Text == "" && msg.Args == nil {
@@ -215,9 +215,8 @@ func (vm *VM) parseRecurse(open rune, src io.RuneScanner, tokens chan token, lab
 		}
 		if tok.Kind != commentToken {
 			m.Next = &Message{
-				Object: Object{Protos: vm.CoreProto("Message")},
-				Prev:   m,
-				Label:  label,
+				Prev:  m,
+				Label: label,
 			}
 			m = m.Next
 		}
@@ -234,7 +233,7 @@ func (vm *VM) DoString(src string, label string) (Interface, Stop) {
 func (vm *VM) DoReader(src io.Reader, label string) (Interface, Stop) {
 	msg, err := vm.Parse(src, label)
 	if err != nil {
-		return vm.IoError(err)
+		return vm.IoError(err), ExceptionStop
 	}
 	return vm.DoMessage(msg, vm.Lobby)
 }
@@ -250,11 +249,11 @@ func (vm *VM) MustDoString(src string) Interface {
 	r := strings.NewReader(src)
 	msg, err := vm.Parse(r, "<string>")
 	if err != nil {
-		panic(err)
+		panic(fmt.Errorf("iolang: error parsing critical code: %w", err))
 	}
 	v, stop := msg.Eval(vm, vm.Lobby)
 	if stop == ExceptionStop {
-		panic(v)
+		panic(fmt.Errorf("iolang: exception executing critical code: %s", vm.AsString(v)))
 	}
 	return v
 }

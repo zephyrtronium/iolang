@@ -2,7 +2,6 @@ package iolang
 
 import (
 	"strings"
-	"sync/atomic"
 	"testing"
 )
 
@@ -20,7 +19,7 @@ func (c SourceTestCase) TestFunc(name string) func(*testing.T) {
 		if err != nil {
 			t.Fatalf("could not parse %q: %v", c.Source, err)
 		}
-		if err := testVM.OpShuffle(msg); err != nil {
+		if err := testVM.OpShuffle(testVM.MessageObject(msg)); err != nil {
 			t.Fatalf("could not opshuffle %q: %v", c.Source, err)
 		}
 		if r, s := testVM.DoMessage(msg, testVM.Lobby); !c.Pass(r, s) {
@@ -43,12 +42,11 @@ func CheckSlots(t *testing.T, obj Interface, slots []string) {
 	t.Helper()
 	obj.Lock()
 	defer obj.Unlock()
-	s := obj.RawSlots()
 	checked := make(map[string]bool, len(slots))
 	for _, name := range slots {
 		checked[name] = true
 		t.Run("Have_"+name, func(t *testing.T) {
-			slot, ok := s[name]
+			slot, ok := obj.Slots[name]
 			if !ok {
 				t.Fatal("no slot", name)
 			}
@@ -57,7 +55,7 @@ func CheckSlots(t *testing.T, obj Interface, slots []string) {
 			}
 		})
 	}
-	for name := range s {
+	for name := range obj.Slots {
 		t.Run("Want_"+name, func(t *testing.T) {
 			if !checked[name] {
 				t.Fatal("unexpected slot", name)
@@ -72,55 +70,32 @@ func CheckObjectIsProto(t *testing.T, obj Interface) {
 	t.Helper()
 	obj.Lock()
 	defer obj.Unlock()
-	protos := obj.RawProtos()
-	switch len(protos) {
+	switch len(obj.Protos) {
 	case 0:
 		t.Fatal("no protos")
 	case 1: // do nothing
 	default:
-		t.Error("incorrect number of protos: expected 1, have", len(protos))
+		t.Error("incorrect number of protos: expected 1, have", len(obj.Protos))
 	}
-	if p := protos[0]; p != testVM.BaseObject {
+	if p := obj.Protos[0]; p != testVM.BaseObject {
 		t.Errorf("wrong proto: expected %T@%p, have %T@%p", testVM.BaseObject, testVM.BaseObject, p, p)
 	}
-}
-
-// singleLookupObject is a testing object that panics if its RawSlots method is
-// called more than once.
-type singleLookupObject struct {
-	Interface
-	c uint32
-}
-
-func (o *singleLookupObject) Clone() Interface {
-	return &singleLookupObject{Interface: o.Interface.Clone()}
-}
-
-func (o *singleLookupObject) RawSlots() Slots {
-	if !atomic.CompareAndSwapUint32(&o.c, 0, 1) {
-		panic("multiple inspections of a single-lookup object")
-	}
-	return o.Interface.RawSlots()
 }
 
 // TestGetSlot tests that GetSlot can find local and ancestor slots, and that no
 // object is checked more than once.
 func TestGetSlot(t *testing.T) {
-	sl := &singleLookupObject{Interface: testVM.Lobby}
 	cases := map[string]struct {
 		o, v, p Interface
 		slot    string
 	}{
-		"Local":        {testVM.Lobby, testVM.Lobby, testVM.Lobby, "Lobby"},
-		"Ancestor":     {testVM.Lobby, testVM.BaseObject, testVM.Core, "Object"},
-		"Never":        {testVM.Lobby, nil, nil, "fail to find"},
-		"OnceLocal":    {sl, testVM.Lobby, sl, "Lobby"},
-		"OnceAncestor": {&singleLookupObject{Interface: testVM.Lobby}, testVM.BaseObject, testVM.Core, "Object"},
-		"OnceNever":    {&singleLookupObject{Interface: testVM.Lobby}, nil, nil, "fail to find"},
+		"Local":    {testVM.Lobby, testVM.Lobby, testVM.Lobby, "Lobby"},
+		"Ancestor": {testVM.Lobby, testVM.BaseObject, testVM.Core, "Object"},
+		"Never":    {testVM.Lobby, nil, nil, "fail to find"},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
-			v, p := testVM.GetSlot(c.o, c.slot)
+			v, p := c.o.GetSlot(c.slot)
 			if v != c.v {
 				t.Errorf("slot %s found wrong object: have %T@%p, want %T@%p", c.slot, v, v, c.v, c.v)
 			}
@@ -142,15 +117,10 @@ func BenchmarkGetSlot(b *testing.B) {
 		"Proto":    {testVM.BaseObject, "Lobby"},
 		"Ancestor": {o, "Lobby"},
 	}
-	// o has the deepest search depth, so it will reserve the most space in
-	// vm.protoSet and vm.protoStack. Getting the slot once here ensures that
-	// results are consistent within the actual benchmark. We'll actually get a
-	// slot that lives a couple extra levels deeper, just in case.
-	testVM.GetSlot(o, "Object")
 	for name, c := range cases {
 		b.Run(name, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				BenchDummy, _ = testVM.GetSlot(c.o, c.slot)
+				BenchDummy, _ = c.o.GetSlot(c.slot)
 			}
 		})
 	}
@@ -170,7 +140,7 @@ func TestGetLocalSlot(t *testing.T) {
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
-			v, ok := testVM.GetLocalSlot(c.o, c.slot)
+			v, ok := c.o.GetLocalSlot(c.slot)
 			if ok != c.ok {
 				t.Errorf("slot %s has wrong presence: have %v, want %v", c.slot, ok, c.ok)
 			}
@@ -185,7 +155,7 @@ func TestGetLocalSlot(t *testing.T) {
 // activate slot when activated.
 func TestObjectGoActivate(t *testing.T) {
 	o := testVM.ObjectWith(Slots{})
-	testVM.SetSlot(testVM.Lobby, "TestObjectActivate", o)
+	testVM.Lobby.SetSlot("TestObjectActivate", o)
 	cases := map[string]SourceTestCase{
 		"InactiveNoActivate": {`getSlot("TestObjectActivate") removeSlot("activate") setIsActivatable(false)`, PassEqual(o)},
 		"InactiveActivate":   {`getSlot("TestObjectActivate") do(activate := Lobby) setIsActivatable(false)`, PassEqual(o)},
@@ -195,7 +165,7 @@ func TestObjectGoActivate(t *testing.T) {
 	for name, c := range cases {
 		t.Run(name, c.TestFunc("TestObjectActivate/"+name))
 	}
-	testVM.RemoveSlot(testVM.Lobby, "TestObjectActivate")
+	testVM.Lobby.RemoveSlot("TestObjectActivate")
 }
 
 // TestObjectSlots tests that a new VM Object has the slots we expect.
