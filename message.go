@@ -27,7 +27,7 @@ type Message struct {
 
 	// Memo is the message's cached value. If non-nil, this is used instead of
 	// performing the message.
-	Memo Interface
+	Memo *Object
 
 	// Label is the message's label, generally the name of the file from which
 	// it was parsed, if any.
@@ -192,7 +192,7 @@ func (m *Message) MessageArgAt(vm *VM, locals *Object, n int) (*Message, *Object
 }
 
 // EvalArgAt evaluates the nth argument.
-func (m *Message) EvalArgAt(vm *VM, locals Interface, n int) (result Interface, control Stop) {
+func (m *Message) EvalArgAt(vm *VM, locals *Object, n int) (result *Object, control Stop) {
 	return m.ArgAt(n).Eval(vm, locals)
 }
 
@@ -200,7 +200,7 @@ func (m *Message) EvalArgAt(vm *VM, locals Interface, n int) (result Interface, 
 // Send using locals as the target.
 //
 // NOTE: It is unsafe to call this while holding the lock of any object.
-func (m *Message) Eval(vm *VM, locals Interface) (result Interface, control Stop) {
+func (m *Message) Eval(vm *VM, locals *Object) (result *Object, control Stop) {
 	return m.Send(vm, locals, locals)
 }
 
@@ -209,7 +209,7 @@ func (m *Message) Eval(vm *VM, locals Interface) (result Interface, control Stop
 // channel and returns if there is a waiting signal.
 //
 // NOTE: It is unsafe to call this while holding the lock of any object.
-func (m *Message) Send(vm *VM, target, locals Interface) (result Interface, control Stop) {
+func (m *Message) Send(vm *VM, target, locals *Object) (result *Object, control Stop) {
 	firstTarget := target
 	for m != nil {
 		m.RLock()
@@ -248,7 +248,7 @@ func (m *Message) Send(vm *VM, target, locals Interface) (result Interface, cont
 // result.
 //
 // NOTE: It is unsafe to call this while holding the lock of any object.
-func (vm *VM) Perform(target, locals Interface, msg *Message) (result Interface, control Stop) {
+func (vm *VM) Perform(target, locals *Object, msg *Message) (result *Object, control Stop) {
 	var v, proto *Object
 	// RLock is a recursive lock, so we can acquire it here regardless of
 	// whether it's held by Send.
@@ -467,7 +467,7 @@ func (vm *VM) initMessage() {
 // MessageAppendArg is a Message method.
 //
 // appendArg adds a message as an argument to the message.
-func MessageAppendArg(vm *VM, target, locals Interface, msg *Message) *Object {
+func MessageAppendArg(vm *VM, target, locals *Object, msg *Message) *Object {
 	m := target.Value.(*Message)
 	nm, err, stop := msg.MessageArgAt(vm, locals, 0)
 	if stop != NoStop {
@@ -484,7 +484,7 @@ func MessageAppendArg(vm *VM, target, locals Interface, msg *Message) *Object {
 // MessageAppendCachedArg is a Message method.
 //
 // appendCachedArg adds a value as an argument to the message.
-func MessageAppendCachedArg(vm *VM, target, locals Interface, msg *Message) *Object {
+func MessageAppendCachedArg(vm *VM, target, locals *Object, msg *Message) *Object {
 	m := target.Value.(*Message)
 	r, stop := msg.EvalArgAt(vm, locals, 0)
 	if stop != NoStop {
@@ -501,7 +501,7 @@ func MessageAppendCachedArg(vm *VM, target, locals Interface, msg *Message) *Obj
 // MessageArgAt is a Message method.
 //
 // argAt returns the nth argument, or nil if out of bounds.
-func MessageArgAt(vm *VM, target, locals Interface, msg *Message) *Object {
+func MessageArgAt(vm *VM, target, locals *Object, msg *Message) *Object {
 	m := target.Value.(*Message)
 	n, exc, stop := msg.NumberArgAt(vm, locals, 0)
 	if stop != NoStop {
@@ -516,7 +516,7 @@ func MessageArgAt(vm *VM, target, locals Interface, msg *Message) *Object {
 // MessageArgCount is a Message method.
 //
 // argCount returns the number of arguments to the message.
-func MessageArgCount(vm *VM, target, locals Interface, msg *Message) *Object {
+func MessageArgCount(vm *VM, target, locals *Object, msg *Message) *Object {
 	return vm.NewNumber(float64(target.Value.(*Message).ArgCount()))
 }
 
@@ -524,7 +524,7 @@ func MessageArgCount(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // argsEvaluatedIn returns a list containing the message arguments evaluated in
 // the context of the given object.
-func MessageArgsEvaluatedIn(vm *VM, target, locals Interface, msg *Message) *Object {
+func MessageArgsEvaluatedIn(vm *VM, target, locals *Object, msg *Message) *Object {
 	m := target.Value.(*Message)
 	ctx, stop := msg.EvalArgAt(vm, locals, 0)
 	if stop != NoStop {
@@ -532,7 +532,7 @@ func MessageArgsEvaluatedIn(vm *VM, target, locals Interface, msg *Message) *Obj
 	}
 	m.RLock()
 	defer m.RUnlock()
-	l := make([]Interface, m.ArgCount())
+	l := make([]*Object, m.ArgCount())
 	for k, v := range m.Args {
 		r, stop := v.Eval(vm, ctx)
 		if stop != NoStop {
@@ -546,10 +546,10 @@ func MessageArgsEvaluatedIn(vm *VM, target, locals Interface, msg *Message) *Obj
 // MessageArguments is a Message method.
 //
 // arguments returns a list of the arguments to the message as messages.
-func MessageArguments(vm *VM, target, locals Interface, msg *Message) *Object {
+func MessageArguments(vm *VM, target, locals *Object, msg *Message) *Object {
 	m := target.Value.(*Message)
 	m.RLock()
-	l := make([]Interface, m.ArgCount())
+	l := make([]*Object, m.ArgCount())
 	for k, v := range m.Args {
 		l[k] = vm.MessageObject(v)
 	}
@@ -561,7 +561,7 @@ func MessageArguments(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // asMessageWithEvaluatedArgs creates a copy of the message with its arguments
 // evaluated.
-func MessageAsMessageWithEvaluatedArgs(vm *VM, target, locals Interface, msg *Message) *Object {
+func MessageAsMessageWithEvaluatedArgs(vm *VM, target, locals *Object, msg *Message) *Object {
 	m := target.Value.(*Message)
 	m.RLock()
 	defer m.RUnlock()
@@ -591,7 +591,7 @@ func MessageAsMessageWithEvaluatedArgs(vm *VM, target, locals Interface, msg *Me
 // MessageAsString is a Message method.
 //
 // asString creates a string representation of an object.
-func MessageAsString(vm *VM, target, locals Interface, msg *Message) *Object {
+func MessageAsString(vm *VM, target, locals *Object, msg *Message) *Object {
 	b := bytes.Buffer{}
 	m := target.Value.(*Message)
 	m.stringRecurse(vm, &b)
@@ -602,7 +602,7 @@ func MessageAsString(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // cachedResult returns the cached value to which the message evaluates, or nil
 // if there is not one, though this may also mean that nil is cached.
-func MessageCachedResult(vm *VM, target, locals Interface, msg *Message) *Object {
+func MessageCachedResult(vm *VM, target, locals *Object, msg *Message) *Object {
 	m := target.Value.(*Message)
 	m.RLock()
 	defer m.RUnlock()
@@ -613,7 +613,7 @@ func MessageCachedResult(vm *VM, target, locals Interface, msg *Message) *Object
 //
 // characterNumber returns the column number of the character within the line
 // at which the message was parsed.
-func MessageCharacterNumber(vm *VM, target, locals Interface, msg *Message) *Object {
+func MessageCharacterNumber(vm *VM, target, locals *Object, msg *Message) *Object {
 	m := target.Value.(*Message)
 	m.RLock()
 	defer m.RUnlock()
@@ -623,7 +623,7 @@ func MessageCharacterNumber(vm *VM, target, locals Interface, msg *Message) *Obj
 // MessageClone is a Message method.
 //
 // clone creates a deep copy of the message.
-func MessageClone(vm *VM, target, locals Interface, msg *Message) *Object {
+func MessageClone(vm *VM, target, locals *Object, msg *Message) *Object {
 	return vm.MessageObject(target.Value.(*Message).DeepCopy())
 }
 
@@ -632,7 +632,7 @@ func MessageClone(vm *VM, target, locals Interface, msg *Message) *Object {
 // doInContext evaluates the message in the context of the given object,
 // optionally with a given locals. If the locals aren't given, the context is
 // the locals.
-func MessageDoInContext(vm *VM, target, locals Interface, msg *Message) *Object {
+func MessageDoInContext(vm *VM, target, locals *Object, msg *Message) *Object {
 	m := target.Value.(*Message)
 	ctx, stop := msg.EvalArgAt(vm, locals, 0)
 	if stop != NoStop {
@@ -652,7 +652,7 @@ func MessageDoInContext(vm *VM, target, locals Interface, msg *Message) *Object 
 // MessageFromString is a Message method.
 //
 // fromString parses the string into a message chain.
-func MessageFromString(vm *VM, target, locals Interface, msg *Message) *Object {
+func MessageFromString(vm *VM, target, locals *Object, msg *Message) *Object {
 	s, exc, stop := msg.StringArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
@@ -668,7 +668,7 @@ func MessageFromString(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // hasCachedResult returns whether the message has a cached value to which the
 // message will evaluate.
-func MessageHasCachedResult(vm *VM, target, locals Interface, msg *Message) *Object {
+func MessageHasCachedResult(vm *VM, target, locals *Object, msg *Message) *Object {
 	m := target.Value.(*Message)
 	m.RLock()
 	defer m.RUnlock()
@@ -678,7 +678,7 @@ func MessageHasCachedResult(vm *VM, target, locals Interface, msg *Message) *Obj
 // MessageIsEndOfLine is a Message method.
 //
 // isEndOfLine returns whether the message is a terminator.
-func MessageIsEndOfLine(vm *VM, target, locals Interface, msg *Message) *Object {
+func MessageIsEndOfLine(vm *VM, target, locals *Object, msg *Message) *Object {
 	m := target.Value.(*Message)
 	m.RLock()
 	defer m.RUnlock()
@@ -689,7 +689,7 @@ func MessageIsEndOfLine(vm *VM, target, locals Interface, msg *Message) *Object 
 //
 // label returns the message's label, typically the name of the file from which
 // it was parsed.
-func MessageLabel(vm *VM, target, locals Interface, msg *Message) *Object {
+func MessageLabel(vm *VM, target, locals *Object, msg *Message) *Object {
 	m := target.Value.(*Message)
 	m.RLock()
 	defer m.RUnlock()
@@ -699,7 +699,7 @@ func MessageLabel(vm *VM, target, locals Interface, msg *Message) *Object {
 // MessageLast is a Message method.
 //
 // last returns the last message in the chain.
-func MessageLast(vm *VM, target, locals Interface, msg *Message) *Object {
+func MessageLast(vm *VM, target, locals *Object, msg *Message) *Object {
 	m := target.Value.(*Message)
 	if m == nil {
 		return target
@@ -723,7 +723,7 @@ func MessageLast(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // lastBeforeEndOfLine returns the last message in the chain before a
 // terminator.
-func MessageLastBeforeEndOfLine(vm *VM, target, locals Interface, msg *Message) *Object {
+func MessageLastBeforeEndOfLine(vm *VM, target, locals *Object, msg *Message) *Object {
 	m := target.Value.(*Message)
 	if m == nil {
 		return target
@@ -746,7 +746,7 @@ func MessageLastBeforeEndOfLine(vm *VM, target, locals Interface, msg *Message) 
 // MessageLineNumber is a Message method.
 //
 // lineNumber returns the line number at which the message was parsed.
-func MessageLineNumber(vm *VM, target, locals Interface, msg *Message) *Object {
+func MessageLineNumber(vm *VM, target, locals *Object, msg *Message) *Object {
 	m := target.Value.(*Message)
 	m.RLock()
 	defer m.RUnlock()
@@ -756,14 +756,14 @@ func MessageLineNumber(vm *VM, target, locals Interface, msg *Message) *Object {
 // MessageName is a Message method.
 //
 // name returns the name of the message.
-func MessageName(vm *VM, target, locals Interface, msg *Message) *Object {
+func MessageName(vm *VM, target, locals *Object, msg *Message) *Object {
 	return vm.NewString(target.Value.(*Message).Name())
 }
 
 // MessageNext is a Message method.
 //
 // next returns the next message in the chain, or nil if this is the last one.
-func MessageNext(vm *VM, target, locals Interface, msg *Message) *Object {
+func MessageNext(vm *VM, target, locals *Object, msg *Message) *Object {
 	m := target.Value.(*Message)
 	if m == nil {
 		return vm.Nil
@@ -777,7 +777,7 @@ func MessageNext(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // nextIgnoreEndOfLines returns the next message in the chain, skipping
 // terminators, or nil if this is the last such message.
-func MessageNextIgnoreEndOfLines(vm *VM, target, locals Interface, msg *Message) *Object {
+func MessageNextIgnoreEndOfLines(vm *VM, target, locals *Object, msg *Message) *Object {
 	m := target.Value.(*Message)
 	if m == nil {
 		return target
@@ -804,7 +804,7 @@ func MessageNextIgnoreEndOfLines(vm *VM, target, locals Interface, msg *Message)
 //
 // opShuffle performs operator precedence shuffling on the message using the
 // message's OperatorTable.
-func MessageOpShuffle(vm *VM, target, locals Interface, msg *Message) *Object {
+func MessageOpShuffle(vm *VM, target, locals *Object, msg *Message) *Object {
 	m := target.Value.(*Message)
 	if m == nil {
 		return target
@@ -820,7 +820,7 @@ func MessageOpShuffle(vm *VM, target, locals Interface, msg *Message) *Object {
 // MessagePrevious is a Message method.
 //
 // previous returns the previous message in the chain.
-func MessagePrevious(vm *VM, target, locals Interface, msg *Message) *Object {
+func MessagePrevious(vm *VM, target, locals *Object, msg *Message) *Object {
 	m := target.Value.(*Message)
 	if m == nil {
 		return vm.Nil
@@ -834,7 +834,7 @@ func MessagePrevious(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // removeCachedResult removes the cached value to which the message will
 // evaluate, causing it to send to its receiver normally.
-func MessageRemoveCachedResult(vm *VM, target, locals Interface, msg *Message) *Object {
+func MessageRemoveCachedResult(vm *VM, target, locals *Object, msg *Message) *Object {
 	m := target.Value.(*Message)
 	if m != nil {
 		go func() {
@@ -850,7 +850,7 @@ func MessageRemoveCachedResult(vm *VM, target, locals Interface, msg *Message) *
 //
 // setArguments sets the message's arguments to deep copies of the messages in
 // the list argument.
-func MessageSetArguments(vm *VM, target, locals Interface, msg *Message) *Object {
+func MessageSetArguments(vm *VM, target, locals *Object, msg *Message) *Object {
 	m := target.Value.(*Message)
 	if m == nil {
 		return target
@@ -882,7 +882,7 @@ func MessageSetArguments(vm *VM, target, locals Interface, msg *Message) *Object
 //
 // setCachedResult sets the message's cached value, causing it to evaluate to
 // that value instead of sending to its receiver.
-func MessageSetCachedResult(vm *VM, target, locals Interface, msg *Message) *Object {
+func MessageSetCachedResult(vm *VM, target, locals *Object, msg *Message) *Object {
 	m := target.Value.(*Message)
 	r, stop := msg.EvalArgAt(vm, locals, 0)
 	if stop != NoStop {
@@ -900,7 +900,7 @@ func MessageSetCachedResult(vm *VM, target, locals Interface, msg *Message) *Obj
 //
 // setCharacterNumber sets the character number of the message, typically the
 // column number within the line at which the message was parsed.
-func MessageSetCharacterNumber(vm *VM, target, locals Interface, msg *Message) *Object {
+func MessageSetCharacterNumber(vm *VM, target, locals *Object, msg *Message) *Object {
 	m := target.Value.(*Message)
 	n, exc, stop := msg.NumberArgAt(vm, locals, 0)
 	if stop != NoStop {
@@ -917,7 +917,7 @@ func MessageSetCharacterNumber(vm *VM, target, locals Interface, msg *Message) *
 // MessageSetLabel is a Message method.
 //
 // setLabel sets the label of the message to the given string.
-func MessageSetLabel(vm *VM, target, locals Interface, msg *Message) *Object {
+func MessageSetLabel(vm *VM, target, locals *Object, msg *Message) *Object {
 	m := target.Value.(*Message)
 	s, exc, stop := msg.StringArgAt(vm, locals, 0)
 	if stop != NoStop {
@@ -934,7 +934,7 @@ func MessageSetLabel(vm *VM, target, locals Interface, msg *Message) *Object {
 // MessageSetLineNumber is a Message method.
 //
 // setLineNumber sets the line number of the message to the given integer.
-func MessageSetLineNumber(vm *VM, target, locals Interface, msg *Message) *Object {
+func MessageSetLineNumber(vm *VM, target, locals *Object, msg *Message) *Object {
 	m := target.Value.(*Message)
 	n, exc, stop := msg.NumberArgAt(vm, locals, 0)
 	if stop != NoStop {
@@ -951,7 +951,7 @@ func MessageSetLineNumber(vm *VM, target, locals Interface, msg *Message) *Objec
 // MessageSetName is a Message method.
 //
 // setName sets the message name to the given string.
-func MessageSetName(vm *VM, target, locals Interface, msg *Message) *Object {
+func MessageSetName(vm *VM, target, locals *Object, msg *Message) *Object {
 	m := target.Value.(*Message)
 	s, exc, stop := msg.StringArgAt(vm, locals, 0)
 	if stop != NoStop {
@@ -969,7 +969,7 @@ func MessageSetName(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // setNext sets the next message in the chain. That message's previous link
 // will be set to this message, if non-nil.
-func MessageSetNext(vm *VM, target, locals Interface, msg *Message) *Object {
+func MessageSetNext(vm *VM, target, locals *Object, msg *Message) *Object {
 	m := target.Value.(*Message)
 	r, stop := msg.EvalArgAt(vm, locals, 0)
 	if stop != NoStop {

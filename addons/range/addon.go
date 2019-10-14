@@ -14,7 +14,7 @@ func (rangeAddon) AddonName() string {
 	return "Range"
 }
 
-func (rangeAddon) Instance(vm *VM) Interface {
+func (rangeAddon) Instance(vm *VM) *Object {
 	slots := iolang.Slots{
 		"at":       vm.NewCFunction(At, RangeTag),
 		"contains": vm.NewCFunction(Contains, RangeTag),

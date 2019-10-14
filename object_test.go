@@ -9,7 +9,7 @@ import (
 // check the result.
 type SourceTestCase struct {
 	Source string
-	Pass   func(result Interface, control Stop) bool
+	Pass   func(result *Object, control Stop) bool
 }
 
 // TestFunc returns a test function for the test case.
@@ -30,15 +30,15 @@ func (c SourceTestCase) TestFunc(name string) func(*testing.T) {
 
 // PassEqual returns a Pass function for a SourceTestCase that predicates on
 // equality.
-func PassEqual(want Interface) func(Interface, Stop) bool {
-	return func(result Interface, control Stop) bool {
+func PassEqual(want *Object) func(*Object, Stop) bool {
+	return func(result *Object, control Stop) bool {
 		return want == result && control == NoStop
 	}
 }
 
 // CheckSlots is a testing helper to check whether an object has exactly the
 // slots we expect.
-func CheckSlots(t *testing.T, obj Interface, slots []string) {
+func CheckSlots(t *testing.T, obj *Object, slots []string) {
 	t.Helper()
 	obj.Lock()
 	defer obj.Unlock()
@@ -66,7 +66,7 @@ func CheckSlots(t *testing.T, obj Interface, slots []string) {
 
 // CheckObjectIsProto is a testing helper to check that an object has exactly
 // one proto, which is Core Object. obj must come from testVM.
-func CheckObjectIsProto(t *testing.T, obj Interface) {
+func CheckObjectIsProto(t *testing.T, obj *Object) {
 	t.Helper()
 	obj.Lock()
 	defer obj.Unlock()
@@ -86,7 +86,7 @@ func CheckObjectIsProto(t *testing.T, obj Interface) {
 // object is checked more than once.
 func TestGetSlot(t *testing.T) {
 	cases := map[string]struct {
-		o, v, p Interface
+		o, v, p *Object
 		slot    string
 	}{
 		"Local":    {testVM.Lobby, testVM.Lobby, testVM.Lobby, "Lobby"},
@@ -110,7 +110,7 @@ func TestGetSlot(t *testing.T) {
 func BenchmarkGetSlot(b *testing.B) {
 	o := testVM.BaseObject.Clone().Clone().Clone().Clone().Clone().Clone().Clone().Clone().Clone().Clone().Clone()
 	cases := map[string]struct {
-		o    Interface
+		o    *Object
 		slot string
 	}{
 		"Local":    {testVM.Lobby, "Lobby"},
@@ -130,7 +130,7 @@ func BenchmarkGetSlot(b *testing.B) {
 // slots.
 func TestGetLocalSlot(t *testing.T) {
 	cases := map[string]struct {
-		o, v Interface
+		o, v *Object
 		ok   bool
 		slot string
 	}{

@@ -7,29 +7,29 @@ package iolang
 type Call struct {
 	Object
 	// Sender is the locals in the context of the activation.
-	Sender Interface
+	Sender *Object
 	// Activated is the (Block) object which is being activated.
-	Activated Interface
+	Activated *Object
 	// Msg is the message received to activate the block.
 	Msg *Message
 	// Target is the object to which the message was sent.
-	Target Interface
+	Target *Object
 	// Context is the object which actually owned the activated slot.
-	Context Interface
+	Context *Object
 	// Coroutine is the coroutine running this call.
 	Coroutine *VM
 }
 
 // Activate returns the call.
-func (c *Call) Activate(vm *VM, target, locals, context Interface, msg *Message) Interface {
+func (c *Call) Activate(vm *VM, target, locals, context *Object, msg *Message) *Object {
 	return c
 }
 
 // Clone creates a clone of this call with the same values. The clone holds the
 // same message pointer.
-func (c *Call) Clone() Interface {
+func (c *Call) Clone() *Object {
 	return &Call{
-		Object:    Object{Protos: []Interface{c}},
+		Object:    Object{Protos: []*Object{c}},
 		Sender:    c.Sender,
 		Activated: c.Activated,
 		Msg:       c.Msg,
@@ -41,7 +41,7 @@ func (c *Call) Clone() Interface {
 /*
 // NewCall creates a Call object sent from sender to the target's actor using
 // the message msg.
-func (vm *VM) NewCall(sender, actor Interface, msg *Message, target, context Interface) Interface {
+func (vm *VM) NewCall(sender, actor *Object, msg *Message, target, context *Object) *Object {
 	return &Object{
 		Slots: Slots{
 			"activated":   actor,
@@ -69,7 +69,7 @@ func (vm *VM) initCall() {
 //
 // argAt returns the nth argument to the call, or nil if n is out of bounds.
 // The argument is returned as the original message and is not evaluated.
-func CallArgAt(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+func CallArgAt(vm *VM, target, locals *Object, msg *Message) (*Object, Stop) {
 	s, proto := target.GetSlot("message")
 	if proto == nil {
 		return vm.RaiseException("no message slot for Call argAt")
@@ -92,7 +92,7 @@ func CallArgAt(vm *VM, target, locals Interface, msg *Message) (Interface, Stop)
 // CallArgCount is a Call method.
 //
 // argCount returns the number of arguments passed in the call.
-func CallArgCount(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+func CallArgCount(vm *VM, target, locals *Object, msg *Message) (*Object, Stop) {
 	s, proto := target.GetSlot("message")
 	if proto == nil {
 		return vm.RaiseException("no message slot for Call argCount")
@@ -108,7 +108,7 @@ func CallArgCount(vm *VM, target, locals Interface, msg *Message) (Interface, St
 //
 // evalArgAt evaluates the nth argument to the call in the context of the
 // sender.
-func CallEvalArgAt(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+func CallEvalArgAt(vm *VM, target, locals *Object, msg *Message) (*Object, Stop) {
 	s, proto := target.GetSlot("message")
 	if proto == nil {
 		return vm.RaiseException("no message slot for Call evalArgAt")

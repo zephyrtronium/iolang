@@ -54,7 +54,7 @@ func (vm *VM) initFuture() {
 }
 
 // NewFuture creates a new Future object with its own coroutine and runs it.
-func (vm *VM) NewFuture(target Interface, msg *Message) *Object {
+func (vm *VM) NewFuture(target *Object, msg *Message) *Object {
 	coro := vm.Coro.Clone()
 	m := vm.MessageObject(msg)
 	f := &Future{Coro: vm.VMFor(coro)}
@@ -118,7 +118,7 @@ func (f *Future) run() {
 //
 // NOTE: If Wait returns a Stop, then that Stop was sent to the waiting
 // coroutine, not the Future's.
-func (f *Future) Wait(vm *VM) (Interface, Stop) {
+func (f *Future) Wait(vm *VM) (*Object, Stop) {
 	vm.Sched.Await(vm, f.Coro)
 	for atomic.LoadUintptr(&f.M) == 0 {
 		select {
@@ -154,7 +154,7 @@ func (f *Future) Wait(vm *VM) (Interface, Stop) {
 //
 // forward responds to messages to which the Future does not respond by proxying
 // to the evaluated result. This causes a wait.
-func FutureForward(vm *VM, target, locals Interface, msg *Message) *Object {
+func FutureForward(vm *VM, target, locals *Object, msg *Message) *Object {
 	f := target.Value.(*Future)
 	if atomic.LoadUintptr(&f.M) == 0 {
 		if f.Coro == nil {
@@ -177,7 +177,7 @@ func FutureForward(vm *VM, target, locals Interface, msg *Message) *Object {
 // FutureWaitOnResult is a Future method.
 //
 // waitOnResult blocks until the result of the Future is computed. Returns nil.
-func FutureWaitOnResult(vm *VM, target, locals Interface, msg *Message) *Object {
+func FutureWaitOnResult(vm *VM, target, locals *Object, msg *Message) *Object {
 	f := target.Value.(*Future)
 	if f.Coro == nil {
 		// Either it hasn't been started yet or it's already finished. In the
@@ -198,7 +198,7 @@ func FutureWaitOnResult(vm *VM, target, locals Interface, msg *Message) *Object 
 // ObjectAsyncSend is an Object method.
 //
 // asyncSend evaluates a message in a new coroutine.
-func ObjectAsyncSend(vm *VM, target, locals Interface, msg *Message) *Object {
+func ObjectAsyncSend(vm *VM, target, locals *Object, msg *Message) *Object {
 	if msg.ArgCount() == 0 {
 		return vm.RaiseExceptionf("asyncSend requires an argument")
 	}
@@ -210,7 +210,7 @@ func ObjectAsyncSend(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // futureSend evaluates a message in a new coroutine and returns a Future which
 // will become the result.
-func ObjectFutureSend(vm *VM, target, locals Interface, msg *Message) *Object {
+func ObjectFutureSend(vm *VM, target, locals *Object, msg *Message) *Object {
 	if msg.ArgCount() == 0 {
 		return vm.RaiseExceptionf("futureSend requires an argument")
 	}

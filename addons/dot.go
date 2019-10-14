@@ -10,9 +10,8 @@ package addons
 import "github.com/zephyrtronium/iolang"
 
 type (
-	Interface = iolang.Interface
-	Object    = iolang.Object
-	Slots     = iolang.Slots
+	Object = iolang.Object
+	Slots  = iolang.Slots
 
 	Stop = iolang.Stop
 

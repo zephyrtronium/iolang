@@ -21,7 +21,7 @@ type Addon interface {
 	// Addons object. It is called exactly once each time a VM loads the addon.
 	// This may be more than once in the lifetime of the plugin or program if
 	// multiple separate VMs open it.
-	Instance(vm *VM) Interface
+	Instance(vm *VM) *Object
 	// Script returns a Message to be sent to the addon proto after it is
 	// loaded. This allows an addon to compile an Io script to perform
 	// additional setup once the proto exists. If the message is not nil, then
@@ -41,14 +41,14 @@ func (vm *VM) initPlugin() {
 
 // LoadAddon loads an addon. It returns a channel over which the addon object
 // will be sent once it is loaded.
-func (vm *VM) LoadAddon(addon Addon) chan Interface {
-	ch := make(chan Interface, 1)
+func (vm *VM) LoadAddon(addon Addon) chan *Object {
+	ch := make(chan *Object, 1)
 	vm.Sched.addons <- addontriple{vm, addon, ch}
 	return ch
 }
 
 // reallyLoadAddon is the method the scheduler calls to set up an addon proto.
-func (vm *VM) reallyLoadAddon(addon Addon) Interface {
+func (vm *VM) reallyLoadAddon(addon Addon) *Object {
 	p := addon.Instance(vm)
 	vm.Addons.SetSlot(addon.AddonName(), p)
 	m := addon.Script(vm)
@@ -64,7 +64,7 @@ func (vm *VM) reallyLoadAddon(addon Addon) Interface {
 // AddonOpen is an Addon method.
 //
 // open loads the addon at the receiver's path and returns the addon's object.
-func AddonOpen(vm *VM, target, locals Interface, msg *Message) *Object {
+func AddonOpen(vm *VM, target, locals *Object, msg *Message) *Object {
 	p, proto := target.GetSlot("path")
 	if proto == nil {
 		return vm.RaiseExceptionf("addon path unset")

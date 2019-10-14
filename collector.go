@@ -25,7 +25,7 @@ func (vm *VM) initCollector() {
 // objects collected program-wide (not only in the Io VM). This is much slower
 // than allowing collection to happen automatically, as the GC statistics must
 // be recorded twice to retrieve the freed object count.
-func CollectorCollect(vm *VM, target, locals Interface, msg *Message) *Object {
+func CollectorCollect(vm *VM, target, locals *Object, msg *Message) *Object {
 	var stats runtime.MemStats
 	runtime.ReadMemStats(&stats)
 	old := stats.Frees
@@ -37,7 +37,7 @@ func CollectorCollect(vm *VM, target, locals Interface, msg *Message) *Object {
 // CollectorShowStats is a Collector method.
 //
 // showStats prints detailed garbage collector information to standard output.
-func CollectorShowStats(vm *VM, target, locals Interface, msg *Message) *Object {
+func CollectorShowStats(vm *VM, target, locals *Object, msg *Message) *Object {
 	var s runtime.MemStats
 	runtime.ReadMemStats(&s)
 	if s.NumGC > 0 {
@@ -65,7 +65,7 @@ func CollectorShowStats(vm *VM, target, locals Interface, msg *Message) *Object 
 //
 // timeUsed reports the number of seconds spent in stop-the-world garbage
 // collection.
-func CollectorTimeUsed(vm *VM, target, locals Interface, msg *Message) *Object {
+func CollectorTimeUsed(vm *VM, target, locals *Object, msg *Message) *Object {
 	var stats runtime.MemStats
 	runtime.ReadMemStats(&stats)
 	return vm.NewNumber(float64(stats.PauseTotalNs) / 1e9)

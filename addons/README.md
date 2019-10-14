@@ -5,32 +5,31 @@ verbose. To use it, do `import . "github.com/zephyrtronium/iolang/addons"`.
 CFunction definitions can then look like this:
 
 ```
-func Foo(vm *VM, target, locals Interface, msg *Message) (Interface, Stop) {
+func Foo(vm *VM, target, locals *Object, msg *Message) *Object {
 	x, stop := msg.EvalArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return x, stop
+		return vm.Stop(x, stop)
 	}
 	// ...
-	return foo, NoStop
+	return foo
 }
 ```
 
 instead of this:
 
 ```
-func Foo(vm *iolang.VM, target, locals iolang.Interface, msg *iolang.Message) (iolang.Interface, iolang.Stop) {
+func Foo(vm *iolang.VM, target, locals *iolang.Object, msg *iolang.Message) *iolang.Object {
 	x, stop := msg.EvalArgAt(vm, locals, 0)
 	if stop != iolang.NoStop {
-		return x, stop
+		return vm.Stop(x, stop)
 	}
 	// ...
-	return foo, iolang.NoStop
+	return foo
 }
 ```
 
 The following iolang types are aliased:
 
-- Interface
 - Object
 - Slots
 - Stop

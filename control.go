@@ -63,7 +63,7 @@ func (err stopError) Error() string {
 
 // RemoteStop is a wrapped object and control flow status for sending to coros.
 type RemoteStop struct {
-	Result  Interface
+	Result  *Object
 	Control Stop
 }
 
@@ -127,7 +127,7 @@ func (vm *VM) Status(result *Object) (*Object, Stop) {
 // Or, to print each third number from 10 to 25:
 //
 //   io> for(x, 10, 25, 3, x println)
-func ObjectFor(vm *VM, target, locals Interface, msg *Message) (result *Object) {
+func ObjectFor(vm *VM, target, locals *Object, msg *Message) (result *Object) {
 	var (
 		low, high float64
 		exc       *Object
@@ -188,7 +188,7 @@ func ObjectFor(vm *VM, target, locals Interface, msg *Message) (result *Object) 
 //
 // while performs a loop as long as a condition, its first argument, evaluates
 // to true.
-func ObjectWhile(vm *VM, target, locals Interface, msg *Message) *Object {
+func ObjectWhile(vm *VM, target, locals *Object, msg *Message) *Object {
 	if err := msg.AssertArgCount("Object while", 2); err != nil {
 		return vm.IoError(err)
 	}
@@ -217,7 +217,7 @@ func ObjectWhile(vm *VM, target, locals Interface, msg *Message) *Object {
 // ObjectLoop is an Object method.
 //
 // loop performs a loop.
-func ObjectLoop(vm *VM, target, locals Interface, msg *Message) *Object {
+func ObjectLoop(vm *VM, target, locals *Object, msg *Message) *Object {
 	if err := msg.AssertArgCount("Object loop", 1); err != nil {
 		return vm.IoError(err)
 	}
@@ -275,7 +275,7 @@ func ObjectReturn(vm *VM, target, locals *Object, msg *Message) *Object {
 //
 // if evaluates its first argument, then evaluates the second if the first was
 // true or the third if it was false.
-func ObjectIf(vm *VM, target, locals Interface, msg *Message) *Object {
+func ObjectIf(vm *VM, target, locals *Object, msg *Message) *Object {
 	c, stop := msg.EvalArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(c, stop)

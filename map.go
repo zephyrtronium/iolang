@@ -29,7 +29,7 @@ func (tagMap) String() string {
 var MapTag Tag = tagMap{}
 
 // NewMap creates a new Map object with the given value, which may be nil.
-func (vm *VM) NewMap(value map[string]Interface) *Object {
+func (vm *VM) NewMap(value map[string]*Object) *Object {
 	if value == nil {
 		value = make(map[string]*Object)
 	}
@@ -66,7 +66,7 @@ func (vm *VM) initMap() {
 //
 // at returns the value at the given key, or the default value if it is
 // missing.
-func MapAt(vm *VM, target, locals Interface, msg *Message) *Object {
+func MapAt(vm *VM, target, locals *Object, msg *Message) *Object {
 	key, exc, stop := msg.StringArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
@@ -85,7 +85,7 @@ func MapAt(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // atIfAbsentPut sets the given key if it is not already in the map and returns
 // the value at the key if it is.
-func MapAtIfAbsentPut(vm *VM, target, locals Interface, msg *Message) *Object {
+func MapAtIfAbsentPut(vm *VM, target, locals *Object, msg *Message) *Object {
 	key, exc, stop := msg.StringArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
@@ -112,7 +112,7 @@ func MapAtIfAbsentPut(vm *VM, target, locals Interface, msg *Message) *Object {
 // MapAtPut is a Map method.
 //
 // atPut sets the value of the given string key.
-func MapAtPut(vm *VM, target, locals Interface, msg *Message) *Object {
+func MapAtPut(vm *VM, target, locals *Object, msg *Message) *Object {
 	key, exc, stop := msg.StringArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
@@ -131,9 +131,9 @@ func MapAtPut(vm *VM, target, locals Interface, msg *Message) *Object {
 // MapEmpty is a Map method.
 //
 // empty removes all items from the map.
-func MapEmpty(vm *VM, target, locals Interface, msg *Message) *Object {
+func MapEmpty(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
-	target.Value = map[string]Interface{}
+	target.Value = map[string]*Object{}
 	target.Unlock()
 	return target
 }
@@ -145,7 +145,7 @@ func MapEmpty(vm *VM, target, locals Interface, msg *Message) *Object {
 // added to the map while the loop is being evaluated, then those additions are
 // not included in the loop; any keys removed during the loop are iterated with
 // nil value.
-func MapForeach(vm *VM, target, locals Interface, msg *Message) (result *Object) {
+func MapForeach(vm *VM, target, locals *Object, msg *Message) (result *Object) {
 	kn, vn, hkn, _, ev := ForeachArgs(msg)
 	if !hkn {
 		return vm.RaiseExceptionf("foreach requires 2 or 3 args")
@@ -189,7 +189,7 @@ func MapForeach(vm *VM, target, locals Interface, msg *Message) (result *Object)
 // MapHasKey is a Map method.
 //
 // hasKey returns true if the key exists in the map.
-func MapHasKey(vm *VM, target, locals Interface, msg *Message) *Object {
+func MapHasKey(vm *VM, target, locals *Object, msg *Message) *Object {
 	key, exc, stop := msg.StringArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
@@ -204,7 +204,7 @@ func MapHasKey(vm *VM, target, locals Interface, msg *Message) *Object {
 // MapKeys is a Map method.
 //
 // keys returns a list of all keys in the map in random order.
-func MapKeys(vm *VM, target, locals Interface, msg *Message) *Object {
+func MapKeys(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	m := target.Value.(map[string]*Object)
 	l := make([]*Object, 0, len(m))
@@ -218,7 +218,7 @@ func MapKeys(vm *VM, target, locals Interface, msg *Message) *Object {
 // MapRemoveAt is a Map method.
 //
 // removeAt removes a key from the map if it exists.
-func MapRemoveAt(vm *VM, target, locals Interface, msg *Message) *Object {
+func MapRemoveAt(vm *VM, target, locals *Object, msg *Message) *Object {
 	key, exc, stop := msg.StringArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
@@ -233,7 +233,7 @@ func MapRemoveAt(vm *VM, target, locals Interface, msg *Message) *Object {
 // MapSize is a Map method.
 //
 // size returns the number of values in the map.
-func MapSize(vm *VM, target, locals Interface, msg *Message) *Object {
+func MapSize(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	n := len(target.Value.(map[string]*Object))
 	target.Unlock()
@@ -243,10 +243,10 @@ func MapSize(vm *VM, target, locals Interface, msg *Message) *Object {
 // MapValues is a Map method.
 //
 // values returns a list of all values in the map in random order.
-func MapValues(vm *VM, target, locals Interface, msg *Message) *Object {
+func MapValues(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	m := target.Value.(map[string]*Object)
-	l := make([]Interface, 0, len(m))
+	l := make([]*Object, 0, len(m))
 	for _, v := range m {
 		l = append(l, v)
 	}

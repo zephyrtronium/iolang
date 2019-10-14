@@ -207,7 +207,7 @@ func (vm *VM) initFile() {
 // FileAsBuffer is a File method.
 //
 // asBuffer reads the contents of the file into a Sequence.
-func FileAsBuffer(vm *VM, target, locals Interface, msg *Message) *Object {
+func FileAsBuffer(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	f := target.Value.(File)
 	target.Unlock()
@@ -221,7 +221,7 @@ func FileAsBuffer(vm *VM, target, locals Interface, msg *Message) *Object {
 // FileAt is a File method.
 //
 // at returns as a Number the byte in the file at a given position.
-func FileAt(vm *VM, target, locals Interface, msg *Message) *Object {
+func FileAt(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	f := target.Value.(File)
 	target.Unlock()
@@ -243,7 +243,7 @@ func FileAt(vm *VM, target, locals Interface, msg *Message) *Object {
 // FileAtPut is a File method.
 //
 // atPut writes a single byte to the file at a given position.
-func FileAtPut(vm *VM, target, locals Interface, msg *Message) *Object {
+func FileAtPut(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	f := target.Value.(File)
 	target.Unlock()
@@ -264,7 +264,7 @@ func FileAtPut(vm *VM, target, locals Interface, msg *Message) *Object {
 // FileClose is a File method.
 //
 // close closes the file.
-func FileClose(vm *VM, target, locals Interface, msg *Message) *Object {
+func FileClose(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	f := target.Value.(File)
 	target.Unlock()
@@ -285,7 +285,7 @@ func FileClose(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // contents reads the contents of the file into a buffer object. Same as
 // asBuffer, but can also read standardInput.
-func FileContents(vm *VM, target, locals Interface, msg *Message) *Object {
+func FileContents(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	f := target.Value.(File)
 	target.Unlock()
@@ -306,7 +306,7 @@ func FileContents(vm *VM, target, locals Interface, msg *Message) *Object {
 // FileDescriptor is a File method.
 //
 // descriptor returns the underlying file descriptor as a Number.
-func FileDescriptor(vm *VM, target, locals Interface, msg *Message) *Object {
+func FileDescriptor(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	f := target.Value.(File)
 	target.Unlock()
@@ -316,7 +316,7 @@ func FileDescriptor(vm *VM, target, locals Interface, msg *Message) *Object {
 // FileExists is a File method.
 //
 // exists returns whether a file with this file's path exists.
-func FileExists(vm *VM, target, locals Interface, msg *Message) *Object {
+func FileExists(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	f := target.Value.(File)
 	target.Unlock()
@@ -334,7 +334,7 @@ func FileExists(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // flush synchronizes the file state between the program and the operating
 // system.
-func FileFlush(vm *VM, target, locals Interface, msg *Message) *Object {
+func FileFlush(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	f := target.Value.(File)
 	target.Unlock()
@@ -347,7 +347,7 @@ func FileFlush(vm *VM, target, locals Interface, msg *Message) *Object {
 // FileForeach is a File method.
 //
 // foreach executes a message for each byte of the file.
-func FileForeach(vm *VM, target, locals Interface, msg *Message) (result *Object) {
+func FileForeach(vm *VM, target, locals *Object, msg *Message) (result *Object) {
 	kn, vn, hkn, hvn, ev := ForeachArgs(msg)
 	if ev == nil {
 		return vm.RaiseExceptionf("foreach requires 2 or 3 arguments")
@@ -434,7 +434,7 @@ func FileForeach(vm *VM, target, locals Interface, msg *Message) (result *Object
 // FileForeachLine is a File method.
 //
 // foreachLine executes a message for each line of the file.
-func FileForeachLine(vm *VM, target, locals Interface, msg *Message) (result *Object) {
+func FileForeachLine(vm *VM, target, locals *Object, msg *Message) (result *Object) {
 	kn, vn, hkn, hvn, ev := ForeachArgs(msg)
 	if ev == nil {
 		return vm.RaiseExceptionf("foreach requires 1, 2, or 3 arguments")
@@ -483,7 +483,7 @@ func FileForeachLine(vm *VM, target, locals Interface, msg *Message) (result *Ob
 // FileIsAtEnd is a File method.
 //
 // isAtEnd returns true if the file is at EOF.
-func FileIsAtEnd(vm *VM, target, locals Interface, msg *Message) *Object {
+func FileIsAtEnd(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	f := target.Value.(File)
 	target.Unlock()
@@ -493,7 +493,7 @@ func FileIsAtEnd(vm *VM, target, locals Interface, msg *Message) *Object {
 // FileIsDirectory is a File method.
 //
 // isDirectory returns true if the path of the file is a directory.
-func FileIsDirectory(vm *VM, target, locals Interface, msg *Message) *Object {
+func FileIsDirectory(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	f := target.Value.(File)
 	target.Unlock()
@@ -507,7 +507,7 @@ func FileIsDirectory(vm *VM, target, locals Interface, msg *Message) *Object {
 // FileIsLink is a File method.
 //
 // isLink returns true if the path of the file is a symbolic link.
-func FileIsLink(vm *VM, target, locals Interface, msg *Message) *Object {
+func FileIsLink(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	f := target.Value.(File)
 	target.Unlock()
@@ -521,7 +521,7 @@ func FileIsLink(vm *VM, target, locals Interface, msg *Message) *Object {
 // FileIsOpen is a File method.
 //
 // isOpen returns true if the file is open.
-func FileIsOpen(vm *VM, target, locals Interface, msg *Message) *Object {
+func FileIsOpen(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	f := target.Value.(File)
 	target.Unlock()
@@ -531,7 +531,7 @@ func FileIsOpen(vm *VM, target, locals Interface, msg *Message) *Object {
 // FileIsPipe is a File method.
 //
 // isPipe returns true if the path of the file is a named pipe.
-func FileIsPipe(vm *VM, target, locals Interface, msg *Message) *Object {
+func FileIsPipe(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	f := target.Value.(File)
 	target.Unlock()
@@ -545,7 +545,7 @@ func FileIsPipe(vm *VM, target, locals Interface, msg *Message) *Object {
 // FileIsRegularFile is a File method.
 //
 // isRegularFile returns true if the path of the file is a regular file.
-func FileIsRegularFile(vm *VM, target, locals Interface, msg *Message) *Object {
+func FileIsRegularFile(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	f := target.Value.(File)
 	target.Unlock()
@@ -559,7 +559,7 @@ func FileIsRegularFile(vm *VM, target, locals Interface, msg *Message) *Object {
 // FileIsSocket is a File method.
 //
 // isSocket returns true if the path of the file is a socket.
-func FileIsSocket(vm *VM, target, locals Interface, msg *Message) *Object {
+func FileIsSocket(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	f := target.Value.(File)
 	target.Unlock()
@@ -574,7 +574,7 @@ func FileIsSocket(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // isUserExecutable returns true if the path of the file is executable by its
 // owner. Always false on Windows.
-func FileIsUserExecutable(vm *VM, target, locals Interface, msg *Message) *Object {
+func FileIsUserExecutable(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	f := target.Value.(File)
 	target.Unlock()
@@ -589,7 +589,7 @@ func FileIsUserExecutable(vm *VM, target, locals Interface, msg *Message) *Objec
 //
 // lastDataChangeDate returns the date at which the file's contents were last
 // modified.
-func FileLastDataChangeDate(vm *VM, target, locals Interface, msg *Message) *Object {
+func FileLastDataChangeDate(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	f := target.Value.(File)
 	target.Unlock()
@@ -604,7 +604,7 @@ func FileLastDataChangeDate(vm *VM, target, locals Interface, msg *Message) *Obj
 //
 // mode returns a string describing the file's mode; one of "read", "update",
 // or "append".
-func FileMode(vm *VM, target, locals Interface, msg *Message) *Object {
+func FileMode(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	f := target.Value.(File)
 	target.Unlock()
@@ -614,7 +614,7 @@ func FileMode(vm *VM, target, locals Interface, msg *Message) *Object {
 // FileMoveTo is a File method.
 //
 // moveTo moves the file at the file's path to the given path.
-func FileMoveTo(vm *VM, target, locals Interface, msg *Message) *Object {
+func FileMoveTo(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	f := target.Value.(File)
 	target.Unlock()
@@ -633,7 +633,7 @@ func FileMoveTo(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // FileName returns the name of the file or directory at the file's path,
 // similar to UNIX basename.
-func FileName(vm *VM, target, locals Interface, msg *Message) *Object {
+func FileName(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	f := target.Value.(File)
 	target.Unlock()
@@ -643,7 +643,7 @@ func FileName(vm *VM, target, locals Interface, msg *Message) *Object {
 // FileOpen is a File method.
 //
 // open opens the file.
-func FileOpen(vm *VM, target, locals Interface, msg *Message) *Object {
+func FileOpen(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	f := target.Value.(File)
 	target.Unlock()
@@ -672,7 +672,7 @@ func FileOpen(vm *VM, target, locals Interface, msg *Message) *Object {
 // FileOpenForAppending is a File method.
 //
 // openForAppending opens the file for appending.
-func FileOpenForAppending(vm *VM, target, locals Interface, msg *Message) *Object {
+func FileOpenForAppending(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	f := target.Value.(File)
 	f.Mode = "append"
@@ -684,7 +684,7 @@ func FileOpenForAppending(vm *VM, target, locals Interface, msg *Message) *Objec
 // FileOpenForReading is a File method.
 //
 // openForReading opens the file for reading.
-func FileOpenForReading(vm *VM, target, locals Interface, msg *Message) *Object {
+func FileOpenForReading(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	f := target.Value.(File)
 	f.Mode = "read"
@@ -696,7 +696,7 @@ func FileOpenForReading(vm *VM, target, locals Interface, msg *Message) *Object 
 // FileOpenForUpdating is a File method.
 //
 // openForUpdating opens the file for updating.
-func FileOpenForUpdating(vm *VM, target, locals Interface, msg *Message) *Object {
+func FileOpenForUpdating(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	f := target.Value.(File)
 	f.Mode = "update"
@@ -708,7 +708,7 @@ func FileOpenForUpdating(vm *VM, target, locals Interface, msg *Message) *Object
 // FilePath is a File method.
 //
 // path returns the file's absolute path.
-func FilePath(vm *VM, target, locals Interface, msg *Message) *Object {
+func FilePath(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	f := target.Value.(File)
 	target.Unlock()
@@ -718,7 +718,7 @@ func FilePath(vm *VM, target, locals Interface, msg *Message) *Object {
 // FilePosition is a File method.
 //
 // position returns the current position of the file cursor.
-func FilePosition(vm *VM, target, locals Interface, msg *Message) *Object {
+func FilePosition(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	f := target.Value.(File)
 	target.Unlock()
@@ -732,7 +732,7 @@ func FilePosition(vm *VM, target, locals Interface, msg *Message) *Object {
 // FilePositionAtEnd is a File method.
 //
 // positionAtEnd moves the file cursor to the end of the file.
-func FilePositionAtEnd(vm *VM, target, locals Interface, msg *Message) *Object {
+func FilePositionAtEnd(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	f := target.Value.(File)
 	target.Unlock()
@@ -750,7 +750,7 @@ func FilePositionAtEnd(vm *VM, target, locals Interface, msg *Message) *Object {
 // FileProtectionMode is a File method.
 //
 // protectionMode returns the stat mode of the path of the file as a Number.
-func FileProtectionMode(vm *VM, target, locals Interface, msg *Message) *Object {
+func FileProtectionMode(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	f := target.Value.(File)
 	target.Unlock()
@@ -764,7 +764,7 @@ func FileProtectionMode(vm *VM, target, locals Interface, msg *Message) *Object 
 // FileReadBufferOfLength is a File method.
 //
 // readBufferOfLength reads the specified number of bytes into a Sequence.
-func FileReadBufferOfLength(vm *VM, target, locals Interface, msg *Message) *Object {
+func FileReadBufferOfLength(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	f := target.Value.(File)
 	target.Unlock()
@@ -795,7 +795,7 @@ func FileReadBufferOfLength(vm *VM, target, locals Interface, msg *Message) *Obj
 // FileReadLine is a File method.
 //
 // readLine reads a line from the file.
-func FileReadLine(vm *VM, target, locals Interface, msg *Message) *Object {
+func FileReadLine(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	f := target.Value.(File)
 	target.Unlock()
@@ -818,11 +818,11 @@ func FileReadLine(vm *VM, target, locals Interface, msg *Message) *Object {
 // FileReadLines is a File method.
 //
 // readLines returns a List containing all lines in the file.
-func FileReadLines(vm *VM, target, locals Interface, msg *Message) *Object {
+func FileReadLines(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	f := target.Value.(File)
 	target.Unlock()
-	l := []Interface{}
+	l := []*Object{}
 	for {
 		b, eof, err := f.ReadLine()
 		if eof {
@@ -849,7 +849,7 @@ func FileReadLines(vm *VM, target, locals Interface, msg *Message) *Object {
 // FileReadStringOfLength is a File method.
 //
 // readStringOfLength reads a string up to the given length from the file.
-func FileReadStringOfLength(vm *VM, target, locals Interface, msg *Message) *Object {
+func FileReadStringOfLength(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	f := target.Value.(File)
 	target.Unlock()
@@ -881,7 +881,7 @@ func FileReadStringOfLength(vm *VM, target, locals Interface, msg *Message) *Obj
 //
 // readToEnd reads chunks of a given size (default 4096) to the end of the file
 // and returns a Sequence containing the bytes read.
-func FileReadToEnd(vm *VM, target, locals Interface, msg *Message) *Object {
+func FileReadToEnd(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	f := target.Value.(File)
 	target.Unlock()
@@ -925,7 +925,7 @@ func FileReadToEnd(vm *VM, target, locals Interface, msg *Message) *Object {
 // FileRemove is a File method.
 //
 // remove removes the file at the file's path.
-func FileRemove(vm *VM, target, locals Interface, msg *Message) *Object {
+func FileRemove(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	f := target.Value.(File)
 	target.Unlock()
@@ -939,7 +939,7 @@ func FileRemove(vm *VM, target, locals Interface, msg *Message) *Object {
 // FileRewind is a File method.
 //
 // rewind returns the file cursor to the beginning of the file.
-func FileRewind(vm *VM, target, locals Interface, msg *Message) *Object {
+func FileRewind(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	f := target.Value.(File)
 	target.Unlock()
@@ -957,7 +957,7 @@ func FileRewind(vm *VM, target, locals Interface, msg *Message) *Object {
 // FileSetPath is a File method.
 //
 // setPath sets the file's path.
-func FileSetPath(vm *VM, target, locals Interface, msg *Message) *Object {
+func FileSetPath(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	f := target.Value.(File)
 	target.Unlock()
@@ -975,7 +975,7 @@ func FileSetPath(vm *VM, target, locals Interface, msg *Message) *Object {
 // FileSetPosition is a File method.
 //
 // setPosition changes the file cursor's location.
-func FileSetPosition(vm *VM, target, locals Interface, msg *Message) *Object {
+func FileSetPosition(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	f := target.Value.(File)
 	target.Unlock()
@@ -1001,7 +1001,7 @@ func FileSetPosition(vm *VM, target, locals Interface, msg *Message) *Object {
 // FileSize is a File method.
 //
 // size determines the file size.
-func FileSize(vm *VM, target, locals Interface, msg *Message) *Object {
+func FileSize(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	f := target.Value.(File)
 	target.Unlock()
@@ -1016,7 +1016,7 @@ func FileSize(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // temporaryFile creates a file that did not exist previously. It is not
 // guaranteed to be removed at any point.
-func FileTemporaryFile(vm *VM, target, locals Interface, msg *Message) *Object {
+func FileTemporaryFile(vm *VM, target, locals *Object, msg *Message) *Object {
 	fp, err := ioutil.TempFile("", "iolang_temp")
 	if err != nil {
 		return vm.IoError(err)
@@ -1027,7 +1027,7 @@ func FileTemporaryFile(vm *VM, target, locals Interface, msg *Message) *Object {
 // FileTruncateToSize is a File method.
 //
 // truncateToSize truncates the file to the given size.
-func FileTruncateToSize(vm *VM, target, locals Interface, msg *Message) *Object {
+func FileTruncateToSize(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	f := target.Value.(File)
 	target.Unlock()
@@ -1045,7 +1045,7 @@ func FileTruncateToSize(vm *VM, target, locals Interface, msg *Message) *Object 
 // FileWrite is a File method.
 //
 // write writes its arguments to the file.
-func FileWrite(vm *VM, target, locals Interface, msg *Message) *Object {
+func FileWrite(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	f := target.Value.(File)
 	target.Unlock()

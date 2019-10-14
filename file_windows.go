@@ -10,7 +10,7 @@ import (
 // FileLastAccessDate is a File method.
 //
 // lastAccessDate returns the date at which the file was last accessed.
-func FileLastAccessDate(vm *VM, target, locals Interface, msg *Message) *Object {
+func FileLastAccessDate(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	f := target.Value.(File)
 	target.Unlock()
@@ -29,7 +29,7 @@ func FileLastAccessDate(vm *VM, target, locals Interface, msg *Message) *Object 
 // FileLastInfoChangeDate is a File method.
 //
 // lastInfoChangeDate returns the date at which the file was created.
-func FileLastInfoChangeDate(vm *VM, target, locals Interface, msg *Message) *Object {
+func FileLastInfoChangeDate(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	f := target.Value.(File)
 	target.Unlock()

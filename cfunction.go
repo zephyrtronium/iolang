@@ -8,7 +8,7 @@ import (
 
 // An Fn is a statically compiled function which can be executed in the context
 // of an Io VM.
-type Fn func(vm *VM, target, locals Interface, msg *Message) *Object
+type Fn func(vm *VM, target, locals *Object, msg *Message) *Object
 
 // A CFunction is object value representing a compiled function.
 type CFunction struct {

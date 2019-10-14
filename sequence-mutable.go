@@ -20,7 +20,7 @@ func (s Sequence) CheckMutable(name string) error {
 // SequenceAsMutable is a Sequence method.
 //
 // asMutable creates a mutable copy of the sequence.
-func SequenceAsMutable(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceAsMutable(vm *VM, target, locals *Object, msg *Message) *Object {
 	// This isn't actually a mutable method, but it feels more appropriate
 	// here with them.
 	s := holdSeq(target)
@@ -32,7 +32,7 @@ func SequenceAsMutable(vm *VM, target, locals Interface, msg *Message) *Object {
 // SequenceAppend is a Sequence method.
 //
 // append adds numbers to the sequence.
-func SequenceAppend(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceAppend(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	defer target.Unlock()
 	if err := s.CheckMutable("append"); err != nil {
@@ -114,7 +114,7 @@ func SequenceAppend(vm *VM, target, locals Interface, msg *Message) *Object {
 // receiver's item size is smaller than that of the argument, then the receiver
 // is converted to the argument's item type; otherwise, the argument's values
 // are converted to the receiver's item type as they are appended.
-func SequenceAppendSeq(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceAppendSeq(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	defer target.Unlock()
 	if err := s.CheckMutable("appendSeq"); err != nil {
@@ -141,7 +141,7 @@ func SequenceAppendSeq(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // atInsertSeq inserts at the index given in the first argument the object
 // asString in the second.
-func SequenceAtInsertSeq(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceAtInsertSeq(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	defer target.Unlock()
 	if err := s.CheckMutable("atInsertSeq"); err != nil {
@@ -167,7 +167,7 @@ func SequenceAtInsertSeq(vm *VM, target, locals Interface, msg *Message) *Object
 //
 // atPut replaces the element at the given position with the given value,
 // growing the sequence if necessary.
-func SequenceAtPut(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceAtPut(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	defer target.Unlock()
 	if err := s.CheckMutable("atPut"); err != nil {
@@ -202,7 +202,7 @@ func SequenceAtPut(vm *VM, target, locals Interface, msg *Message) *Object {
 // setItemType effectively reinterprets the bit pattern of the sequence data in
 // the given type, which may be uint8, uint16, uint32, uint64, int8, int16,
 // int32, int64, float32, or float64.
-func SequenceSetItemType(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceSetItemType(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	defer target.Unlock()
 	if err := s.CheckMutable("setItemType"); err != nil {
@@ -245,7 +245,7 @@ func SequenceSetItemType(vm *VM, target, locals Interface, msg *Message) *Object
 //
 // clipAfterSeq removes the portion of the sequence which follows the end of
 // the argument sequence.
-func SequenceClipAfterSeq(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceClipAfterSeq(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	defer target.Unlock()
 	if err := s.CheckMutable("clipAfterSeq"); err != nil {
@@ -273,7 +273,7 @@ func SequenceClipAfterSeq(vm *VM, target, locals Interface, msg *Message) *Objec
 //
 // clipAfterStartOfSeq removes the portion of the sequence which follows the
 // beginning of the argument sequence.
-func SequenceClipAfterStartOfSeq(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceClipAfterStartOfSeq(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	defer target.Unlock()
 	if err := s.CheckMutable("clipAfterStartOfSeq"); err != nil {
@@ -300,7 +300,7 @@ func SequenceClipAfterStartOfSeq(vm *VM, target, locals Interface, msg *Message)
 //
 // clipBeforeEndOfSeq removes the portion of the sequence which precedes the end
 // of the argument sequence.
-func SequenceClipBeforeEndOfSeq(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceClipBeforeEndOfSeq(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	defer target.Unlock()
 	if err := s.CheckMutable("clipBeforeStartOfSeq"); err != nil {
@@ -328,7 +328,7 @@ func SequenceClipBeforeEndOfSeq(vm *VM, target, locals Interface, msg *Message) 
 //
 // clipBeforeSeq removes the portion of the sequence which precedes the
 // beginning of the argument sequence.
-func SequenceClipBeforeSeq(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceClipBeforeSeq(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	defer target.Unlock()
 	if err := s.CheckMutable("clipBeforeSeq"); err != nil {
@@ -354,7 +354,7 @@ func SequenceClipBeforeSeq(vm *VM, target, locals Interface, msg *Message) *Obje
 // SequenceConvertToItemType is a Sequence method.
 //
 // convertToItemType changes the item type of the sequence.
-func SequenceConvertToItemType(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceConvertToItemType(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	defer target.Unlock()
 	if err := s.CheckMutable("convertToItemType"); err != nil {
@@ -396,7 +396,7 @@ func SequenceConvertToItemType(vm *VM, target, locals Interface, msg *Message) *
 // SequenceCopy is a Sequence method.
 //
 // copy sets the receiver to be a copy of the given sequence.
-func SequenceCopy(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceCopy(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	defer target.Unlock()
 	if err := s.CheckMutable("copy"); err != nil {
@@ -419,7 +419,7 @@ func SequenceCopy(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // duplicateIndexes inserts a copy of each item in the sequence after its
 // position.
-func SequenceDuplicateIndexes(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceDuplicateIndexes(vm *VM, target, locals *Object, msg *Message) *Object {
 	// Did you mean: indices?
 	s := lockSeq(target)
 	defer target.Unlock()
@@ -497,7 +497,7 @@ func SequenceDuplicateIndexes(vm *VM, target, locals Interface, msg *Message) *O
 // SequenceEmpty is a Sequence method.
 //
 // empty zeroes all values in the sequence and sets its length to zero.
-func SequenceEmpty(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceEmpty(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	defer target.Unlock()
 	if err := s.CheckMutable("empty"); err != nil {
@@ -565,7 +565,7 @@ func SequenceEmpty(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // insertSeqEvery inserts the argument sequence into the receiver at every nth
 // position.
-func SequenceInsertSeqEvery(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceInsertSeqEvery(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	defer target.Unlock()
 	if err := s.CheckMutable("insertSeqEvery"); err != nil {
@@ -729,7 +729,7 @@ func SequenceInsertSeqEvery(vm *VM, target, locals Interface, msg *Message) *Obj
 //
 // leaveThenRemove(m, n) keeps the first m items, removes the following n, and
 // repeats this process on the remainder.
-func SequenceLeaveThenRemove(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceLeaveThenRemove(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	defer target.Unlock()
 	if err := s.CheckMutable("leaveThenRemove"); err != nil {
@@ -866,7 +866,7 @@ func SequenceLeaveThenRemove(vm *VM, target, locals Interface, msg *Message) *Ob
 //
 // preallocateToSize ensures that the receiver can grow to be at least n bytes
 // without reallocating.
-func SequencePreallocateToSize(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequencePreallocateToSize(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	defer target.Unlock()
 	if err := s.CheckMutable("preallocateToSize"); err != nil {
@@ -890,7 +890,7 @@ func SequencePreallocateToSize(vm *VM, target, locals Interface, msg *Message) *
 // SequenceRangeFill is a Sequence method.
 //
 // rangeFill sets each element of the sequence to its index.
-func SequenceRangeFill(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceRangeFill(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	defer target.Unlock()
 	if err := s.CheckMutable("rangeFill"); err != nil {
@@ -946,7 +946,7 @@ func SequenceRangeFill(vm *VM, target, locals Interface, msg *Message) *Object {
 // SequenceRemoveAt is a Sequence method.
 //
 // removeAt removes the nth element from the sequence.
-func SequenceRemoveAt(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceRemoveAt(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	defer target.Unlock()
 	if err := s.CheckMutable("removeAt"); err != nil {
@@ -967,7 +967,7 @@ func SequenceRemoveAt(vm *VM, target, locals Interface, msg *Message) *Object {
 // SequenceRemoveEvenIndexes is a Sequence method.
 //
 // removeEvenIndexes deletes each element whose index in the sequence is even.
-func SequenceRemoveEvenIndexes(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceRemoveEvenIndexes(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	defer target.Unlock()
 	if err := s.CheckMutable("removeEvenIndexes"); err != nil {
@@ -1035,7 +1035,7 @@ func SequenceRemoveEvenIndexes(vm *VM, target, locals Interface, msg *Message) *
 //
 // removeLast removes the last element from the sequence and returns the
 // receiver.
-func SequenceRemoveLast(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceRemoveLast(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	defer target.Unlock()
 	if err := s.CheckMutable("removeLast"); err != nil {
@@ -1092,7 +1092,7 @@ func SequenceRemoveLast(vm *VM, target, locals Interface, msg *Message) *Object 
 // SequenceRemoveOddIndexes is a Sequence method.
 //
 // removeOddIndexes deletes each element whose index in the sequence is odd.
-func SequenceRemoveOddIndexes(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceRemoveOddIndexes(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	defer target.Unlock()
 	if err := s.CheckMutable("removeOddIndexes"); err != nil {
@@ -1159,7 +1159,7 @@ func SequenceRemoveOddIndexes(vm *VM, target, locals Interface, msg *Message) *O
 // SequenceRemovePrefix is a Sequence method.
 //
 // removePrefix removes a prefix from the receiver, if present.
-func SequenceRemovePrefix(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceRemovePrefix(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	defer target.Unlock()
 	if err := s.CheckMutable("removePrefix"); err != nil {
@@ -1201,7 +1201,7 @@ func SequenceRemovePrefix(vm *VM, target, locals Interface, msg *Message) *Objec
 // SequenceRemoveSeq is a Sequence method.
 //
 // removeSeq removes all occurrences of a sequence from the receiver.
-func SequenceRemoveSeq(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceRemoveSeq(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	defer target.Unlock()
 	if err := s.CheckMutable("removeSeq"); err != nil {
@@ -1232,7 +1232,7 @@ func SequenceRemoveSeq(vm *VM, target, locals Interface, msg *Message) *Object {
 // SequenceRemoveSlice is a Sequence method.
 //
 // removeSlice removes items between the given start and end, inclusive.
-func SequenceRemoveSlice(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceRemoveSlice(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	defer target.Unlock()
 	if err := s.CheckMutable("removeSlice"); err != nil {
@@ -1257,7 +1257,7 @@ func SequenceRemoveSlice(vm *VM, target, locals Interface, msg *Message) *Object
 // SequenceRemoveSuffix is a Sequence method.
 //
 // removeSuffix removes a suffix from the receiver, if present.
-func SequenceRemoveSuffix(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceRemoveSuffix(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	defer target.Unlock()
 	if err := s.CheckMutable("removeSuffix"); err != nil {
@@ -1300,7 +1300,7 @@ func SequenceRemoveSuffix(vm *VM, target, locals Interface, msg *Message) *Objec
 // SequenceReplaceFirstSeq is a Sequence method.
 //
 // replaceFirstSeq replaces the first instance of a sequence with another.
-func SequenceReplaceFirstSeq(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceReplaceFirstSeq(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	defer target.Unlock()
 	if err := s.CheckMutable("replaceFirstSeq"); err != nil {
@@ -1349,7 +1349,7 @@ func SequenceReplaceFirstSeq(vm *VM, target, locals Interface, msg *Message) *Ob
 // SequenceReplaceSeq is a Sequence method.
 //
 // replaceSeq replaces all instances of a sequence with another.
-func SequenceReplaceSeq(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceReplaceSeq(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	defer target.Unlock()
 	if err := s.CheckMutable("replaceSeq"); err != nil {
@@ -1387,7 +1387,7 @@ func SequenceReplaceSeq(vm *VM, target, locals Interface, msg *Message) *Object 
 // SequenceReverseInPlace is a Sequence method.
 //
 // reverseInPlace reverses the elements of the sequence.
-func SequenceReverseInPlace(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceReverseInPlace(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	defer target.Unlock()
 	if err := s.CheckMutable("reverseInPlace"); err != nil {
@@ -1443,7 +1443,7 @@ func SequenceReverseInPlace(vm *VM, target, locals Interface, msg *Message) *Obj
 // SequenceSetItemsToDouble is a Sequence method.
 //
 // setItemsToDouble sets all items to the given value.
-func SequenceSetItemsToDouble(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceSetItemsToDouble(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	defer target.Unlock()
 	if err := s.CheckMutable("setItemsToDouble"); err != nil {
@@ -1503,7 +1503,7 @@ func SequenceSetItemsToDouble(vm *VM, target, locals Interface, msg *Message) *O
 // SequenceSetSize is a Sequence method.
 //
 // setSize sets the size of the sequence.
-func SequenceSetSize(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceSetSize(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	defer target.Unlock()
 	if err := s.CheckMutable("setSize"); err != nil {
@@ -1531,7 +1531,7 @@ func SequenceSetSize(vm *VM, target, locals Interface, msg *Message) *Object {
 // SequenceSort is a Sequence method.
 //
 // sort sorts the elements of the sequence.
-func SequenceSort(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceSort(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	defer target.Unlock()
 	if err := s.CheckMutable("sort"); err != nil {
@@ -1567,7 +1567,7 @@ func SequenceSort(vm *VM, target, locals Interface, msg *Message) *Object {
 // SequenceZero is a Sequence method.
 //
 // zero sets each element of the receiver to zero.
-func SequenceZero(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceZero(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	defer target.Unlock()
 	if err := s.CheckMutable("zero"); err != nil {

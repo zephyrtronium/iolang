@@ -64,7 +64,7 @@ func (vm *VM) initDirectory() {
 //
 // at returns a File or Directory object at the given path (always) relative to
 // the directory, or nil if there is no such file.
-func DirectoryAt(vm *VM, target, locals Interface, msg *Message) *Object {
+func DirectoryAt(vm *VM, target, locals *Object, msg *Message) *Object {
 	s, exc, stop := msg.StringArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
@@ -89,7 +89,7 @@ func DirectoryAt(vm *VM, target, locals Interface, msg *Message) *Object {
 // DirectoryCreate is a Directory method.
 //
 // create creates the directory if it does not exist. Returns nil on failure.
-func DirectoryCreate(vm *VM, target, locals Interface, msg *Message) *Object {
+func DirectoryCreate(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	d := target.Value.(string)
 	target.Unlock()
@@ -110,7 +110,7 @@ func DirectoryCreate(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // createSubdirectory creates a subdirectory with the given name and returns a
 // Directory object for it.
-func DirectoryCreateSubdirectory(vm *VM, target, locals Interface, msg *Message) *Object {
+func DirectoryCreateSubdirectory(vm *VM, target, locals *Object, msg *Message) *Object {
 	nm, exc, stop := msg.StringArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
@@ -139,7 +139,7 @@ func DirectoryCreateSubdirectory(vm *VM, target, locals Interface, msg *Message)
 //
 // currentWorkingDirectory returns the path of the current working directory
 // with the operating system's path style.
-func DirectoryCurrentWorkingDirectory(vm *VM, target, locals Interface, msg *Message) *Object {
+func DirectoryCurrentWorkingDirectory(vm *VM, target, locals *Object, msg *Message) *Object {
 	d, err := os.Getwd()
 	if err != nil {
 		return vm.NewString(".")
@@ -150,7 +150,7 @@ func DirectoryCurrentWorkingDirectory(vm *VM, target, locals Interface, msg *Mes
 // DirectoryExists is a Directory method.
 //
 // exists returns true if the directory exists and is a directory.
-func DirectoryExists(vm *VM, target, locals Interface, msg *Message) *Object {
+func DirectoryExists(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	d := target.Value.(string)
 	target.Unlock()
@@ -167,7 +167,7 @@ func DirectoryExists(vm *VM, target, locals Interface, msg *Message) *Object {
 // DirectoryItems is a Directory method.
 //
 // items returns a list of the files and directories within this directory.
-func DirectoryItems(vm *VM, target, locals Interface, msg *Message) *Object {
+func DirectoryItems(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	d := target.Value.(string)
 	target.Unlock()
@@ -180,7 +180,7 @@ func DirectoryItems(vm *VM, target, locals Interface, msg *Message) *Object {
 	if err != nil {
 		return vm.IoError(err)
 	}
-	l := make([]Interface, len(fis))
+	l := make([]*Object, len(fis))
 	for i, fi := range fis {
 		p := filepath.Join(d, fi.Name())
 		if fi.IsDir() {
@@ -196,7 +196,7 @@ func DirectoryItems(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // name returns the name of the file or directory at the directory's path,
 // similar to Unix basename.
-func DirectoryName(vm *VM, target, locals Interface, msg *Message) *Object {
+func DirectoryName(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	d := target.Value.(string)
 	target.Unlock()
@@ -206,7 +206,7 @@ func DirectoryName(vm *VM, target, locals Interface, msg *Message) *Object {
 // DirectoryPath is a Directory method.
 //
 // path returns the directory's path.
-func DirectoryPath(vm *VM, target, locals Interface, msg *Message) *Object {
+func DirectoryPath(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	d := target.Value.(string)
 	target.Unlock()
@@ -216,7 +216,7 @@ func DirectoryPath(vm *VM, target, locals Interface, msg *Message) *Object {
 // DirectorySetCurrentWorkingDirectory is a Directory method.
 //
 // setCurrentWorkingDirectory sets the program's current working directory.
-func DirectorySetCurrentWorkingDirectory(vm *VM, target, locals Interface, msg *Message) *Object {
+func DirectorySetCurrentWorkingDirectory(vm *VM, target, locals *Object, msg *Message) *Object {
 	s, exc, stop := msg.StringArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
@@ -230,7 +230,7 @@ func DirectorySetCurrentWorkingDirectory(vm *VM, target, locals Interface, msg *
 // DirectorySetPath is a Directory method.
 //
 // setPath sets the path of the Directory object.
-func DirectorySetPath(vm *VM, target, locals Interface, msg *Message) *Object {
+func DirectorySetPath(vm *VM, target, locals *Object, msg *Message) *Object {
 	s, exc, stop := msg.StringArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(exc, stop)

@@ -61,7 +61,7 @@ func main() {
 	fmt.Println(stdin.Err())
 }
 
-func profiled(vm *iolang.VM, target, locals iolang.Interface, msg *iolang.Message) iolang.Interface {
+func profiled(vm *iolang.VM, target, locals *iolang.Object, msg *iolang.Message) *iolang.Object {
 	cpu, exc, stop := msg.StringArgAt(vm, locals, 0)
 	if stop != iolang.NoStop {
 		return vm.Stop(exc, stop)

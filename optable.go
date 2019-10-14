@@ -3,7 +3,7 @@ package iolang
 import "fmt"
 
 func (vm *VM) initOpTable() {
-	ops := map[string]Interface{
+	ops := map[string]*Object{
 		"?":      vm.NewNumber(0),
 		"@":      vm.NewNumber(0),
 		"@@":     vm.NewNumber(0),
@@ -41,7 +41,7 @@ func (vm *VM) initOpTable() {
 		"|=":     vm.NewNumber(13),
 		"return": vm.NewNumber(14),
 	}
-	asgn := map[string]Interface{
+	asgn := map[string]*Object{
 		"::=": vm.NewString("newSlot"),
 		":=":  vm.NewString("setSlot"),
 		"=":   vm.NewString("updateSlot"),
@@ -161,7 +161,7 @@ func (ll *shufLevel) finish() {
 
 // doLevel shuffles one level. The new stack top, extra messages to be
 // shuffled, and any syntax error are returned.
-func (ll *shufLevel) doLevel(vm *VM, ops, asgns map[string]Interface, m *Message) (nl *shufLevel, next []*Message, err error) {
+func (ll *shufLevel) doLevel(vm *VM, ops, asgns map[string]*Object, m *Message) (nl *shufLevel, next []*Message, err error) {
 	if op, ok := asgns[m.Name()]; ok {
 		// Assignment operator.
 		lhs := ll.m

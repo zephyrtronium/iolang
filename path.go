@@ -19,7 +19,7 @@ func (vm *VM) initPath() {
 // PathAbsolute is a Path method.
 //
 // absolute returns an absolute version of the argument path.
-func PathAbsolute(vm *VM, target, locals Interface, msg *Message) *Object {
+func PathAbsolute(vm *VM, target, locals *Object, msg *Message) *Object {
 	s, exc, stop := msg.StringArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
@@ -35,7 +35,7 @@ func PathAbsolute(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // isPathAbsolute returns whether the argument is an absolute path. The path
 // may be operating system- or Io-style.
-func PathIsPathAbsolute(vm *VM, target, locals Interface, msg *Message) *Object {
+func PathIsPathAbsolute(vm *VM, target, locals *Object, msg *Message) *Object {
 	s, exc, stop := msg.StringArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(exc, stop)

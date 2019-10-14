@@ -79,7 +79,7 @@ func (r Range) Previous() (v float64, ok bool, s Range) {
 // At is a Range method.
 //
 // at returns the nth value of the range.
-func At(vm *VM, target, locals Interface, msg *Message) *Object {
+func At(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	r := target.Value.(Range)
 	target.Unlock()
@@ -97,7 +97,7 @@ func At(vm *VM, target, locals Interface, msg *Message) *Object {
 // Contains is a Range method.
 //
 // contains returns true if the given value occurs exactly in the range.
-func Contains(vm *VM, target, locals Interface, msg *Message) *Object {
+func Contains(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	r := target.Value.(Range)
 	target.Unlock()
@@ -120,7 +120,7 @@ func Contains(vm *VM, target, locals Interface, msg *Message) *Object {
 // First is a Range method.
 //
 // first moves the range's cursor to the beginning and returns its value.
-func First(vm *VM, target, locals Interface, msg *Message) *Object {
+func First(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	r := target.Value.(Range)
 	r.Index = 0
@@ -132,7 +132,7 @@ func First(vm *VM, target, locals Interface, msg *Message) *Object {
 // Foreach is a Range method.
 //
 // foreach performs a loop for each element of the range.
-func Foreach(vm *VM, target, locals Interface, msg *Message) (result *Object) {
+func Foreach(vm *VM, target, locals *Object, msg *Message) (result *Object) {
 	kn, vn, hkn, hvn, ev := iolang.ForeachArgs(msg)
 	if ev == nil {
 		return vm.RaiseExceptionf("Range foreach requires 1, 2, or 3 args")
@@ -169,7 +169,7 @@ func Foreach(vm *VM, target, locals Interface, msg *Message) (result *Object) {
 // Index is a Range method.
 //
 // index returns the number of terms yielded from the range.
-func Index(vm *VM, target, locals Interface, msg *Message) *Object {
+func Index(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	r := target.Value.(Range)
 	target.Unlock()
@@ -180,7 +180,7 @@ func Index(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // indexOf returns the index of the range that would produce a particular value,
 // or nil if none would.
-func IndexOf(vm *VM, target, locals Interface, msg *Message) *Object {
+func IndexOf(vm *VM, target, locals *Object, msg *Message) *Object {
 	v, exc, stop := msg.NumberArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
@@ -203,7 +203,7 @@ func IndexOf(vm *VM, target, locals Interface, msg *Message) *Object {
 // Last is a Range method.
 //
 // last moves the range's cursor to the end and returns its value.
-func Last(vm *VM, target, locals Interface, msg *Message) *Object {
+func Last(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	r := target.Value.(Range)
 	r.Index = r.Last
@@ -216,7 +216,7 @@ func Last(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // next increments the range's cursor. Returns self if the cursor is still in
 // bounds and nil otherwise.
-func Next(vm *VM, target, locals Interface, msg *Message) *Object {
+func Next(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	r := target.Value.(Range)
 	_, ok, r := r.Next()
@@ -232,7 +232,7 @@ func Next(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // previous decrements the range's cursor. Returns self if the cursor is still
 // in bounds and nil otherwise.
-func Previous(vm *VM, target, locals Interface, msg *Message) *Object {
+func Previous(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	r := target.Value.(Range)
 	_, ok, r := r.Previous()
@@ -247,7 +247,7 @@ func Previous(vm *VM, target, locals Interface, msg *Message) *Object {
 // Rewind is a Range method.
 //
 // rewind returns the range to its first value and returns the range.
-func Rewind(vm *VM, target, locals Interface, msg *Message) *Object {
+func Rewind(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	r := target.Value.(Range)
 	r.Index = 0
@@ -259,7 +259,7 @@ func Rewind(vm *VM, target, locals Interface, msg *Message) *Object {
 // SetIndex is a Range method.
 //
 // setIndex seeks the range to a new index.
-func SetIndex(vm *VM, target, locals Interface, msg *Message) *Object {
+func SetIndex(vm *VM, target, locals *Object, msg *Message) *Object {
 	k, exc, stop := msg.NumberArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
@@ -275,7 +275,7 @@ func SetIndex(vm *VM, target, locals Interface, msg *Message) *Object {
 // SetRange is a Range method.
 //
 // setRange sets the range to have the given start, stop, and step values.
-func SetRange(vm *VM, target, locals Interface, msg *Message) *Object {
+func SetRange(vm *VM, target, locals *Object, msg *Message) *Object {
 	var start, stop, step float64
 	start, exc, control := msg.NumberArgAt(vm, locals, 0)
 	if control != NoStop {
@@ -307,7 +307,7 @@ func SetRange(vm *VM, target, locals Interface, msg *Message) *Object {
 // Size is a Range method.
 //
 // size returns the number of steps the range can take.
-func Size(vm *VM, target, locals Interface, msg *Message) *Object {
+func Size(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	r := target.Value.(Range)
 	target.Unlock()
@@ -317,7 +317,7 @@ func Size(vm *VM, target, locals Interface, msg *Message) *Object {
 // Value is a Range method.
 //
 // value returns the range's current value.
-func Value(vm *VM, target, locals Interface, msg *Message) *Object {
+func Value(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	r := target.Value.(Range)
 	target.Unlock()

@@ -247,7 +247,7 @@ func (m *Message) SeqOrNumArgAt(vm *VM, locals *Object, n int) (Sequence, float6
 //
 // **= sets each element of the receiver to its value raised to the power of the
 // respective element of the argument.
-func SequenceStarStarEq(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceStarStarEq(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	if err := s.CheckNumeric("**=", true); err != nil {
 		unholdSeq(true, target)
@@ -277,7 +277,7 @@ func SequenceStarStarEq(vm *VM, target, locals Interface, msg *Message) *Object 
 //
 // *= sets each element of the receiver to its value times the respective
 // element of the argument.
-func SequenceStarEq(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceStarEq(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	if err := s.CheckNumeric("*=", true); err != nil {
 		unholdSeq(true, target)
@@ -307,7 +307,7 @@ func SequenceStarEq(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // += sets each element of the receiver to its value plus the respective
 // element of the argument.
-func SequencePlusEq(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequencePlusEq(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	if err := s.CheckNumeric("+=", true); err != nil {
 		unholdSeq(true, target)
@@ -337,7 +337,7 @@ func SequencePlusEq(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // -= sets each element of the receiver to its value minus the respective
 // element of the argument.
-func SequenceMinusEq(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceMinusEq(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	if err := s.CheckNumeric("-=", true); err != nil {
 		unholdSeq(true, target)
@@ -367,7 +367,7 @@ func SequenceMinusEq(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // /= sets each element of the receiver to its value divided by the respective
 // element of the argument.
-func SequenceSlashEq(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceSlashEq(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	if err := s.CheckNumeric("/=", true); err != nil {
 		unholdSeq(true, target)
@@ -397,7 +397,7 @@ func SequenceSlashEq(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // Max sets each element of the receiver to the greater of the receiver element
 // and the respective argument element.
-func SequencePairwiseMax(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequencePairwiseMax(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	if err := s.CheckNumeric("Max", true); err != nil {
 		unholdSeq(true, target)
@@ -423,7 +423,7 @@ func SequencePairwiseMax(vm *VM, target, locals Interface, msg *Message) *Object
 //
 // Min sets each element of the receiver to the lesser of the receiver element
 // and the respective argument element.
-func SequencePairwiseMin(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequencePairwiseMin(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	if err := s.CheckNumeric("Min", true); err != nil {
 		unholdSeq(true, target)
@@ -448,7 +448,7 @@ func SequencePairwiseMin(vm *VM, target, locals Interface, msg *Message) *Object
 // SequenceAbs is a Sequence method.
 //
 // abs sets each element of the receiver to its absolute value.
-func SequenceAbs(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceAbs(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	if err := s.CheckNumeric("abs", true); err != nil {
 		unholdSeq(true, target)
@@ -462,7 +462,7 @@ func SequenceAbs(vm *VM, target, locals Interface, msg *Message) *Object {
 // SequenceAcos is a Sequence method.
 //
 // acos sets each element of the receiver to its arc-cosine.
-func SequenceAcos(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceAcos(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	if err := s.CheckNumeric("acos", true); err != nil {
 		return vm.IoError(err)
@@ -475,7 +475,7 @@ func SequenceAcos(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // asBinaryNumber reinterprets the first eight bytes of the sequence as an
 // IEEE-754 binary64 floating-point value and returns the appropriate Number.
-func SequenceAsBinaryNumber(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceAsBinaryNumber(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := holdSeq(target)
 	defer unholdSeq(s.Mutable, target)
 	v := s.Bytes()
@@ -490,7 +490,7 @@ func SequenceAsBinaryNumber(vm *VM, target, locals Interface, msg *Message) *Obj
 //
 // asBinarySignedInteger reinterprets the bytes of the sequence as a signed
 // integer. The byte size of the sequence must be 1, 2, 4, or 8.
-func SequenceAsBinarySignedInteger(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceAsBinarySignedInteger(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := holdSeq(target)
 	defer unholdSeq(s.Mutable, target)
 	v := s.Bytes()
@@ -511,7 +511,7 @@ func SequenceAsBinarySignedInteger(vm *VM, target, locals Interface, msg *Messag
 //
 // asBinaryUnsignedInteger reinterprets the bytes of the sequence as an
 // unsigned integer. The byte size of the sequence must be 1, 2, 4, or 8.
-func SequenceAsBinaryUnsignedInteger(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceAsBinaryUnsignedInteger(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := holdSeq(target)
 	defer unholdSeq(s.Mutable, target)
 	v := s.Bytes()
@@ -531,7 +531,7 @@ func SequenceAsBinaryUnsignedInteger(vm *VM, target, locals Interface, msg *Mess
 // SequenceAsin is a Sequence method.
 //
 // asin sets each element of the receiver to its arcsine.
-func SequenceAsin(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceAsin(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	if err := s.CheckNumeric("asin", true); err != nil {
 		unholdSeq(true, target)
@@ -545,7 +545,7 @@ func SequenceAsin(vm *VM, target, locals Interface, msg *Message) *Object {
 // SequenceAtan is a Sequence method.
 //
 // atan sets each element of the receiver to its arctangent.
-func SequenceAtan(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceAtan(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	if err := s.CheckNumeric("atan", true); err != nil {
 		unholdSeq(true, target)
@@ -559,7 +559,7 @@ func SequenceAtan(vm *VM, target, locals Interface, msg *Message) *Object {
 // SequenceBitCount is a Sequence method.
 //
 // bitCount returns the number of 1 bits in the sequence.
-func SequenceBitCount(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceBitCount(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := holdSeq(target)
 	n := 0
 	switch v := s.Value.(type) {
@@ -614,7 +614,7 @@ func SequenceBitCount(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // bitwiseAnd sets the receiver to the bitwise AND of its binary representation
 // and that of the argument sequence.
-func SequenceBitwiseAnd(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceBitwiseAnd(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	if err := s.CheckMutable("bitwiseAnd"); err != nil {
 		return vm.IoError(err)
@@ -651,7 +651,7 @@ func SequenceBitwiseAnd(vm *VM, target, locals Interface, msg *Message) *Object 
 //
 // bitwiseNot sets the receiver to the bitwise NOT of its binary
 // representation.
-func SequenceBitwiseNot(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceBitwiseNot(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	if err := s.CheckMutable("bitwiseNot"); err != nil {
 		unholdSeq(true, target)
@@ -675,7 +675,7 @@ func SequenceBitwiseNot(vm *VM, target, locals Interface, msg *Message) *Object 
 //
 // bitwiseOr sets the receiver to the bitwise OR of its binary representation
 // and that of the argument sequence.
-func SequenceBitwiseOr(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceBitwiseOr(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	if err := s.CheckMutable("bitwiseOr"); err != nil {
 		return vm.IoError(err)
@@ -712,7 +712,7 @@ func SequenceBitwiseOr(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // bitwiseXor sets the receiver to the bitwise XOR of its binary representation
 // and that of the argument sequence.
-func SequenceBitwiseXor(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceBitwiseXor(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	if err := s.CheckMutable("bitwiseXor"); err != nil {
 		return vm.IoError(err)
@@ -749,7 +749,7 @@ func SequenceBitwiseXor(vm *VM, target, locals Interface, msg *Message) *Object 
 //
 // ceil sets each element of the receiver to the smallest integer greater than
 // its current value. No-op on integer sequences.
-func SequenceCeil(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceCeil(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	if err := s.CheckNumeric("ceil", true); err != nil {
 		unholdSeq(true, target)
@@ -765,7 +765,7 @@ func SequenceCeil(vm *VM, target, locals Interface, msg *Message) *Object {
 // SequenceCos is a Sequence method.
 //
 // cos sets each element of the receiver to its cosine.
-func SequenceCos(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceCos(vm *VM, target, locals *Object, msg *Message) *Object {
 	unholdSeq(true, target)
 	s := lockSeq(target)
 	if err := s.CheckNumeric("cos", true); err != nil {
@@ -779,7 +779,7 @@ func SequenceCos(vm *VM, target, locals Interface, msg *Message) *Object {
 // SequenceCosh is a Sequence method.
 //
 // cosh sets each element of the receiver to its hyperbolic cosine.
-func SequenceCosh(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceCosh(vm *VM, target, locals *Object, msg *Message) *Object {
 	unholdSeq(true, target)
 	s := lockSeq(target)
 	if err := s.CheckNumeric("cosh", true); err != nil {
@@ -795,7 +795,7 @@ func SequenceCosh(vm *VM, target, locals Interface, msg *Message) *Object {
 // distanceTo computes the L2-norm of the vector pointing between the receiver
 // and the argument sequence. Both sequences must be of the same floating-point
 // type and of equal size; otherwise, the result will be 0.
-func SequenceDistanceTo(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceDistanceTo(vm *VM, target, locals *Object, msg *Message) *Object {
 	x := holdSeq(target)
 	y, obj, stop := msg.SequenceArgAt(vm, locals, 0)
 	if stop != NoStop {
@@ -839,7 +839,7 @@ func SequenceDistanceTo(vm *VM, target, locals Interface, msg *Message) *Object 
 //
 // dotProduct computes the sum of pairwise products between the receiver and
 // argument sequence, up to the length of the shorter of the two.
-func SequenceDotProduct(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceDotProduct(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := holdSeq(target)
 	other, obj, stop := msg.SequenceArgAt(vm, locals, 0)
 	if stop != NoStop {
@@ -871,7 +871,7 @@ func SequenceDotProduct(vm *VM, target, locals Interface, msg *Message) *Object 
 //
 // floor sets each element of the receiver to the largest integer less than its
 // current value. No-op on integer sequences.
-func SequenceFloor(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceFloor(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	if err := s.CheckNumeric("floor", true); err != nil {
 		unholdSeq(true, target)
@@ -887,7 +887,7 @@ func SequenceFloor(vm *VM, target, locals Interface, msg *Message) *Object {
 // SequenceLog is a Sequence method.
 //
 // log sets each element of the receiver to its natural logarithm.
-func SequenceLog(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceLog(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	if err := s.CheckNumeric("log", true); err != nil {
 		unholdSeq(true, target)
@@ -901,7 +901,7 @@ func SequenceLog(vm *VM, target, locals Interface, msg *Message) *Object {
 // SequenceLog10 is a Sequence method.
 //
 // log10 sets each element of the receiver to its common logarithm.
-func SequenceLog10(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceLog10(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	if err := s.CheckNumeric("log10", true); err != nil {
 		unholdSeq(true, target)
@@ -915,7 +915,7 @@ func SequenceLog10(vm *VM, target, locals Interface, msg *Message) *Object {
 // SequenceMax is a Sequence method.
 //
 // max returns the maximum element in the sequence.
-func SequenceMax(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceMax(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := holdSeq(target)
 	x := s.Reduce(math.Max, math.Inf(-1))
 	unholdSeq(s.Mutable, target)
@@ -925,7 +925,7 @@ func SequenceMax(vm *VM, target, locals Interface, msg *Message) *Object {
 // SequenceMean is a Sequence method.
 //
 // mean computes the arithmetic mean of the elements in the sequence.
-func SequenceMean(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceMean(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := holdSeq(target)
 	r := s.Reduce(func(x, y float64) float64 { return x + y }, 0) / float64(s.Len())
 	unholdSeq(s.Mutable, target)
@@ -936,7 +936,7 @@ func SequenceMean(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // meanSquare computes the arithmetic mean of the squares of the elements in
 // the sequence.
-func SequenceMeanSquare(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceMeanSquare(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := holdSeq(target)
 	// This disagrees with Io's meanSquare, which performs the squaring in the
 	// receiver's type.
@@ -948,7 +948,7 @@ func SequenceMeanSquare(vm *VM, target, locals Interface, msg *Message) *Object 
 // SequenceMin is a Sequence method.
 //
 // min returns the minimum element in the sequence.
-func SequenceMin(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceMin(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := holdSeq(target)
 	x := s.Reduce(math.Min, math.Inf(0))
 	unholdSeq(s.Mutable, target)
@@ -958,7 +958,7 @@ func SequenceMin(vm *VM, target, locals Interface, msg *Message) *Object {
 // SequenceNegate is a Sequence method.
 //
 // negate sets each element of the receiver to its opposite.
-func SequenceNegate(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceNegate(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	if err := s.CheckNumeric("negate", true); err != nil {
 		unholdSeq(true, target)
@@ -972,7 +972,7 @@ func SequenceNegate(vm *VM, target, locals Interface, msg *Message) *Object {
 // SequenceNormalize is a Sequence method.
 //
 // normalize divides each element of the receiver by the sequence's L2 norm.
-func SequenceNormalize(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceNormalize(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	// The original only checks for mutability, not numeric.
 	if err := s.CheckNumeric("normalize", true); err != nil {
@@ -988,7 +988,7 @@ func SequenceNormalize(vm *VM, target, locals Interface, msg *Message) *Object {
 // SequenceProduct is a Sequence method.
 //
 // product returns the product of the elements of the sequence.
-func SequenceProduct(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceProduct(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := holdSeq(target)
 	x := s.Reduce(func(x, y float64) float64 { return x * y }, 1)
 	unholdSeq(s.Mutable, target)
@@ -998,7 +998,7 @@ func SequenceProduct(vm *VM, target, locals Interface, msg *Message) *Object {
 // SequenceSin is a Sequence method.
 //
 // sin sets each element of the receiver to its sine.
-func SequenceSin(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceSin(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	if err := s.CheckNumeric("sin", true); err != nil {
 		unholdSeq(true, target)
@@ -1012,7 +1012,7 @@ func SequenceSin(vm *VM, target, locals Interface, msg *Message) *Object {
 // SequenceSinh is a Sequence method.
 //
 // sinh sets each element of the receiver to its hyperbolic sine.
-func SequenceSinh(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceSinh(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	if err := s.CheckNumeric("sinh", true); err != nil {
 		unholdSeq(true, target)
@@ -1026,7 +1026,7 @@ func SequenceSinh(vm *VM, target, locals Interface, msg *Message) *Object {
 // SequenceSqrt is a Sequence method.
 //
 // sqrt sets each element of the receiver to its square root.
-func SequenceSqrt(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceSqrt(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	if err := s.CheckNumeric("sqrt", true); err != nil {
 		unholdSeq(true, target)
@@ -1040,7 +1040,7 @@ func SequenceSqrt(vm *VM, target, locals Interface, msg *Message) *Object {
 // SequenceSquare is a Sequence method.
 //
 // square sets each element of the receiver to its square.
-func SequenceSquare(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceSquare(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	if err := s.CheckNumeric("square", true); err != nil {
 		unholdSeq(true, target)
@@ -1054,7 +1054,7 @@ func SequenceSquare(vm *VM, target, locals Interface, msg *Message) *Object {
 // SequenceSum is a Sequence method.
 //
 // sum returns the sum of the elements of the sequence.
-func SequenceSum(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceSum(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := holdSeq(target)
 	x := s.Reduce(func(x, y float64) float64 { return x + y }, 0)
 	unholdSeq(s.Mutable, target)
@@ -1064,7 +1064,7 @@ func SequenceSum(vm *VM, target, locals Interface, msg *Message) *Object {
 // SequenceTan is a Sequence method.
 //
 // tan sets each element of the receiver to its tangent.
-func SequenceTan(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceTan(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	if err := s.CheckNumeric("tan", true); err != nil {
 		unholdSeq(true, target)
@@ -1078,7 +1078,7 @@ func SequenceTan(vm *VM, target, locals Interface, msg *Message) *Object {
 // SequenceTanh is a Sequence method.
 //
 // tanh sets each element of the receiver to its hyperbolic tangent.
-func SequenceTanh(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceTanh(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	if err := s.CheckNumeric("tanh", true); err != nil {
 		unholdSeq(true, target)

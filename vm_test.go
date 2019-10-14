@@ -10,7 +10,7 @@ var testVM *VM
 
 // BenchDummy is a dummy variable to prevent dead code elimination in
 // benchmarks.
-var BenchDummy Interface
+var BenchDummy *Object
 
 func init() {
 	testVM = NewVM()

@@ -57,7 +57,7 @@ func (vm *VM) initSystem() {
 }
 
 func (vm *VM) initArgs(args []string) {
-	l := make([]Interface, len(args))
+	l := make([]*Object, len(args))
 	for i, v := range args {
 		l[i] = vm.NewString(v)
 	}
@@ -81,14 +81,14 @@ func (vm *VM) SetLaunchScript(path string) {
 // SystemActiveCpus is a System method.
 //
 // activeCpus returns the number of CPUs available for coroutines.
-func SystemActiveCpus(vm *VM, target, locals Interface, msg *Message) *Object {
+func SystemActiveCpus(vm *VM, target, locals *Object, msg *Message) *Object {
 	return vm.NewNumber(float64(runtime.GOMAXPROCS(0)))
 }
 
 // SystemExit is a System method.
 //
 // exit exits the process with an exit code which defaults to 0.
-func SystemExit(vm *VM, target, locals Interface, msg *Message) *Object {
+func SystemExit(vm *VM, target, locals *Object, msg *Message) *Object {
 	code := 0
 	if len(msg.Args) > 0 {
 		n, exc, stop := msg.NumberArgAt(vm, locals, 0)
@@ -105,7 +105,7 @@ func SystemExit(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // getEnvironmentVariable returns the value of the environment variable with
 // the given name, or nil if it does not exist.
-func SystemGetEnvironmentVariable(vm *VM, target, locals Interface, msg *Message) *Object {
+func SystemGetEnvironmentVariable(vm *VM, target, locals *Object, msg *Message) *Object {
 	name, exc, stop := msg.StringArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
@@ -120,7 +120,7 @@ func SystemGetEnvironmentVariable(vm *VM, target, locals Interface, msg *Message
 // SystemSetEnvironmentVariable is a System method.
 //
 // setEnvironmentVariable sets the value of an environment variable.
-func SystemSetEnvironmentVariable(vm *VM, target, locals Interface, msg *Message) *Object {
+func SystemSetEnvironmentVariable(vm *VM, target, locals *Object, msg *Message) *Object {
 	name, exc, stop := msg.StringArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
@@ -141,7 +141,7 @@ func SystemSetEnvironmentVariable(vm *VM, target, locals Interface, msg *Message
 // setLobby changes the Lobby. This had garbage collection implications in the
 // original Io, but is mostly irrelevant in this implementation due to use of
 // Go's GC.
-func SystemSetLobby(vm *VM, target, locals Interface, msg *Message) *Object {
+func SystemSetLobby(vm *VM, target, locals *Object, msg *Message) *Object {
 	o, stop := msg.EvalArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(o, stop)
@@ -153,6 +153,6 @@ func SystemSetLobby(vm *VM, target, locals Interface, msg *Message) *Object {
 // SystemThisProcessPid is a System method.
 //
 // thisProcessPid returns the pid of this process.
-func SystemThisProcessPid(vm *VM, target, locals Interface, msg *Message) *Object {
+func SystemThisProcessPid(vm *VM, target, locals *Object, msg *Message) *Object {
 	return vm.NewNumber(float64(os.Getpid()))
 }

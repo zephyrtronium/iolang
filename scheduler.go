@@ -45,7 +45,7 @@ type waitpair struct {
 type addontriple struct {
 	coro *VM
 	add  Addon
-	ch   chan Interface
+	ch   chan *Object
 }
 
 func (vm *VM) initScheduler() {
@@ -143,8 +143,8 @@ loop:
 //
 // yieldingCoros returns a list of all coroutines which are waiting on another
 // coroutine.
-func SchedulerYieldingCoros(vm *VM, target, locals Interface, msg *Message) *Object {
-	var l []Interface
+func SchedulerYieldingCoros(vm *VM, target, locals *Object, msg *Message) *Object {
+	var l []*Object
 	vm.Sched.m.Lock()
 	for a, b := range vm.Sched.coros {
 		if b != nil {

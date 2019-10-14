@@ -15,7 +15,7 @@ import (
 // SequenceAt is a Sequence method.
 //
 // at returns a value of the sequence as a number.
-func SequenceAt(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceAt(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := holdSeq(target)
 	arg, exc, stop := msg.NumberArgAt(vm, locals, 0)
 	if stop != NoStop {
@@ -32,7 +32,7 @@ func SequenceAt(vm *VM, target, locals Interface, msg *Message) *Object {
 // SequenceSize is a Sequence method.
 //
 // size returns the number of items in the sequence.
-func SequenceSize(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceSize(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := holdSeq(target)
 	n := s.Len()
 	unholdSeq(s.Mutable, target)
@@ -42,7 +42,7 @@ func SequenceSize(vm *VM, target, locals Interface, msg *Message) *Object {
 // SequenceItemSize is a Sequence method.
 //
 // itemSize returns the size in bytes of each item in the sequence.
-func SequenceItemSize(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceItemSize(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := holdSeq(target)
 	n := s.ItemSize()
 	unholdSeq(s.Mutable, target)
@@ -52,7 +52,7 @@ func SequenceItemSize(vm *VM, target, locals Interface, msg *Message) *Object {
 // SequenceItemType is a Sequence method.
 //
 // itemType returns the type of the values in the sequence.
-func SequenceItemType(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceItemType(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := holdSeq(target)
 	defer unholdSeq(s.Mutable, target)
 	switch s.Value.(type) {
@@ -84,7 +84,7 @@ func SequenceItemType(vm *VM, target, locals Interface, msg *Message) *Object {
 // SequenceIsMutable is a Sequence method.
 //
 // isMutable returns whether the sequence is mutable.
-func SequenceIsMutable(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceIsMutable(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := holdSeq(target)
 	r := s.IsMutable()
 	unholdSeq(s.Mutable, target)
@@ -95,7 +95,7 @@ func SequenceIsMutable(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // compare returns -1 if the receiver is less than the argument, 1 if it is
 // greater, or 0 if they are equal.
-func SequenceCompare(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceCompare(vm *VM, target, locals *Object, msg *Message) *Object {
 	r, stop := msg.EvalArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(r, stop)
@@ -117,7 +117,7 @@ func SequenceCompare(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // cloneAppendSeq creates a new symbol with the elements of the argument appended
 // to those of the receiver.
-func SequenceCloneAppendSeq(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceCloneAppendSeq(vm *VM, target, locals *Object, msg *Message) *Object {
 	other, n, obj, stop := msg.SeqOrNumArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(obj, stop)
@@ -139,7 +139,7 @@ func SequenceCloneAppendSeq(vm *VM, target, locals Interface, msg *Message) *Obj
 //
 // afterSeq returns the portion of the sequence which follows the first
 // instance of the argument sequence.
-func SequenceAfterSeq(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceAfterSeq(vm *VM, target, locals *Object, msg *Message) *Object {
 	other, obj, stop := msg.SequenceArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(obj, stop)
@@ -170,18 +170,18 @@ func SequenceAfterSeq(vm *VM, target, locals Interface, msg *Message) *Object {
 // SequenceAsList is a Sequence method.
 //
 // asList creates a list containing each element of the sequence.
-func SequenceAsList(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceAsList(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := holdSeq(target)
 	defer unholdSeq(s.Mutable, target)
 	switch v := s.Value.(type) {
 	case []byte:
-		x := make([]Interface, len(v))
+		x := make([]*Object, len(v))
 		for i, c := range v {
 			x[i] = vm.NewSequence([]byte{c}, false, "latin1")
 		}
 		return vm.NewList(x...)
 	case []uint16:
-		x := make([]Interface, len(v))
+		x := make([]*Object, len(v))
 		p := []byte{1: 0}
 		for i, c := range v {
 			binary.LittleEndian.PutUint16(p, c)
@@ -189,7 +189,7 @@ func SequenceAsList(vm *VM, target, locals Interface, msg *Message) *Object {
 		}
 		return vm.NewList(x...)
 	case []uint32:
-		x := make([]Interface, len(v))
+		x := make([]*Object, len(v))
 		p := []byte{3: 0}
 		for i, c := range v {
 			binary.LittleEndian.PutUint32(p, c)
@@ -197,7 +197,7 @@ func SequenceAsList(vm *VM, target, locals Interface, msg *Message) *Object {
 		}
 		return vm.NewList(x...)
 	case []uint64:
-		x := make([]Interface, len(v))
+		x := make([]*Object, len(v))
 		p := []byte{7: 0}
 		for i, c := range v {
 			binary.LittleEndian.PutUint64(p, c)
@@ -205,13 +205,13 @@ func SequenceAsList(vm *VM, target, locals Interface, msg *Message) *Object {
 		}
 		return vm.NewList(x...)
 	case []int8:
-		x := make([]Interface, len(v))
+		x := make([]*Object, len(v))
 		for i, c := range v {
 			x[i] = vm.NewSequence([]byte{byte(c)}, false, "latin1")
 		}
 		return vm.NewList(x...)
 	case []int16:
-		x := make([]Interface, len(v))
+		x := make([]*Object, len(v))
 		p := []byte{1: 0}
 		for i, c := range v {
 			binary.LittleEndian.PutUint16(p, uint16(c))
@@ -219,7 +219,7 @@ func SequenceAsList(vm *VM, target, locals Interface, msg *Message) *Object {
 		}
 		return vm.NewList(x...)
 	case []int32:
-		x := make([]Interface, len(v))
+		x := make([]*Object, len(v))
 		p := []byte{3: 0}
 		for i, c := range v {
 			binary.LittleEndian.PutUint32(p, uint32(c))
@@ -227,7 +227,7 @@ func SequenceAsList(vm *VM, target, locals Interface, msg *Message) *Object {
 		}
 		return vm.NewList(x...)
 	case []int64:
-		x := make([]Interface, len(v))
+		x := make([]*Object, len(v))
 		p := []byte{7: 0}
 		for i, c := range v {
 			binary.LittleEndian.PutUint64(p, uint64(c))
@@ -235,13 +235,13 @@ func SequenceAsList(vm *VM, target, locals Interface, msg *Message) *Object {
 		}
 		return vm.NewList(x...)
 	case []float32:
-		x := make([]Interface, len(v))
+		x := make([]*Object, len(v))
 		for i, c := range v {
 			x[i] = vm.NewNumber(float64(c))
 		}
 		return vm.NewList(x...)
 	case []float64:
-		x := make([]Interface, len(v))
+		x := make([]*Object, len(v))
 		for i, c := range v {
 			x[i] = vm.NewNumber(c)
 		}
@@ -256,7 +256,7 @@ func SequenceAsList(vm *VM, target, locals Interface, msg *Message) *Object {
 // asStruct reinterprets a sequence as a packed binary structure described by
 // the argument list, with list elements alternating between types and slot
 // names.
-func SequenceAsStruct(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceAsStruct(vm *VM, target, locals *Object, msg *Message) *Object {
 	l, obj, stop := msg.ListArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(obj, stop)
@@ -349,7 +349,7 @@ func SequenceAsStruct(vm *VM, target, locals Interface, msg *Message) *Object {
 // SequenceAsSymbol is a Sequence method.
 //
 // asSymbol creates an immutable copy of the sequence.
-func SequenceAsSymbol(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceAsSymbol(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := holdSeq(target)
 	r := vm.NewSequence(s.Value, false, s.Code)
 	unholdSeq(s.Mutable, target)
@@ -360,7 +360,7 @@ func SequenceAsSymbol(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // beforeSeq returns the portion of the sequence which precedes the first
 // instance of the argument sequence.
-func SequenceBeforeSeq(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceBeforeSeq(vm *VM, target, locals *Object, msg *Message) *Object {
 	other, obj, stop := msg.SequenceArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(obj, stop)
@@ -389,7 +389,7 @@ func SequenceBeforeSeq(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // beginsWithSeq determines whether the sequence begins with the argument
 // sequence in the bytewise sense.
-func SequenceBeginsWithSeq(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceBeginsWithSeq(vm *VM, target, locals *Object, msg *Message) *Object {
 	other, obj, stop := msg.SequenceArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(obj, stop)
@@ -414,7 +414,7 @@ func SequenceBeginsWithSeq(vm *VM, target, locals Interface, msg *Message) *Obje
 // between returns the portion of the sequence between the first occurrence of
 // the first argument sequence and the first following occurrence of the
 // second.
-func SequenceBetween(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceBetween(vm *VM, target, locals *Object, msg *Message) *Object {
 	r, stop := msg.EvalArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(r, stop)
@@ -457,7 +457,7 @@ func SequenceBetween(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // bitAt returns the value of the selected bit within the sequence, 0 or 1. If
 // the index is out of bounds, the result is always 0.
-func SequenceBitAt(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceBitAt(vm *VM, target, locals *Object, msg *Message) *Object {
 	n, exc, stop := msg.NumberArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
@@ -513,7 +513,7 @@ func SequenceBitAt(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // byteAt returns the value of the selected byte of the sequence's underlying
 // representation, 0 to 255. If the index is out of bounds, the result is 0.
-func SequenceByteAt(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceByteAt(vm *VM, target, locals *Object, msg *Message) *Object {
 	n, exc, stop := msg.NumberArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
@@ -565,7 +565,7 @@ func SequenceByteAt(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // contains returns true if any element of the sequence is equal to the given
 // Number.
-func SequenceContains(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceContains(vm *VM, target, locals *Object, msg *Message) *Object {
 	x, exc, stop := msg.NumberArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
@@ -642,7 +642,7 @@ func SequenceContains(vm *VM, target, locals Interface, msg *Message) *Object {
 // SequenceContainsSeq is a Sequence method.
 //
 // containsSeq returns true if the receiver contains the argument sequence.
-func SequenceContainsSeq(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceContainsSeq(vm *VM, target, locals *Object, msg *Message) *Object {
 	other, obj, stop := msg.SequenceArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(obj, stop)
@@ -663,7 +663,7 @@ func SequenceContainsSeq(vm *VM, target, locals Interface, msg *Message) *Object
 //
 // endsWithSeq determines whether the sequence ends with the argument sequence
 // in the bytewise sense.
-func SequenceEndsWithSeq(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceEndsWithSeq(vm *VM, target, locals *Object, msg *Message) *Object {
 	other, obj, stop := msg.SequenceArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(obj, stop)
@@ -688,7 +688,7 @@ func SequenceEndsWithSeq(vm *VM, target, locals Interface, msg *Message) *Object
 //
 // exSlice creates a copy from the first argument index, inclusive, to the
 // second argument index, exclusive, or to the end if the second is not given.
-func SequenceExSlice(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceExSlice(vm *VM, target, locals *Object, msg *Message) *Object {
 	// We have Sequence.Slice(), but since there's no step argument to these
 	// methods and we want a copy, it's better to do it this way.
 	n, exc, stop := msg.NumberArgAt(vm, locals, 0)
@@ -745,7 +745,7 @@ func SequenceExSlice(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // findSeq locates the first occurrence of the argument sequence in the
 // receiver, optionally following a given start index.
-func SequenceFindSeq(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceFindSeq(vm *VM, target, locals *Object, msg *Message) *Object {
 	other, obj, stop := msg.SequenceArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(obj, stop)
@@ -787,7 +787,7 @@ func SequenceFindSeq(vm *VM, target, locals Interface, msg *Message) *Object {
 // findSeqs finds the first occurrence of any sequence in the argument List and
 // returns an object with its "match" slot set to the sequence which matched
 // and its "index" slot set to the index of the match.
-func SequenceFindSeqs(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceFindSeqs(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := holdSeq(target)
 	l, obj, stop := msg.ListArgAt(vm, locals, 0)
 	if stop != NoStop {
@@ -829,7 +829,7 @@ func SequenceFindSeqs(vm *VM, target, locals Interface, msg *Message) *Object {
 // SequenceForeach is a Sequence method.
 //
 // foreach performs a loop for each element of the sequence.
-func SequenceForeach(vm *VM, target, locals Interface, msg *Message) (result *Object) {
+func SequenceForeach(vm *VM, target, locals *Object, msg *Message) (result *Object) {
 	kn, vn, hkn, hvn, ev := ForeachArgs(msg)
 	if !hvn {
 		return vm.RaiseExceptionf("foreach requires 2 or 3 arguments")
@@ -869,7 +869,7 @@ func SequenceForeach(vm *VM, target, locals Interface, msg *Message) (result *Ob
 // SequenceHash is a Sequence method.
 //
 // hash returns a hash of the sequence as a number.
-func SequenceHash(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceHash(vm *VM, target, locals *Object, msg *Message) *Object {
 	h := fnv.New32()
 	s := holdSeq(target)
 	h.Write(s.Bytes())
@@ -881,7 +881,7 @@ func SequenceHash(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // inSlice creates a copy from the first argument index, inclusive, to the
 // second argument index, inclusive, or to the end if the second is not given.
-func SequenceInSlice(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceInSlice(vm *VM, target, locals *Object, msg *Message) *Object {
 	n, exc, stop := msg.NumberArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
@@ -939,7 +939,7 @@ func SequenceInSlice(vm *VM, target, locals Interface, msg *Message) *Object {
 // SequenceIsZero is a Sequence method.
 //
 // isZero returns whether all elements of the sequence are zero.
-func SequenceIsZero(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceIsZero(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := holdSeq(target)
 	defer unholdSeq(s.Mutable, target)
 	switch v := s.Value.(type) {
@@ -1014,7 +1014,7 @@ func SequenceIsZero(vm *VM, target, locals Interface, msg *Message) *Object {
 // occurrencesOfSeq counts the number of non-overlapping occurrences of the
 // given sequence in the receiver. Raises an exception if the argument is an
 // empty sequence.
-func SequenceOccurrencesOfSeq(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceOccurrencesOfSeq(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := holdSeq(target)
 	other, obj, stop := msg.SequenceArgAt(vm, locals, 0)
 	if stop != NoStop {
@@ -1045,7 +1045,7 @@ func SequenceOccurrencesOfSeq(vm *VM, target, locals Interface, msg *Message) *O
 // SequencePack is a Sequence method.
 //
 // pack forms a packed binary sequence with the given format.
-func SequencePack(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequencePack(vm *VM, target, locals *Object, msg *Message) *Object {
 	f, exc, stop := msg.StringArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
@@ -1202,7 +1202,7 @@ func SequencePack(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // reverseFindSeq locates the last occurrence of the argument sequence in the
 // receiver, optionally ending before a given stop index.
-func SequenceReverseFindSeq(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceReverseFindSeq(vm *VM, target, locals *Object, msg *Message) *Object {
 	other, obj, stop := msg.SequenceArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(obj, stop)
@@ -1239,7 +1239,7 @@ func SequenceReverseFindSeq(vm *VM, target, locals Interface, msg *Message) *Obj
 // SequenceSplitAt is a Sequence method.
 //
 // splitAt splits the sequence at the given index.
-func SequenceSplitAt(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceSplitAt(vm *VM, target, locals *Object, msg *Message) *Object {
 	idx, exc, stop := msg.NumberArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
@@ -1256,7 +1256,7 @@ func SequenceSplitAt(vm *VM, target, locals Interface, msg *Message) *Object {
 // SequenceUnpack is a Sequence method.
 //
 // unpack reads a packed binary sequence into a List.
-func SequenceUnpack(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceUnpack(vm *VM, target, locals *Object, msg *Message) *Object {
 	f, exc, stop := msg.StringArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
@@ -1264,7 +1264,7 @@ func SequenceUnpack(vm *VM, target, locals Interface, msg *Message) *Object {
 	s := holdSeq(target)
 	b := s.Bytes()
 	unholdSeq(s.Mutable, target)
-	l := []Interface{}
+	l := []*Object{}
 	count := 0
 	var ed binary.ByteOrder = binary.LittleEndian
 	if len(f) > 0 && f[0] == '*' {
@@ -1431,7 +1431,7 @@ func SequenceUnpack(vm *VM, target, locals Interface, msg *Message) *Object {
 // withStruct creates a packed binary sequence representing the values in the
 // argument list, with list elements alternating between types and values. Note
 // that while 64-bit types are valid, not all their values can be represented.
-func SequenceWithStruct(vm *VM, target, locals Interface, msg *Message) *Object {
+func SequenceWithStruct(vm *VM, target, locals *Object, msg *Message) *Object {
 	l, obj, stop := msg.ListArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(obj, stop)

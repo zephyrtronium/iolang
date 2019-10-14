@@ -9,7 +9,7 @@ import (
 // TestPerform tests that objects can receive and possibly forward messages to
 // activate slots and produce appropriate results.
 func TestPerform(t *testing.T) {
-	pt := &performTester{obj: &Object{Protos: []Interface{testVM.BaseObject}}}
+	pt := &performTester{obj: &Object{Protos: []*Object{testVM.BaseObject}}}
 	res := &Object{
 		Protos: []*Object{testVM.BaseObject},
 		Value:  pt,
@@ -20,10 +20,10 @@ func TestPerform(t *testing.T) {
 	target.SetSlot("forward", testVM.NewCFunction(performTestForward, nil))
 	tm := testVM.IdentMessage("t")
 	cases := map[string]struct {
-		o       Interface
+		o       *Object
 		msg     *Message
 		succeed bool
-		v       Interface
+		v       *Object
 	}{
 		"Local":       {anc, tm, true, res},
 		"Ancestor":    {target, tm, true, res},
@@ -74,7 +74,7 @@ func (performTesterTag) String() string {
 	return "performTester"
 }
 
-func performTestForward(vm *VM, target, locals Interface, msg *Message) *Object {
+func performTestForward(vm *VM, target, locals *Object, msg *Message) *Object {
 	nn := strings.ToLower(msg.Name())
 	if v, proto := target.GetSlot(nn); proto != nil {
 		return v.Activate(vm, target, locals, proto, vm.IdentMessage(nn))
@@ -87,7 +87,7 @@ func BenchmarkPerform(b *testing.B) {
 	p := testVM.BaseObject.Clone()
 	nm := testVM.IdentMessage("type")
 	cm := testVM.IdentMessage("thisContext")
-	cases := map[string]Interface{
+	cases := map[string]*Object{
 		"Local":    testVM.BaseObject,
 		"Proto":    p,
 		"Ancestor": o,
@@ -120,7 +120,7 @@ func TestPerformNilResult(t *testing.T) {
 		"forward": cf,
 	})
 	cases := map[string]struct {
-		o   Interface
+		o   *Object
 		msg *Message
 	}{
 		"HaveSlot": {o, testVM.IdentMessage("f")},
@@ -139,6 +139,6 @@ func TestPerformNilResult(t *testing.T) {
 	}
 }
 
-func nilResult(vm *VM, target, locals Interface, msg *Message) *Object {
+func nilResult(vm *VM, target, locals *Object, msg *Message) *Object {
 	return nil
 }

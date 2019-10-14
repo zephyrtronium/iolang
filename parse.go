@@ -225,12 +225,12 @@ func (vm *VM) parseRecurse(open rune, src io.RuneScanner, tokens chan token, lab
 }
 
 // DoString parses and executes a string.
-func (vm *VM) DoString(src string, label string) (Interface, Stop) {
+func (vm *VM) DoString(src string, label string) (*Object, Stop) {
 	return vm.DoReader(strings.NewReader(src), label)
 }
 
 // DoReader parses and executes an io.Reader.
-func (vm *VM) DoReader(src io.Reader, label string) (Interface, Stop) {
+func (vm *VM) DoReader(src io.Reader, label string) (*Object, Stop) {
 	msg, err := vm.Parse(src, label)
 	if err != nil {
 		return vm.IoError(err), ExceptionStop
@@ -239,13 +239,13 @@ func (vm *VM) DoReader(src io.Reader, label string) (Interface, Stop) {
 }
 
 // DoMessage evaluates a message.
-func (vm *VM) DoMessage(msg *Message, locals Interface) (Interface, Stop) {
+func (vm *VM) DoMessage(msg *Message, locals *Object) (*Object, Stop) {
 	return msg.Eval(vm, locals)
 }
 
 // MustDoString parses and executes a string, panicking if the result is a
 // raised exception.
-func (vm *VM) MustDoString(src string) Interface {
+func (vm *VM) MustDoString(src string) *Object {
 	r := strings.NewReader(src)
 	msg, err := vm.Parse(r, "<string>")
 	if err != nil {

@@ -97,7 +97,7 @@ func (vm *VM) initDate() {
 // DateAsNumber is a Date method.
 //
 // asNumber converts the date into seconds since 1970-01-01 00:00:00 UTC.
-func DateAsNumber(vm *VM, target, locals Interface, msg *Message) *Object {
+func DateAsNumber(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	d := target.Value.(time.Time)
 	target.Unlock()
@@ -110,7 +110,7 @@ func DateAsNumber(vm *VM, target, locals Interface, msg *Message) *Object {
 // asString converts the date to a string representation using ANSI C datetime
 // formatting. See https://godoc.org/github.com/variadico/lctime for the full
 // list of supported directives.
-func DateAsString(vm *VM, target, locals Interface, msg *Message) *Object {
+func DateAsString(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	d := target.Value.(time.Time)
 	target.Unlock()
@@ -128,7 +128,7 @@ func DateAsString(vm *VM, target, locals Interface, msg *Message) *Object {
 // DateClock is a Date method.
 //
 // clock returns the number of seconds since Io initialization as a Number.
-func DateClock(vm *VM, target, locals Interface, msg *Message) *Object {
+func DateClock(vm *VM, target, locals *Object, msg *Message) *Object {
 	dur := time.Since(vm.StartTime)
 	return vm.NewNumber(dur.Seconds())
 }
@@ -136,7 +136,7 @@ func DateClock(vm *VM, target, locals Interface, msg *Message) *Object {
 // DateConvertToLocal is a Date method.
 //
 // convertToLocal converts the date to the local timezone.
-func DateConvertToLocal(vm *VM, target, locals Interface, msg *Message) *Object {
+func DateConvertToLocal(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	d := target.Value.(time.Time)
 	target.Value = d.Local()
@@ -149,7 +149,7 @@ func DateConvertToLocal(vm *VM, target, locals Interface, msg *Message) *Object 
 // convertToLocation converts the time to have the given IANA Time Zone
 // database location, e.g. "America/New_York". See
 // https://golang.org/pkg/time/#LoadLocation for more information.
-func DateConvertToLocation(vm *VM, target, locals Interface, msg *Message) *Object {
+func DateConvertToLocation(vm *VM, target, locals *Object, msg *Message) *Object {
 	// I'm providing this as an alternative to Io's Date convertToZone, because
 	// that would be a lot of effort to support and less consistent.
 	s, exc, stop := msg.StringArgAt(vm, locals, 0)
@@ -170,7 +170,7 @@ func DateConvertToLocation(vm *VM, target, locals Interface, msg *Message) *Obje
 // DateConvertToUTC is a Date method.
 //
 // convertToUTC converts the date to UTC.
-func DateConvertToUTC(vm *VM, target, locals Interface, msg *Message) *Object {
+func DateConvertToUTC(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	d := target.Value.(time.Time)
 	target.Value = d.UTC()
@@ -181,7 +181,7 @@ func DateConvertToUTC(vm *VM, target, locals Interface, msg *Message) *Object {
 // DateCopy is a Date method.
 //
 // copy sets the receiver to the same date as the argument.
-func DateCopy(vm *VM, target, locals Interface, msg *Message) *Object {
+func DateCopy(vm *VM, target, locals *Object, msg *Message) *Object {
 	dd, exc, stop := msg.DateArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
@@ -195,7 +195,7 @@ func DateCopy(vm *VM, target, locals Interface, msg *Message) *Object {
 // DateCpuSecondsToRun is a Date method.
 //
 // cpuSecondsToRun returns the duration taken to evaluate its argument.
-func DateCpuSecondsToRun(vm *VM, target, locals Interface, msg *Message) *Object {
+func DateCpuSecondsToRun(vm *VM, target, locals *Object, msg *Message) *Object {
 	m := msg.ArgAt(0)
 	t := time.Now()
 	r, stop := m.Eval(vm, locals)
@@ -209,7 +209,7 @@ func DateCpuSecondsToRun(vm *VM, target, locals Interface, msg *Message) *Object
 // DateDay is a Date method.
 //
 // day returns the day of the month of the date.
-func DateDay(vm *VM, target, locals Interface, msg *Message) *Object {
+func DateDay(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	d := target.Value.(time.Time)
 	target.Unlock()
@@ -220,7 +220,7 @@ func DateDay(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // fromNumber sets the date to the date corresponding to the given number of
 // seconds since the Unix epoch.
-func DateFromNumber(vm *VM, target, locals Interface, msg *Message) *Object {
+func DateFromNumber(vm *VM, target, locals *Object, msg *Message) *Object {
 	n, err, stop := msg.NumberArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(err, stop)
@@ -236,7 +236,7 @@ func DateFromNumber(vm *VM, target, locals Interface, msg *Message) *Object {
 // DateFromString is a Date method.
 //
 // fromString creates a date from the given string representation
-func DateFromString(vm *VM, target, locals Interface, msg *Message) *Object {
+func DateFromString(vm *VM, target, locals *Object, msg *Message) *Object {
 
 }
 */
@@ -244,7 +244,7 @@ func DateFromString(vm *VM, target, locals Interface, msg *Message) *Object {
 // DateGmtOffset is a Date method.
 //
 // gmtOffset returns the date's timezone offset to UTC as a string.
-func DateGmtOffset(vm *VM, target, locals Interface, msg *Message) *Object {
+func DateGmtOffset(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	d := target.Value.(time.Time)
 	target.Unlock()
@@ -256,7 +256,7 @@ func DateGmtOffset(vm *VM, target, locals Interface, msg *Message) *Object {
 // DateGmtOffsetSeconds is a Date method.
 //
 // gmtOffsetSeconds returns the date's timezone offset to UTC in seconds.
-func DateGmtOffsetSeconds(vm *VM, target, locals Interface, msg *Message) *Object {
+func DateGmtOffsetSeconds(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	d := target.Value.(time.Time)
 	target.Unlock()
@@ -267,7 +267,7 @@ func DateGmtOffsetSeconds(vm *VM, target, locals Interface, msg *Message) *Objec
 // DateHour is a Date method.
 //
 // hour returns the hour component of the date.
-func DateHour(vm *VM, target, locals Interface, msg *Message) *Object {
+func DateHour(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	d := target.Value.(time.Time)
 	target.Unlock()
@@ -277,7 +277,7 @@ func DateHour(vm *VM, target, locals Interface, msg *Message) *Object {
 // DateIsDST is a Date method.
 //
 // isDST returns whether the date is a daylight savings time.
-func DateIsDST(vm *VM, target, locals Interface, msg *Message) *Object {
+func DateIsDST(vm *VM, target, locals *Object, msg *Message) *Object {
 	// Go doesn't have anything like this explicitly, so what we can do instead
 	// is create a new time six months before and see whether it has a larger
 	// UTC difference. No idea whether this will actually work, though. :)
@@ -301,7 +301,7 @@ func DateIsDST(vm *VM, target, locals Interface, msg *Message) *Object {
 // DateIsPast is a Date method.
 //
 // isPast returns true if the date is in the past.
-func DateIsPast(vm *VM, target, locals Interface, msg *Message) *Object {
+func DateIsPast(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	d := target.Value.(time.Time)
 	target.Unlock()
@@ -312,7 +312,7 @@ func DateIsPast(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // isValidTime returns whether the given hour, minute, and second combination has
 // valid values for each component.
-func DateIsValidTime(vm *VM, target, locals Interface, msg *Message) *Object {
+func DateIsValidTime(vm *VM, target, locals *Object, msg *Message) *Object {
 	h, exc, stop := msg.NumberArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
@@ -340,7 +340,7 @@ func DateIsValidTime(vm *VM, target, locals Interface, msg *Message) *Object {
 // DateLocation is a Date method.
 //
 // location returns the system's time location, either "Local" or "UTC".
-func DateLocation(vm *VM, target, locals Interface, msg *Message) *Object {
+func DateLocation(vm *VM, target, locals *Object, msg *Message) *Object {
 	return vm.NewString(time.Local.String())
 }
 
@@ -348,7 +348,7 @@ func DateLocation(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // - produces a Date that is before the receiver by the given Duration, or
 // produces the Duration between the receiver and the given Date.
-func DateMinus(vm *VM, target, locals Interface, msg *Message) *Object {
+func DateMinus(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	d := target.Value.(time.Time)
 	target.Unlock()
@@ -369,7 +369,7 @@ func DateMinus(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // -= sets the receiver to the date that is before the receiver by the given
 // duration.
-func DateMinusEq(vm *VM, target, locals Interface, msg *Message) *Object {
+func DateMinusEq(vm *VM, target, locals *Object, msg *Message) *Object {
 	dur, exc, stop := msg.DurationArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
@@ -384,7 +384,7 @@ func DateMinusEq(vm *VM, target, locals Interface, msg *Message) *Object {
 // DateMinute is a Date method.
 //
 // minute returns the minute portion of the date.
-func DateMinute(vm *VM, target, locals Interface, msg *Message) *Object {
+func DateMinute(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	d := target.Value.(time.Time)
 	target.Unlock()
@@ -394,7 +394,7 @@ func DateMinute(vm *VM, target, locals Interface, msg *Message) *Object {
 // DateMonth is a Date method.
 //
 // month returns the month portion of the date.
-func DateMonth(vm *VM, target, locals Interface, msg *Message) *Object {
+func DateMonth(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	d := target.Value.(time.Time)
 	target.Unlock()
@@ -404,7 +404,7 @@ func DateMonth(vm *VM, target, locals Interface, msg *Message) *Object {
 // DateNow is a Date method.
 //
 // now sets the date to the current local time.
-func DateNow(vm *VM, target, locals Interface, msg *Message) *Object {
+func DateNow(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	target.Value = time.Now()
 	target.Unlock()
@@ -415,7 +415,7 @@ func DateNow(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // += sets the receiver to the date that is after the receiver by the given
 // duration.
-func DatePlusEq(vm *VM, target, locals Interface, msg *Message) *Object {
+func DatePlusEq(vm *VM, target, locals *Object, msg *Message) *Object {
 	dur, exc, stop := msg.DurationArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
@@ -429,7 +429,7 @@ func DatePlusEq(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // second returns the fractional number of seconds within the minute of the
 // date.
-func DateSecond(vm *VM, target, locals Interface, msg *Message) *Object {
+func DateSecond(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	d := target.Value.(time.Time)
 	target.Unlock()
@@ -440,7 +440,7 @@ func DateSecond(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // secondsSince returns the number of seconds between the receiver and the
 // argument, i.e. receiver - argument.
-func DateSecondsSince(vm *VM, target, locals Interface, msg *Message) *Object {
+func DateSecondsSince(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	d := target.Value.(time.Time)
 	target.Unlock()
@@ -455,7 +455,7 @@ func DateSecondsSince(vm *VM, target, locals Interface, msg *Message) *Object {
 // DateSecondsSinceNow is a Date method.
 //
 // secondsSinceNow returns the number of seconds between now and the receiver.
-func DateSecondsSinceNow(vm *VM, target, locals Interface, msg *Message) *Object {
+func DateSecondsSinceNow(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	d := target.Value.(time.Time)
 	target.Unlock()
@@ -466,7 +466,7 @@ func DateSecondsSinceNow(vm *VM, target, locals Interface, msg *Message) *Object
 // DateSetDay is a Date method.
 //
 // setDay sets the day of the date.
-func DateSetDay(vm *VM, target, locals Interface, msg *Message) *Object {
+func DateSetDay(vm *VM, target, locals *Object, msg *Message) *Object {
 	n, err, stop := msg.NumberArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(err, stop)
@@ -482,7 +482,7 @@ func DateSetDay(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // setGmtOffset sets the timezone of the date to the given number of minutes
 // west of UTC.
-func DateSetGmtOffset(vm *VM, target, locals Interface, msg *Message) *Object {
+func DateSetGmtOffset(vm *VM, target, locals *Object, msg *Message) *Object {
 	n, err, stop := msg.NumberArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(err, stop)
@@ -505,7 +505,7 @@ func DateSetGmtOffset(vm *VM, target, locals Interface, msg *Message) *Object {
 // DateSetHour is a Date method.
 //
 // setHour sets the hour of the date.
-func DateSetHour(vm *VM, target, locals Interface, msg *Message) *Object {
+func DateSetHour(vm *VM, target, locals *Object, msg *Message) *Object {
 	n, err, stop := msg.NumberArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(err, stop)
@@ -520,7 +520,7 @@ func DateSetHour(vm *VM, target, locals Interface, msg *Message) *Object {
 // DateSetMinute is a Date method.
 //
 // setMinute sets the minute of the date.
-func DateSetMinute(vm *VM, target, locals Interface, msg *Message) *Object {
+func DateSetMinute(vm *VM, target, locals *Object, msg *Message) *Object {
 	n, err, stop := msg.NumberArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(err, stop)
@@ -535,7 +535,7 @@ func DateSetMinute(vm *VM, target, locals Interface, msg *Message) *Object {
 // DateSetMonth is a Date method.
 //
 // setMonth sets the month of the date.
-func DateSetMonth(vm *VM, target, locals Interface, msg *Message) *Object {
+func DateSetMonth(vm *VM, target, locals *Object, msg *Message) *Object {
 	n, err, stop := msg.NumberArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(err, stop)
@@ -550,7 +550,7 @@ func DateSetMonth(vm *VM, target, locals Interface, msg *Message) *Object {
 // DateSetSecond is a Date method.
 //
 // setSecond sets the (fractional) second of the date.
-func DateSetSecond(vm *VM, target, locals Interface, msg *Message) *Object {
+func DateSetSecond(vm *VM, target, locals *Object, msg *Message) *Object {
 	n, err, stop := msg.NumberArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(err, stop)
@@ -567,7 +567,7 @@ func DateSetSecond(vm *VM, target, locals Interface, msg *Message) *Object {
 // DateSetToUTC is a Date method.
 //
 // setToUTC sets the location of the date to UTC.
-func DateSetToUTC(vm *VM, target, locals Interface, msg *Message) *Object {
+func DateSetToUTC(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	d := target.Value.(time.Time)
 	target.Value = time.Date(d.Year(), d.Month(), d.Day(), d.Hour(), d.Minute(), d.Second(), d.Nanosecond(), time.UTC)
@@ -578,7 +578,7 @@ func DateSetToUTC(vm *VM, target, locals Interface, msg *Message) *Object {
 // DateSetYear is a Date method.
 //
 // setYear sets the year of the date.
-func DateSetYear(vm *VM, target, locals Interface, msg *Message) *Object {
+func DateSetYear(vm *VM, target, locals *Object, msg *Message) *Object {
 	n, err, stop := msg.NumberArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(err, stop)
@@ -593,7 +593,7 @@ func DateSetYear(vm *VM, target, locals Interface, msg *Message) *Object {
 // DateYear is a Date method.
 //
 // year returns the year of the date.
-func DateYear(vm *VM, target, locals Interface, msg *Message) *Object {
+func DateYear(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	d := target.Value.(time.Time)
 	target.Unlock()

@@ -70,7 +70,7 @@ func (vm *VM) initDuration() {
 // DurationAsNumber is a Duration method.
 //
 // asNumber returns the duration as the number of seconds it represents.
-func DurationAsNumber(vm *VM, target, locals Interface, msg *Message) *Object {
+func DurationAsNumber(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	d := target.Value.(time.Duration)
 	target.Unlock()
@@ -91,7 +91,7 @@ func DurationAsNumber(vm *VM, target, locals Interface, msg *Message) *Object {
 // The default format is "%Y years %d days %H:%M:%S". Note that the definitions
 // of years and days never account for leap years or leap seconds, so it is
 // probably better to avoid them.
-func DurationAsString(vm *VM, target, locals Interface, msg *Message) *Object {
+func DurationAsString(vm *VM, target, locals *Object, msg *Message) *Object {
 	// There's no way to escape % characters, and years and days are kinda
 	// nonsense, but I guess it's easy to program.
 	format := "%Y years %d days %H:%M:%S"
@@ -123,7 +123,7 @@ func DurationAsString(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // days returns the number of days represented by the duration, with a day
 // defined as 60*60*24 seconds, not including multiples of 365 days.
-func DurationDays(vm *VM, target, locals Interface, msg *Message) *Object {
+func DurationDays(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	d := target.Value.(time.Duration)
 	target.Unlock()
@@ -133,7 +133,7 @@ func DurationDays(vm *VM, target, locals Interface, msg *Message) *Object {
 // DurationFromNumber is a Duration method.
 //
 // fromNumber sets the duration to the given number of seconds.
-func DurationFromNumber(vm *VM, target, locals Interface, msg *Message) *Object {
+func DurationFromNumber(vm *VM, target, locals *Object, msg *Message) *Object {
 	n, err, stop := msg.NumberArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(err, stop)
@@ -147,7 +147,7 @@ func DurationFromNumber(vm *VM, target, locals Interface, msg *Message) *Object 
 // DurationHours is a Duration method.
 //
 // hours returns the number of whole hours the duration represents, modulo 24.
-func DurationHours(vm *VM, target, locals Interface, msg *Message) *Object {
+func DurationHours(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	d := target.Value.(time.Duration)
 	target.Unlock()
@@ -157,7 +157,7 @@ func DurationHours(vm *VM, target, locals Interface, msg *Message) *Object {
 // DurationMinusEq is a Duration method.
 //
 // -= decreases this duration by the argument duration.
-func DurationMinusEq(vm *VM, target, locals Interface, msg *Message) *Object {
+func DurationMinusEq(vm *VM, target, locals *Object, msg *Message) *Object {
 	dd, exc, stop := msg.DurationArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
@@ -173,7 +173,7 @@ func DurationMinusEq(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // minutes returns the number of whole minutes the duration represents, modulo
 // 60.
-func DurationMinutes(vm *VM, target, locals Interface, msg *Message) *Object {
+func DurationMinutes(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	d := target.Value.(time.Duration)
 	target.Unlock()
@@ -183,7 +183,7 @@ func DurationMinutes(vm *VM, target, locals Interface, msg *Message) *Object {
 // DurationPlusEq is a Duration method.
 //
 // += increases this duration by the argument duration.
-func DurationPlusEq(vm *VM, target, locals Interface, msg *Message) *Object {
+func DurationPlusEq(vm *VM, target, locals *Object, msg *Message) *Object {
 	dd, exc, stop := msg.DurationArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
@@ -199,7 +199,7 @@ func DurationPlusEq(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // seconds returns the fractional number of seconds the duration represents,
 // modulo 60.
-func DurationSeconds(vm *VM, target, locals Interface, msg *Message) *Object {
+func DurationSeconds(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	d := target.Value.(time.Duration)
 	target.Unlock()
@@ -210,7 +210,7 @@ func DurationSeconds(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // setDays sets the number of days the duration represents, with a day defined
 // as 60*60*24 seconds. Overflow into years is allowed.
-func DurationSetDays(vm *VM, target, locals Interface, msg *Message) *Object {
+func DurationSetDays(vm *VM, target, locals *Object, msg *Message) *Object {
 	n, exc, stop := msg.NumberArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
@@ -228,7 +228,7 @@ func DurationSetDays(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // setHours sets the number of hours the duration represents. Overflow into
 // days is allowed.
-func DurationSetHours(vm *VM, target, locals Interface, msg *Message) *Object {
+func DurationSetHours(vm *VM, target, locals *Object, msg *Message) *Object {
 	n, exc, stop := msg.NumberArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
@@ -246,7 +246,7 @@ func DurationSetHours(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // setMinutes sets the number of minutes the duration represents. Overflow into
 // hours is allowed.
-func DurationSetMinutes(vm *VM, target, locals Interface, msg *Message) *Object {
+func DurationSetMinutes(vm *VM, target, locals *Object, msg *Message) *Object {
 	n, exc, stop := msg.NumberArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
@@ -264,7 +264,7 @@ func DurationSetMinutes(vm *VM, target, locals Interface, msg *Message) *Object 
 //
 // setSeconds sets the number of seconds the duration represents. Overflow and
 // underflow are handled correctly.
-func DurationSetSeconds(vm *VM, target, locals Interface, msg *Message) *Object {
+func DurationSetSeconds(vm *VM, target, locals *Object, msg *Message) *Object {
 	n, exc, stop := msg.NumberArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
@@ -284,7 +284,7 @@ func DurationSetSeconds(vm *VM, target, locals Interface, msg *Message) *Object 
 // defined as 60*60*24*365 seconds. Overflow, underflow, and fractional values
 // are handled correctly. However, because durations are represented as integer
 // nanoseconds internally, this conversion is never exact.
-func DurationSetYears(vm *VM, target, locals Interface, msg *Message) *Object {
+func DurationSetYears(vm *VM, target, locals *Object, msg *Message) *Object {
 	n, exc, stop := msg.NumberArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
@@ -302,7 +302,7 @@ func DurationSetYears(vm *VM, target, locals Interface, msg *Message) *Object {
 //
 // years returns the number of whole years represented by the duration, with a
 // year defined as 60*60*24*365 seconds.
-func DurationYears(vm *VM, target, locals Interface, msg *Message) *Object {
+func DurationYears(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
 	d := target.Value.(time.Duration)
 	target.Unlock()

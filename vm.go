@@ -157,10 +157,10 @@ func (vm *VM) initCore() {
 	// Other init* functions will set up Core slots, but it is courteous to
 	// make room for them.
 	vm.Core.Slots = make(Slots, 46)
-	vm.Core.Protos = []Interface{vm.BaseObject}
-	vm.Addons.Protos = []Interface{vm.BaseObject}
-	lp := &Object{Slots: Slots{"Core": vm.Core, "Addons": vm.Addons}, Protos: []Interface{vm.Core, vm.Addons}}
-	vm.Lobby.Protos = []Interface{lp}
+	vm.Core.Protos = []*Object{vm.BaseObject}
+	vm.Addons.Protos = []*Object{vm.BaseObject}
+	lp := &Object{Slots: Slots{"Core": vm.Core, "Addons": vm.Addons}, Protos: []*Object{vm.Core, vm.Addons}}
+	vm.Lobby.Protos = []*Object{lp}
 	vm.Lobby.Slots = Slots{"Protos": lp, "Lobby": vm.Lobby}
 }
 

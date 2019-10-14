@@ -70,14 +70,14 @@ func (vm *VM) run() {
 // CoroutineCurrentCoroutine is a Coroutine method.
 //
 // currentCoroutine returns the current coroutine.
-func CoroutineCurrentCoroutine(vm *VM, target, locals Interface, msg *Message) *Object {
+func CoroutineCurrentCoroutine(vm *VM, target, locals *Object, msg *Message) *Object {
 	return vm.Coro
 }
 
 // CoroutineIsCurrent is a Coroutine method.
 //
 // isCurrent returns whether the receiver is the current coroutine.
-func CoroutineIsCurrent(vm *VM, target, locals Interface, msg *Message) *Object {
+func CoroutineIsCurrent(vm *VM, target, locals *Object, msg *Message) *Object {
 	return vm.IoBool(vm.Coro == target)
 }
 
@@ -86,7 +86,7 @@ func CoroutineIsCurrent(vm *VM, target, locals Interface, msg *Message) *Object 
 // pause stops the coroutine's execution until it is sent the resume message. It
 // will finish evaluating its current message before pausing. If all coroutines
 // are paused, the program ends.
-func CoroutinePause(vm *VM, target, locals Interface, msg *Message) *Object {
+func CoroutinePause(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Value.(chan RemoteStop) <- RemoteStop{Control: PauseStop}
 	return target
 }
@@ -94,7 +94,7 @@ func CoroutinePause(vm *VM, target, locals Interface, msg *Message) *Object {
 // CoroutineResume is a Coroutine method.
 //
 // resume unpauses the coroutine, or starts it if it was not started.
-func CoroutineResume(vm *VM, target, locals Interface, msg *Message) *Object {
+func CoroutineResume(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Value.(chan RemoteStop) <- RemoteStop{Control: ResumeStop}
 	return target
 }
@@ -104,7 +104,7 @@ func CoroutineResume(vm *VM, target, locals Interface, msg *Message) *Object {
 // run starts this coroutine if it was not already running. The coroutine
 // activates its main slot, which by default performs the message in runMessage
 // upon runTarget using runLocals.
-func CoroutineRun(vm *VM, target, locals Interface, msg *Message) *Object {
+func CoroutineRun(vm *VM, target, locals *Object, msg *Message) *Object {
 	coro := vm.VMFor(target)
 	vm.Sched.Start(coro)
 	go coro.run()
@@ -114,7 +114,7 @@ func CoroutineRun(vm *VM, target, locals Interface, msg *Message) *Object {
 // CoroutineYield is a Coroutine method.
 //
 // yield reschedules all goroutines.
-func CoroutineYield(vm *VM, target, locals Interface, msg *Message) *Object {
+func CoroutineYield(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Value.(chan RemoteStop) <- RemoteStop{}
 	return target
 }
