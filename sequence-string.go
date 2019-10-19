@@ -704,10 +704,10 @@ func SequenceAsIoPath(vm *VM, target, locals *Object, msg *Message) *Object {
 	return vm.NewString(filepath.ToSlash(r))
 }
 
-// SequenceAsJson is a Sequence method.
+// SequenceAsJSON is a Sequence method.
 //
 // asJson creates a JSON representation of the sequence.
-func SequenceAsJson(vm *VM, target, locals *Object, msg *Message) *Object {
+func SequenceAsJSON(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := holdSeq(target)
 	var r []byte
 	var err error
@@ -1207,10 +1207,10 @@ func SequenceLstrip(vm *VM, target, locals *Object, msg *Message) *Object {
 	return target
 }
 
-// SequenceParseJson is a Sequence method.
+// SequenceParseJSON is a Sequence method.
 //
 // parseJson decodes the JSON represented by the receiver.
-func SequenceParseJson(vm *VM, target, locals *Object, msg *Message) *Object {
+func SequenceParseJSON(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := holdSeq(target)
 	defer unholdSeq(s.Mutable, target)
 	d := json.NewDecoder(strings.NewReader(s.String()))
@@ -1550,10 +1550,10 @@ func SequenceUppercase(vm *VM, target, locals *Object, msg *Message) *Object {
 	return target
 }
 
-// SequenceUrlDecoded is a Sequence method.
+// SequenceURLDecoded is a Sequence method.
 //
 // urlDecoded unescapes the sequence as a URL query.
-func SequenceUrlDecoded(vm *VM, target, locals *Object, msg *Message) *Object {
+func SequenceURLDecoded(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := holdSeq(target)
 	r := s.String()
 	unholdSeq(s.Mutable, target)
@@ -1564,10 +1564,10 @@ func SequenceUrlDecoded(vm *VM, target, locals *Object, msg *Message) *Object {
 	return vm.NewString(p)
 }
 
-// SequenceUrlEncoded is a Sequence method.
+// SequenceURLEncoded is a Sequence method.
 //
 // urlEncoded escapes the sequence for safe use in a URL query.
-func SequenceUrlEncoded(vm *VM, target, locals *Object, msg *Message) *Object {
+func SequenceURLEncoded(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := holdSeq(target)
 	r := s.String()
 	unholdSeq(s.Mutable, target)

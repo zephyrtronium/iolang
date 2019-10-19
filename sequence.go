@@ -1241,7 +1241,7 @@ func (vm *VM) initSequence() {
 		"asBase64":               vm.NewCFunction(SequenceAsBase64, SequenceTag),
 		"asFixedSizeType":        vm.NewCFunction(SequenceAsFixedSizeType, SequenceTag),
 		"asIoPath":               vm.NewCFunction(SequenceAsIoPath, SequenceTag),
-		"asJson":                 vm.NewCFunction(SequenceAsJson, SequenceTag),
+		"asJson":                 vm.NewCFunction(SequenceAsJSON, SequenceTag),
 		"asLatin1":               vm.NewCFunction(SequenceAsLatin1, SequenceTag),
 		"asMessage":              vm.NewCFunction(SequenceAsMessage, SequenceTag),
 		"asNumber":               vm.NewCFunction(SequenceAsNumber, SequenceTag),
@@ -1263,7 +1263,7 @@ func (vm *VM) initSequence() {
 		"lowercase":              vm.NewCFunction(SequenceLowercase, SequenceTag),
 		"lstrip":                 vm.NewCFunction(SequenceLstrip, SequenceTag),
 		"setEncoding":            vm.NewCFunction(SequenceSetEncoding, SequenceTag),
-		"parseJson":              vm.NewCFunction(SequenceParseJson, SequenceTag),
+		"parseJson":              vm.NewCFunction(SequenceParseJSON, SequenceTag),
 		"pathComponent":          vm.NewCFunction(SequencePathComponent, SequenceTag),
 		"pathExtension":          vm.NewCFunction(SequencePathExtension, SequenceTag),
 		"percentDecoded":         vm.NewCFunction(SequencePercentDecoded, SequenceTag),
@@ -1274,8 +1274,8 @@ func (vm *VM) initSequence() {
 		"toBase":                 vm.NewCFunction(SequenceToBase, SequenceTag),
 		"unescape":               vm.NewCFunction(SequenceUnescape, SequenceTag),
 		"uppercase":              vm.NewCFunction(SequenceUppercase, SequenceTag),
-		"urlDecoded":             vm.NewCFunction(SequenceUrlDecoded, SequenceTag),
-		"urlEncoded":             vm.NewCFunction(SequenceUrlEncoded, SequenceTag),
+		"urlDecoded":             vm.NewCFunction(SequenceURLDecoded, SequenceTag),
+		"urlEncoded":             vm.NewCFunction(SequenceURLEncoded, SequenceTag),
 		"validEncodings":         vm.NewCFunction(SequenceValidEncodings, nil),
 
 		// sequence-math.go:

@@ -316,7 +316,7 @@ func (vm *VM) initObject() {
 		"thisMessage":          vm.NewCFunction(ObjectThisMessage, nil),
 		"try":                  vm.NewCFunction(ObjectTry, nil),
 		"type":                 vm.NewString("Object"),
-		"uniqueId":             vm.NewCFunction(ObjectUniqueId, nil),
+		"uniqueId":             vm.NewCFunction(ObjectUniqueID, nil),
 		"updateSlot":           vm.NewCFunction(ObjectUpdateSlot, nil),
 		"wait":                 vm.NewCFunction(ObjectWait, nil),
 		"while":                vm.NewCFunction(ObjectWhile, nil),
@@ -1135,10 +1135,10 @@ func ObjectThisMessage(vm *VM, target, locals *Object, msg *Message) *Object {
 	return vm.MessageObject(msg)
 }
 
-// ObjectUniqueId is an Object method.
+// ObjectUniqueID is an Object method.
 //
 // uniqueId returns a string representation of the object's address.
-func ObjectUniqueId(vm *VM, target, locals *Object, msg *Message) *Object {
+func ObjectUniqueID(vm *VM, target, locals *Object, msg *Message) *Object {
 	return vm.NewString(fmt.Sprintf("%#x", target.UniqueID()))
 }
 

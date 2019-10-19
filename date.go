@@ -53,7 +53,7 @@ func (vm *VM) initDate() {
 		"convertToLocation": vm.NewCFunction(DateConvertToLocation, DateTag),
 		"convertToUTC":      vm.NewCFunction(DateConvertToUTC, DateTag),
 		"copy":              vm.NewCFunction(DateCopy, DateTag),
-		"cpuSecondsToRun":   vm.NewCFunction(DateCpuSecondsToRun, nil),
+		"cpuSecondsToRun":   vm.NewCFunction(DateCPUSecondsToRun, nil),
 		"day":               vm.NewCFunction(DateDay, DateTag),
 		"fromNumber":        vm.NewCFunction(DateFromNumber, DateTag),
 		"gmtOffset":         vm.NewCFunction(DateGmtOffset, DateTag),
@@ -192,10 +192,10 @@ func DateCopy(vm *VM, target, locals *Object, msg *Message) *Object {
 	return target
 }
 
-// DateCpuSecondsToRun is a Date method.
+// DateCPUSecondsToRun is a Date method.
 //
 // cpuSecondsToRun returns the duration taken to evaluate its argument.
-func DateCpuSecondsToRun(vm *VM, target, locals *Object, msg *Message) *Object {
+func DateCPUSecondsToRun(vm *VM, target, locals *Object, msg *Message) *Object {
 	m := msg.ArgAt(0)
 	t := time.Now()
 	r, stop := m.Eval(vm, locals)
