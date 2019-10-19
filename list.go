@@ -194,8 +194,12 @@ func ListAsString(vm *VM, target, locals *Object, msg *Message) *Object {
 	b.WriteString("list(")
 	target.Lock()
 	l := target.Value.([]*Object)
-	for i, v := range l {
+	for i := 0; i < len(l); i++ {
+		v := l[i]
+		target.Unlock()
 		b.WriteString(vm.AsString(v))
+		target.Lock()
+		l = target.Value.([]*Object)
 		if i != len(l)-1 {
 			b.WriteString(", ")
 		}
@@ -302,10 +306,8 @@ func ListCompare(vm *VM, target, locals *Object, msg *Message) *Object {
 		return vm.Stop(v, stop)
 	}
 	target.Lock()
-	defer target.Unlock()
 	l := target.Value.([]*Object)
 	v.Lock()
-	defer v.Unlock()
 	r, ok := v.Value.([]*Object)
 	if !ok {
 		target.Unlock()
@@ -315,21 +317,40 @@ func ListCompare(vm *VM, target, locals *Object, msg *Message) *Object {
 	s1, s2 := len(l), len(r)
 	if s1 != s2 {
 		// This is not proper lexicographical order, but it is Io's order.
+		target.Unlock()
+		v.Unlock()
 		if s1 < s2 {
 			return vm.NewNumber(-1)
 		}
 		return vm.NewNumber(1)
 	}
-	for i, v := range l {
-		// FIXME: performing code while holding locks
-		x, stop := vm.Compare(v, r[i])
+	for i := 0; i < len(l) && i < len(r); i++ {
+		// Many List methods range over the list value and perform some code
+		// (often through vm.Compare) inside the loop. We have to be careful
+		// with loops like these, because if the code we're performing tries to
+		// use the list while we're holding its lock, then we have a trivial
+		// deadlock. To avoid this, we unlock the objects at the beginning of
+		// each iteration, then lock again at the end, and finally unlock after
+		// the loop exits. We also re-acquire the list value at each iteration
+		// so that we see all changes to it during the loop.
+		t := l[i]
+		u := r[i]
+		target.Unlock()
+		v.Unlock()
+		x, stop := vm.Compare(t, u)
 		if stop != NoStop {
 			return vm.Stop(x, stop)
 		}
 		if n, ok := x.Value.(float64); ok && n != 0 {
 			return x
 		}
+		target.Lock()
+		v.Lock()
+		l = target.Value.([]*Object)
+		r = v.Value.([]*Object)
 	}
+	target.Unlock()
+	v.Unlock()
 	return vm.NewNumber(0)
 }
 
@@ -343,10 +364,10 @@ func ListContains(vm *VM, target, locals *Object, msg *Message) *Object {
 		return vm.Stop(r, stop)
 	}
 	target.Lock()
-	defer target.Unlock()
 	l := target.Value.([]*Object)
-	for _, v := range l {
-		// FIXME: performing code while holding a lock
+	for i := 0; i < len(l); i++ {
+		v := l[i]
+		target.Unlock()
 		c, stop := vm.Compare(v, r)
 		if stop != NoStop {
 			return vm.Stop(c, stop)
@@ -354,7 +375,10 @@ func ListContains(vm *VM, target, locals *Object, msg *Message) *Object {
 		if n, ok := c.Value.(float64); ok && n == 0 {
 			return vm.True
 		}
+		target.Lock()
+		l = target.Value.([]*Object)
 	}
+	target.Unlock()
 	return vm.False
 }
 
@@ -363,29 +387,32 @@ func ListContains(vm *VM, target, locals *Object, msg *Message) *Object {
 // containsAll returns true if the list contains items equal to each of the
 // given objects.
 func ListContainsAll(vm *VM, target, locals *Object, msg *Message) *Object {
-	var stop Stop
 	r := make([]*Object, len(msg.Args))
 	for i := range msg.Args {
+		var stop Stop
 		r[i], stop = msg.EvalArgAt(vm, locals, i)
 		if stop != NoStop {
 			return vm.Stop(r[i], stop)
 		}
 	}
-	target.Lock()
-	defer target.Unlock()
-	l := target.Value.([]*Object)
 outer:
 	for _, v := range r {
-		for _, ri := range l {
-			// FIXME: performing code while holding a lock
-			c, stop := vm.Compare(ri, v)
+		target.Lock()
+		l := target.Value.([]*Object)
+		for i := 0; i < len(l); i++ {
+			u := l[i]
+			target.Unlock()
+			c, stop := vm.Compare(u, v)
 			if stop != NoStop {
 				return vm.Stop(c, stop)
 			}
 			if n, ok := c.Value.(float64); ok && n == 0 {
 				continue outer
 			}
+			target.Lock()
+			l = target.Value.([]*Object)
 		}
+		target.Unlock()
 		return vm.False
 	}
 	return vm.True
@@ -406,9 +433,10 @@ func ListContainsAny(vm *VM, target, locals *Object, msg *Message) *Object {
 		}
 	}
 	target.Lock()
-	defer target.Unlock()
 	l := target.Value.([]*Object)
-	for _, v := range l {
+	for i := 0; i < len(l); i++ {
+		v := l[i]
+		target.Unlock()
 		for _, ri := range r {
 			// FIXME: performing code while holding a lock
 			c, stop := vm.Compare(ri, v)
@@ -419,7 +447,10 @@ func ListContainsAny(vm *VM, target, locals *Object, msg *Message) *Object {
 				return vm.True
 			}
 		}
+		target.Lock()
+		l = target.Value.([]*Object)
 	}
+	target.Unlock()
 	return vm.False
 }
 
@@ -456,10 +487,8 @@ func ListForeach(vm *VM, target, locals *Object, msg *Message) (result *Object) 
 	target.Lock()
 	l := target.Value.([]*Object)
 	var control Stop
-	for k, v := range l {
-		// We lock and unlock for each loop iteration because we want to be
-		// able to access the list while evaluating - it seems very likely that
-		// a foreach loop would want to use atPut, for example.
+	for k := 0; k < len(l); k++ {
+		v := l[k]
 		target.Unlock()
 		if hvn {
 			locals.SetSlot(vn, v)
@@ -480,6 +509,7 @@ func ListForeach(vm *VM, target, locals *Object, msg *Message) (result *Object) 
 			panic(fmt.Sprintf("iolang: invalid Stop: %v", control))
 		}
 		target.Lock()
+		l = target.Value.([]*Object)
 	}
 	target.Unlock()
 	return result
@@ -495,10 +525,10 @@ func ListIndexOf(vm *VM, target, locals *Object, msg *Message) *Object {
 		return vm.Stop(r, stop)
 	}
 	target.Lock()
-	defer target.Unlock()
 	l := target.Value.([]*Object)
-	for i, v := range l {
-		// FIXME: performing code while holding a lock
+	for i := 0; i < len(l); i++ {
+		v := l[i]
+		target.Unlock()
 		c, stop := vm.Compare(v, r)
 		if stop != NoStop {
 			return vm.Stop(c, stop)
@@ -506,7 +536,10 @@ func ListIndexOf(vm *VM, target, locals *Object, msg *Message) *Object {
 		if n, ok := c.Value.(float64); ok && n == 0 {
 			return vm.NewNumber(float64(i))
 		}
+		target.Lock()
+		l = target.Value.([]*Object)
 	}
+	target.Unlock()
 	return vm.Nil
 }
 
@@ -564,45 +597,47 @@ func ListPrepend(vm *VM, target, locals *Object, msg *Message) *Object {
 
 // ListRemove is a List method.
 //
-// remove removes all occurrences of each item from the list.
+// remove removes all occurrences of each item from the list. The behavior of
+// this method may be unpredictable if the list is modified concurrently.
 func ListRemove(vm *VM, target, locals *Object, msg *Message) *Object {
-	rv := make(map[*Object]struct{}, len(msg.Args))
+	rv := make(map[*Object]bool, len(msg.Args))
 	for _, m := range msg.Args {
 		r, stop := m.Eval(vm, locals)
 		if stop != NoStop {
 			return vm.Stop(r, stop)
 		}
-		rv[r] = struct{}{}
+		rv[r] = true
 	}
 	j := 0
 	target.Lock()
 	l := target.Value.([]*Object)
-	defer func() {
-		target.Value = l[:len(l)-j]
-		target.Unlock()
-	}()
-outer:
 	for k, v := range l {
+		target.Unlock()
+		is := false
 		// Check whether the value exists by ID first, then check via compare.
-		if _, ok := rv[v]; ok {
-			j++
+		if rv[v] {
+			is = true
 		} else {
 			for r := range rv {
-				// FIXME: performing code while holding a lock
 				c, stop := vm.Compare(v, r)
 				if stop != NoStop {
+					target.Value = l[:len(l)-j]
 					return vm.Stop(c, stop)
 				}
 				if n, ok := c.Value.(float64); ok && n == 0 {
-					j++
-					continue outer
+					is = true
 				}
 			}
-			if k-j >= 0 {
-				l[k-j] = v
-			}
+		}
+		target.Lock()
+		if is {
+			j++
+		} else {
+			l[k-j] = l[k]
 		}
 	}
+	target.Value = l[:len(l)-j]
+	target.Unlock()
 	return target
 }
 
@@ -670,6 +705,7 @@ func ListReverseForeach(vm *VM, target, locals *Object, msg *Message) (result *O
 			panic(fmt.Sprintf("iolang: invalid Stop: %v", control))
 		}
 		target.Lock()
+		l = target.Value.([]*Object)
 	}
 	target.Unlock()
 	return result
@@ -731,6 +767,12 @@ func ListSize(vm *VM, target, locals *Object, msg *Message) *Object {
 // 	slice(start)
 // 	slice(start, stop)
 // 	slice(start, stop, step)
+//
+// start and stop are fixed in the following sense: for each, if it is less
+// than zero, then size is added to it, then, if it is still less than zero,
+// it becomes -1 if the step is negative and 0 otherwise; if it is greater than
+// or equal to the size, then it becomes size - 1 if step is negative and size
+// otherwise.
 func SliceArgs(vm *VM, locals *Object, msg *Message, size int) (start, step, stop int, exc *Object, control Stop) {
 	start = 0
 	step = 1
@@ -804,6 +846,7 @@ func ListSlice(vm *VM, target, locals *Object, msg *Message) *Object {
 	}
 	v := make([]*Object, 0, nn)
 	target.Lock()
+	// Don't fetch an updated list value in case the slice args become invalid.
 	if step > 0 {
 		for start < stop {
 			v = append(v, l[start])
@@ -870,13 +913,13 @@ func ListSliceInPlace(vm *VM, target, locals *Object, msg *Message) *Object {
 
 type listSorter struct {
 	mu  *sync.Mutex // list's mutex
-	v   []*Object // values to sort
+	v   []*Object   // values to sort
 	vm  *VM         // VM to use for compare, &c.
 	e   *Message    // message to send to items, arg of sortInPlace
-	l   *Object   // locals for message send or sortInPlaceBy block
+	l   *Object     // locals for message send or sortInPlaceBy block
 	b   *Object     // block to use in place of compare, arg of sortInPlaceBy
 	m   *Message    // message to hold arguments to sortInPlaceBy block
-	err *Object   // error during compare
+	err *Object     // error during compare
 	c   Stop        // control flow type during compare
 }
 
@@ -927,11 +970,8 @@ func (l *listSorter) Less(i, j int) bool {
 	l.mu.Unlock()
 	r := l.vm.ActivateBlock(l.b, l.l, l.l, l.l, l.m)
 	// Check whether the block gave us any control flow signal.
-	select {
-	case rs := <-l.vm.Control:
-		l.err, l.c = rs.Result, rs.Control
+	if l.err, l.c = l.vm.Status(nil); l.c != NoStop {
 		return i < j
-	default: // do nothing
 	}
 	return l.vm.AsBool(r)
 }

@@ -469,9 +469,9 @@ func (vm *VM) initMessage() {
 // appendArg adds a message as an argument to the message.
 func MessageAppendArg(vm *VM, target, locals *Object, msg *Message) *Object {
 	m := target.Value.(*Message)
-	nm, err, stop := msg.MessageArgAt(vm, locals, 0)
+	nm, exc, stop := msg.MessageArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return vm.Stop(err, stop)
+		return vm.Stop(exc, stop)
 	}
 	go func() {
 		m.Lock()
@@ -859,8 +859,8 @@ func MessageSetArguments(vm *VM, target, locals *Object, msg *Message) *Object {
 	if stop != NoStop {
 		return vm.Stop(obj, stop)
 	}
-	args := make([]*Message, len(l))
 	obj.Lock()
+	args := make([]*Message, len(l))
 	for k, v := range l {
 		arg, ok := v.Value.(*Message)
 		if !ok {

@@ -436,9 +436,9 @@ func ObjectUpdateSlot(vm *VM, target, locals *Object, msg *Message) *Object {
 //
 // getSlot gets the value of a slot. The slot is never activated.
 func ObjectGetSlot(vm *VM, target, locals *Object, msg *Message) *Object {
-	slot, obj, stop := msg.StringArgAt(vm, locals, 0)
+	slot, exc, stop := msg.StringArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return vm.Stop(obj, stop)
+		return vm.Stop(exc, stop)
 	}
 	v, _ := target.GetSlot(slot)
 	return v

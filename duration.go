@@ -134,9 +134,9 @@ func DurationDays(vm *VM, target, locals *Object, msg *Message) *Object {
 //
 // fromNumber sets the duration to the given number of seconds.
 func DurationFromNumber(vm *VM, target, locals *Object, msg *Message) *Object {
-	n, err, stop := msg.NumberArgAt(vm, locals, 0)
+	n, exc, stop := msg.NumberArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return vm.Stop(err, stop)
+		return vm.Stop(exc, stop)
 	}
 	target.Lock()
 	target.Value = time.Duration(n * float64(time.Second))

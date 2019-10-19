@@ -737,8 +737,6 @@ func SequenceAsJson(vm *VM, target, locals *Object, msg *Message) *Object {
 //
 // asMessage compiles the sequence to a Message.
 func SequenceAsMessage(vm *VM, target, locals *Object, msg *Message) *Object {
-	s := holdSeq(target)
-	defer unholdSeq(s.Mutable, target)
 	label := "[asMessage]"
 	if msg.ArgCount() > 0 {
 		r, exc, stop := msg.StringArgAt(vm, locals, 0)
@@ -747,7 +745,9 @@ func SequenceAsMessage(vm *VM, target, locals *Object, msg *Message) *Object {
 		}
 		label = r
 	}
+	s := holdSeq(target)
 	m, err := vm.Parse(strings.NewReader(s.String()), label)
+	unholdSeq(s.Mutable, target)
 	if err != nil {
 		return vm.IoError(err)
 	}
@@ -760,16 +760,15 @@ func SequenceAsMessage(vm *VM, target, locals *Object, msg *Message) *Object {
 func SequenceAsNumber(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := holdSeq(target)
 	b := strings.TrimSpace(s.String())
+	unholdSeq(s.Mutable, target)
 	x, err := strconv.ParseFloat(b, 64)
 	if err != nil {
 		y, err := strconv.ParseInt(b, 0, 64)
 		if err != nil {
-			unholdSeq(s.Mutable, target)
 			return vm.IoError(err)
 		}
 		x = float64(y)
 	}
-	unholdSeq(s.Mutable, target)
 	return vm.NewNumber(x)
 }
 
@@ -906,8 +905,8 @@ func SequenceCloneAppendPath(vm *VM, target, locals *Object, msg *Message) *Obje
 // encountered, the result will be numeric.
 func SequenceConvertToFixedSizeType(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
-	defer target.Unlock()
 	if err := s.CheckMutable("convertToFixedSizeType"); err != nil {
+		target.Unlock()
 		return vm.IoError(err)
 	}
 	code := s.MinCode()
@@ -945,6 +944,7 @@ func SequenceConvertToFixedSizeType(vm *VM, target, locals *Object, msg *Message
 		}
 	}
 	target.Value = s
+	target.Unlock()
 	return target
 }
 
@@ -1500,8 +1500,6 @@ func SequenceStrip(vm *VM, target, locals *Object, msg *Message) *Object {
 // toBase converts the sequence from a base 10 representation of a number to a
 // base 8 or 16 representation of the same number.
 func SequenceToBase(vm *VM, target, locals *Object, msg *Message) *Object {
-	s := holdSeq(target)
-	defer unholdSeq(s.Mutable, target)
 	n, exc, stop := msg.NumberArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
@@ -1510,7 +1508,9 @@ func SequenceToBase(vm *VM, target, locals *Object, msg *Message) *Object {
 	if base < 2 || base > 36 {
 		return vm.RaiseExceptionf("cannot convert to base %d", base)
 	}
+	s := holdSeq(target)
 	x, err := strconv.ParseInt(s.String(), 10, 64)
+	unholdSeq(s.Mutable, target)
 	if err != nil {
 		return vm.IoError(err)
 	}
@@ -1540,12 +1540,13 @@ func SequenceUnescape(vm *VM, target, locals *Object, msg *Message) *Object {
 // equivalents. This does not use special (Turkish) casing.
 func SequenceUppercase(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
-	defer target.Unlock()
 	if err := s.CheckMutable("uppercase"); err != nil {
+		target.Unlock()
 		return vm.IoError(err)
 	}
 	r := s.String()
 	target.Value = EncodeString(r, s.Code, s.Kind())
+	target.Unlock()
 	return target
 }
 

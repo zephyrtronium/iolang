@@ -774,8 +774,14 @@ func SequenceFindSeq(vm *VM, target, locals *Object, msg *Message) *Object {
 			return vm.Nil
 		}
 	}
+	if other.IsMutable() {
+		obj.Lock()
+	}
 	k := s.Find(other, a)
 	unholdSeq(s.Mutable, target)
+	if other.IsMutable() {
+		obj.Unlock()
+	}
 	if k >= 0 {
 		return vm.NewNumber(float64(k))
 	}
@@ -812,7 +818,13 @@ func SequenceFindSeqs(vm *VM, target, locals *Object, msg *Message) *Object {
 			obj.Unlock()
 			return vm.RaiseExceptionf("list elements for findSeqs must be Sequence, not %s", vm.TypeName(v))
 		}
+		if x.IsMutable() {
+			v.Lock()
+		}
 		k := s.Find(x, a)
+		if x.IsMutable() {
+			v.Unlock()
+		}
 		if k >= 0 && (j < 0 || k < j) {
 			j = k
 			m = v
@@ -887,10 +899,6 @@ func SequenceInSlice(vm *VM, target, locals *Object, msg *Message) *Object {
 		return vm.Stop(exc, stop)
 	}
 	a := int(n)
-	r, stop := msg.EvalArgAt(vm, locals, 1)
-	if stop != NoStop {
-		return vm.Stop(r, stop)
-	}
 	s := holdSeq(target)
 	m := s.Len()
 	unholdSeq(s.Mutable, target)
@@ -907,8 +915,10 @@ func SequenceInSlice(vm *VM, target, locals *Object, msg *Message) *Object {
 			b = fixSliceIndex(b+1, 1, m)
 		}
 	}
-	target.Lock()
-	defer target.Unlock()
+	if s.IsMutable() {
+		target.Lock()
+		defer target.Unlock()
+	}
 	a = fixSliceIndex(a, 1, m)
 	switch v := s.Value.(type) {
 	case []byte:
@@ -1228,8 +1238,14 @@ func SequenceReverseFindSeq(vm *VM, target, locals *Object, msg *Message) *Objec
 		}
 	}
 	s = holdSeq(target)
+	if other.IsMutable() {
+		obj.Lock()
+	}
 	k := s.RFind(other, a)
 	unholdSeq(s.Mutable, target)
+	if other.IsMutable() {
+		obj.Unlock()
+	}
 	if k >= 0 {
 		return vm.NewNumber(float64(k))
 	}
@@ -1438,13 +1454,20 @@ func SequenceWithStruct(vm *VM, target, locals *Object, msg *Message) *Object {
 	}
 	b := make([]byte, 0, len(l)*2)
 	p := []byte{7: 0}
+	obj.Lock()
+	defer obj.Unlock()
 	for i := 0; i < len(l)/2; i++ {
 		vi := l[2*i]
+		// Check that the list doesn't contain itself so that we don't try to
+		// acquire its lock while already holding it.
+		if vi == obj {
+			return vm.RaiseExceptionf("types must be strings, not %s", vm.TypeName(vi))
+		}
 		vi.Lock()
 		typ, ok := vi.Value.(Sequence)
 		if !ok {
 			vi.Unlock()
-			return vm.RaiseExceptionf("types must be strings, not %s", vm.TypeName(l[2*i]))
+			return vm.RaiseExceptionf("types must be strings, not %s", vm.TypeName(vi))
 		}
 		typs := typ.String()
 		vi.Unlock()
@@ -1453,7 +1476,7 @@ func SequenceWithStruct(vm *VM, target, locals *Object, msg *Message) *Object {
 		val, ok := vi.Value.(float64)
 		vi.Unlock()
 		if !ok {
-			return vm.RaiseExceptionf("values must be numbers, not %s", vm.TypeName(l[2*i]))
+			return vm.RaiseExceptionf("values must be numbers, not %s", vm.TypeName(vi))
 		}
 		switch strings.ToLower(typs) {
 		case "uint8", "int8":

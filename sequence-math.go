@@ -468,6 +468,7 @@ func SequenceAcos(vm *VM, target, locals *Object, msg *Message) *Object {
 		return vm.IoError(err)
 	}
 	s.MapUnary(math.Acos)
+	unholdSeq(true, target)
 	return target
 }
 
@@ -617,6 +618,7 @@ func SequenceBitCount(vm *VM, target, locals *Object, msg *Message) *Object {
 func SequenceBitwiseAnd(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	if err := s.CheckMutable("bitwiseAnd"); err != nil {
+		unholdSeq(true, target)
 		return vm.IoError(err)
 	}
 	other, obj, stop := msg.SequenceArgAt(vm, locals, 0)
@@ -678,6 +680,7 @@ func SequenceBitwiseNot(vm *VM, target, locals *Object, msg *Message) *Object {
 func SequenceBitwiseOr(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	if err := s.CheckMutable("bitwiseOr"); err != nil {
+		unholdSeq(true, target)
 		return vm.IoError(err)
 	}
 	other, obj, stop := msg.SequenceArgAt(vm, locals, 0)
@@ -715,6 +718,7 @@ func SequenceBitwiseOr(vm *VM, target, locals *Object, msg *Message) *Object {
 func SequenceBitwiseXor(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := lockSeq(target)
 	if err := s.CheckMutable("bitwiseXor"); err != nil {
+		unholdSeq(true, target)
 		return vm.IoError(err)
 	}
 	other, obj, stop := msg.SequenceArgAt(vm, locals, 0)
@@ -766,9 +770,9 @@ func SequenceCeil(vm *VM, target, locals *Object, msg *Message) *Object {
 //
 // cos sets each element of the receiver to its cosine.
 func SequenceCos(vm *VM, target, locals *Object, msg *Message) *Object {
-	unholdSeq(true, target)
 	s := lockSeq(target)
 	if err := s.CheckNumeric("cos", true); err != nil {
+		unholdSeq(true, target)
 		return vm.IoError(err)
 	}
 	s.MapUnary(math.Cos)
@@ -780,9 +784,9 @@ func SequenceCos(vm *VM, target, locals *Object, msg *Message) *Object {
 //
 // cosh sets each element of the receiver to its hyperbolic cosine.
 func SequenceCosh(vm *VM, target, locals *Object, msg *Message) *Object {
-	unholdSeq(true, target)
 	s := lockSeq(target)
 	if err := s.CheckNumeric("cosh", true); err != nil {
+		unholdSeq(true, target)
 		return vm.IoError(err)
 	}
 	s.MapUnary(math.Cosh)
@@ -797,6 +801,7 @@ func SequenceCosh(vm *VM, target, locals *Object, msg *Message) *Object {
 // type and of equal size; otherwise, the result will be 0.
 func SequenceDistanceTo(vm *VM, target, locals *Object, msg *Message) *Object {
 	x := holdSeq(target)
+	defer unholdSeq(x.Mutable, target)
 	y, obj, stop := msg.SequenceArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(obj, stop)
