@@ -99,19 +99,19 @@ func (vm *VM) initCFunction() {
 //
 // asString returns a string representation of the object.
 func CFunctionAsString(vm *VM, target, locals *Object, msg *Message) *Object {
-	return vm.NewString(target.Value.(*CFunction).Name)
+	return vm.NewString(target.Value.(CFunction).Name)
 }
 
 // CFunctionEqual is a CFunction method.
 //
 // == returns whether the two CFunctions hold the same internal function.
 func CFunctionEqual(vm *VM, target, locals *Object, msg *Message) *Object {
-	f := target.Value.(*CFunction)
+	f := target.Value.(CFunction)
 	r, stop := msg.EvalArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(r, stop)
 	}
-	other, ok := r.Value.(*CFunction)
+	other, ok := r.Value.(CFunction)
 	if !ok {
 		return vm.RaiseExceptionf("argument 0 to == must be CFunction, not %s", vm.TypeName(r))
 	}
@@ -122,7 +122,7 @@ func CFunctionEqual(vm *VM, target, locals *Object, msg *Message) *Object {
 //
 // id returns a unique number for the function invoked by the CFunction.
 func CFunctionID(vm *VM, target, locals *Object, msg *Message) *Object {
-	f := target.Value.(*CFunction)
+	f := target.Value.(CFunction)
 	u := reflect.ValueOf(f.Function).Pointer()
 	return vm.NewNumber(float64(u))
 }
@@ -131,7 +131,7 @@ func CFunctionID(vm *VM, target, locals *Object, msg *Message) *Object {
 //
 // performOn activates the CFunction using the supplied settings.
 func CFunctionPerformOn(vm *VM, target, locals *Object, msg *Message) *Object {
-	f := target.Value.(*CFunction)
+	f := target.Value.(CFunction)
 	nt, stop := msg.EvalArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(nt, stop)
@@ -160,7 +160,7 @@ func CFunctionPerformOn(vm *VM, target, locals *Object, msg *Message) *Object {
 //
 // typeName returns the name of the type to which the CFunction is assigned.
 func CFunctionTypeName(vm *VM, target, locals *Object, msg *Message) *Object {
-	f := target.Value.(*CFunction)
+	f := target.Value.(CFunction)
 	if f.Type == nil {
 		return vm.Nil
 	}
@@ -171,5 +171,5 @@ func CFunctionTypeName(vm *VM, target, locals *Object, msg *Message) *Object {
 //
 // uniqueName returns the name of the function.
 func CFunctionUniqueName(vm *VM, target, locals *Object, msg *Message) *Object {
-	return vm.NewString(target.Value.(*CFunction).Name)
+	return vm.NewString(target.Value.(CFunction).Name)
 }
