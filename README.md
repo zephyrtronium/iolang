@@ -26,7 +26,6 @@ For a more in-depth introduction to Io, check out [the official guide](http://io
 
 ## TODO
 
-- Check all mutex acquisitions, especially following calls to TypeArgAt methods.
 - Redo addon loading.
 	+ Allow addons to create multiple objects.
 	+ Allow addons to have dependencies, e.g. HTTPClient requires Socket, but don't load Socket twice.
