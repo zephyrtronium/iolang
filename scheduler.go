@@ -50,6 +50,7 @@ type addontriple struct {
 
 func (vm *VM) initScheduler() {
 	slots := Slots{
+		"awaitingCoros": vm.NewCFunction(SchedulerAwaitingCoros, nil),
 		"type":          vm.NewString("Scheduler"),
 		"yieldingCoros": vm.NewCFunction(SchedulerYieldingCoros, nil),
 	}
@@ -139,15 +140,31 @@ loop:
 	}
 }
 
-// SchedulerYieldingCoros is a Scheduler method.
+// SchedulerAwaitingCoros is a Scheduler method.
 //
-// yieldingCoros returns a list of all coroutines which are waiting on another
+// awaitingCoros returns a list of all coroutines which are waiting on another
 // coroutine.
-func SchedulerYieldingCoros(vm *VM, target, locals *Object, msg *Message) *Object {
+func SchedulerAwaitingCoros(vm *VM, target, locals *Object, msg *Message) *Object {
 	var l []*Object
 	vm.Sched.m.Lock()
 	for a, b := range vm.Sched.coros {
 		if b != nil {
+			l = append(l, a.Coro)
+		}
+	}
+	vm.Sched.m.Unlock()
+	return vm.NewList(l...)
+}
+
+// SchedulerYieldingCoros is a Scheduler method.
+//
+// yieldingCoros returns a list of all running coroutines except the current
+// one.
+func SchedulerYieldingCoros(vm *VM, target, locals *Object, msg *Message) *Object {
+	var l []*Object
+	vm.Sched.m.Lock()
+	for a := range vm.Sched.coros {
+		if a.Coro != vm.Coro {
 			l = append(l, a.Coro)
 		}
 	}
