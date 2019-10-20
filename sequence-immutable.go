@@ -423,7 +423,13 @@ func SequenceBetween(vm *VM, target, locals *Object, msg *Message) *Object {
 	s := holdSeq(target)
 	defer unholdSeq(s.Mutable, target)
 	if other, ok := r.Value.(Sequence); ok {
+		if other.IsMutable() {
+			r.Lock()
+		}
 		k = s.Find(other, 0)
+		if other.IsMutable() {
+			r.Unlock()
+		}
 		if k < 0 {
 			return vm.Nil
 		}
@@ -437,10 +443,15 @@ func SequenceBetween(vm *VM, target, locals *Object, msg *Message) *Object {
 	}
 	l := 0
 	if other, ok := r.Value.(Sequence); ok {
+		if other.IsMutable() {
+			r.Lock()
+		}
 		l = s.Find(other, k)
+		if other.IsMutable() {
+			r.Unlock()
+		}
 		if l < 0 {
-			// The original returns nil in this case.
-			l = s.Len()
+			return vm.Nil
 		}
 	} else if r == vm.Nil {
 		l = s.Len()
