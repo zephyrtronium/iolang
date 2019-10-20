@@ -4,6 +4,9 @@ import "sync"
 
 // Scheduler helps manage a group of Io coroutines.
 type Scheduler struct {
+	// m is a mutex to hold the scheduler's coros map.
+	m sync.Mutex
+
 	// Main is the first coroutine in the VM, instantiated with NewVM().
 	Main *VM
 
@@ -22,8 +25,6 @@ type Scheduler struct {
 	pause chan *VM
 	// finish is a channel for coroutines to indicate deactivation.
 	finish chan *VM
-	// m is a mutex specific to coros.
-	m sync.Mutex
 
 	// addons is a channel to synchronize loading addons.
 	addons chan addontriple
@@ -51,6 +52,7 @@ type addontriple struct {
 func (vm *VM) initScheduler() {
 	slots := Slots{
 		"awaitingCoros": vm.NewCFunction(SchedulerAwaitingCoros, nil),
+		"coroCount":     vm.NewCFunction(SchedulerCoroCount, nil),
 		"type":          vm.NewString("Scheduler"),
 		"yieldingCoros": vm.NewCFunction(SchedulerYieldingCoros, nil),
 	}
@@ -154,6 +156,17 @@ func SchedulerAwaitingCoros(vm *VM, target, locals *Object, msg *Message) *Objec
 	}
 	vm.Sched.m.Unlock()
 	return vm.NewList(l...)
+}
+
+// SchedulerCoroCount is a Scheduler method.
+//
+// coroCount returns the number of active coroutines other than the current
+// one. This is more efficient than using Scheduler yieldingCoros size.
+func SchedulerCoroCount(vm *VM, target, locals *Object, msg *Message) *Object {
+	vm.Sched.m.Lock()
+	n := len(vm.Sched.coros) - 1
+	vm.Sched.m.Unlock()
+	return vm.NewNumber(float64(n))
 }
 
 // SchedulerYieldingCoros is a Scheduler method.
