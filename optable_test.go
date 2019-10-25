@@ -22,7 +22,7 @@ func TestLazyOptable(t *testing.T) {
 					t.Fatalf("OperatorTable %s has wrong type; want Map, have %v", c, r.Tag)
 				}
 			})
-			t.Run("Change", func (t *testing.T) {
+			t.Run("Change", func(t *testing.T) {
 				testVM.Operators.SetSlot(c, testVM.Nil)
 				testVM.Parse(strings.NewReader("Lobby"), "TestLazyOptable")
 				r, proto := testVM.Operators.GetSlot(c)
@@ -74,30 +74,30 @@ func (m *Message) Diff(other *Message) *Message {
 // correct message chains using the default OperatorTable.
 func TestOptableShuffle(t *testing.T) {
 	cases := map[string]string{
-		"x+y": "x +(y)",
-		"x+y+z": "x +(y) +(z)",
-		"x+y-z": "x +(y) -(z)",
-		"x*y+z": "x *(y) +(z)",
-		"x+y*z": "x +(y *(z))",
-		"x*y+z*w": "x *(y) +(z *(w))",
+		"x+y":      "x +(y)",
+		"x+y+z":    "x +(y) +(z)",
+		"x+y-z":    "x +(y) -(z)",
+		"x*y+z":    "x *(y) +(z)",
+		"x+y*z":    "x +(y *(z))",
+		"x*y+z*w":  "x *(y) +(z *(w))",
 		"x**y*z+w": "x **(y) *(z) +(w)",
 		"x*y**z+w": "x *(y **(z)) +(w)",
-		
-		"x := y": `setSlot("x", y)`,
-		"x = y": `updateSlot("x", y)`,
-		"x ::= y": `newSlot("x", y)`,
-		"x := y+z": `setSlot("x", y +(z))`,
-		"x := ?x": `setSlot("x", ?(x))`,
+
+		"x := y":        `setSlot("x", y)`,
+		"x = y":         `updateSlot("x", y)`,
+		"x ::= y":       `newSlot("x", y)`,
+		"x := y+z":      `setSlot("x", y +(z))`,
+		"x := ?x":       `setSlot("x", ?(x))`,
 		"x := return x": `setSlot("x", return(x))`,
 		"return x := y": `return(setSlot("x", y))`,
-		"x := y := z": `setSlot("x", setSlot("y", z))`,
-		"x y := z": `x setSlot("y", z)`,
-		
-		"__noShuffling__ x+y": "__noShuffling__ x + y",
-		"__noShuffling__ x+y+z": "__noShuffling__ x + y + z",
-		"__noShuffling__ x := y": "__noShuffling__ x := y",
-		"__noShuffling__ x := y := z": "__noShuffling__ x := y := z",
-		"__noShuffling__ return x": "__noShuffling__ return x",
+		"x := y := z":   `setSlot("x", setSlot("y", z))`,
+		"x y := z":      `x setSlot("y", z)`,
+
+		"__noShuffling__ x+y":           "__noShuffling__ x + y",
+		"__noShuffling__ x+y+z":         "__noShuffling__ x + y + z",
+		"__noShuffling__ x := y":        "__noShuffling__ x := y",
+		"__noShuffling__ x := y := z":   "__noShuffling__ x := y := z",
+		"__noShuffling__ return x":      "__noShuffling__ return x",
 		"__noShuffling__ x := return x": "__noShuffling__ x := return x",
 	}
 	for c, s := range cases {
@@ -121,13 +121,13 @@ func TestOptableShuffle(t *testing.T) {
 // shuffled.
 func TestOptableErrors(t *testing.T) {
 	cases := map[string]string{
-		"AssignStart": ":= x",
-		"AssignOnly": ":=",
+		"AssignStart":    ":= x",
+		"AssignOnly":     ":=",
 		"AssignArgCount": "x := (y, z)",
-		"AssignNothing": "x :=",
-		"AssignToCall": "x(y) := z", // controversial
-		"BadAssignOp": "x <>< y",
-		"BadOp": "x $ y",
+		"AssignNothing":  "x :=",
+		"AssignToCall":   "x(y) := z", // controversial
+		"BadAssignOp":    "x <>< y",
+		"BadOp":          "x $ y",
 	}
 	ops, _ := testVM.Operators.GetSlot("operators")
 	asgn, _ := testVM.Operators.GetSlot("assignOperators")
