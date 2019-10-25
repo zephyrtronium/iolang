@@ -29,10 +29,25 @@ func (c SourceTestCase) TestFunc(name string) func(*testing.T) {
 }
 
 // PassEqual returns a Pass function for a SourceTestCase that predicates on
-// equality.
+// equality. To determine equality, this first checks for equal identities; if
+// not, it checks that the result of testVM.Compare(want, result) is 0.
 func PassEqual(want *Object) func(*Object, Stop) bool {
 	return func(result *Object, control Stop) bool {
-		return want == result && control == NoStop
+		if control != NoStop {
+			return false
+		}
+		if want == result {
+			return true
+		}
+		v, stop := testVM.Compare(want, result)
+		if stop != NoStop {
+			return false
+		}
+		n, ok := v.Value.(float64)
+		if !ok {
+			return false
+		}
+		return n == 0
 	}
 }
 
