@@ -300,10 +300,11 @@ func (vm *VM) OpShuffle(msg *Object) (err error) {
 		// We could make __noShuffling__ just an Object with an OperatorTable
 		// that is empty, but doing it this way allows us to skip shuffling
 		// entirely, speeding up parsing.
+		//
 		// Io's treatment of __noShuffling__ is interesting: a message named
 		// __noShuffling__ prevents operator shuffling as expected, but there
 		// is no object so named, so you have to create it yourself, but you
-		// have to use setSlot directly, because you  can't assign to
+		// have to use setSlot directly, because you can't assign to
 		// __noShuffling__ using an operator, because assign operator
 		// transformation is handled during operator shuffling, which doesn't
 		// happen because the message begins with __noShuffling__. :)
@@ -319,6 +320,10 @@ func (vm *VM) OpShuffle(msg *Object) (err error) {
 		asgnx, _ := operators.GetSlot("assignOperators")
 		if opsx == nil || asgnx == nil {
 			vm.initOpTable()
+			operators, proto = msg.GetSlot("OperatorTable")
+			if proto == nil {
+				operators = vm.Operators
+			}
 			opsx, _ = operators.GetSlot("operators")
 			asgnx, _ = operators.GetSlot("assignOperators")
 		}
