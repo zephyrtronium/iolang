@@ -345,7 +345,8 @@ func (vm *VM) ObjectWith(slots Slots) *Object {
 }
 
 // TypeName gets the name of the type of an object by activating its type slot.
-// If there is no such slot, the Go type name will be returned.
+// If there is no such slot, then its tag's name will be returned; if its tag
+// is nil, then its name is Object.
 func (vm *VM) TypeName(o *Object) string {
 	if typ, proto := o.GetSlot("type"); proto != nil {
 		return vm.AsString(typ)
@@ -353,7 +354,7 @@ func (vm *VM) TypeName(o *Object) string {
 	if o.Tag != nil {
 		return o.Tag.String()
 	}
-	return fmt.Sprintf("%T", o)
+	return "Object"
 }
 
 // SimpleActivate activates an object using the identifier message named with
