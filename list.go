@@ -27,7 +27,7 @@ func (tagList) String() string {
 
 // ListTag is the Tag for List objects. Activate returns self. CloneValue
 // creates a shallow copy of the parent's list value.
-var ListTag Tag = tagList{}
+var ListTag tagList
 
 // NewList creates a List with the given items.
 func (vm *VM) NewList(items ...*Object) *Object {

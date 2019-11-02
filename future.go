@@ -38,7 +38,7 @@ func (tagFuture) String() string {
 // FutureTag is the Tag for Future objects. Activate activates the future's
 // result if it is available and returns self if it is not. CloneValue returns
 // a new Future with no coroutine.
-var FutureTag Tag = tagFuture{}
+var FutureTag tagFuture
 
 func (vm *VM) initFuture() {
 	slots := Slots{

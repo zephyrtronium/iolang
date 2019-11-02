@@ -34,7 +34,7 @@ func (tagCFunction) String() string {
 
 // CFunctionTag is the tag for CFunctions. Activate calls the wrapped function.
 // CloneValue returns the same function.
-var CFunctionTag Tag = tagCFunction{}
+var CFunctionTag tagCFunction
 
 // NewCFunction creates a new CFunction object wrapping f. If kind is not nil,
 // then the CFunction will raise an exception when called on a target with a

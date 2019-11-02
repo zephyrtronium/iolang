@@ -26,7 +26,7 @@ func (tagMap) String() string {
 
 // MapTag is the Tag for Map objects. Activate returns self. CloneValue copies
 // the keys and values in the map.
-var MapTag Tag = tagMap{}
+var MapTag tagMap
 
 // NewMap creates a new Map object with the given value, which may be nil.
 func (vm *VM) NewMap(value map[string]*Object) *Object {

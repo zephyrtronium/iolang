@@ -36,7 +36,7 @@ func (tagFile) String() string {
 
 // FileTag is the Tag for File objects. Activate returns self. CloneValue
 // returns a new, unopened file with an empty path and mode set to "update".
-var FileTag Tag = tagFile{}
+var FileTag tagFile
 
 // NewFile creates a File object with the given file. The mode string should
 // be one of "read", "update", or "append", depending on the flags used when
