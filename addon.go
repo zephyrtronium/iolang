@@ -118,9 +118,10 @@ func (vm *VM) initAddon() {
 	}
 	go vm.manageAddons()
 	slots := Slots{
-		"havePlugins": vm.IoBool(havePlugins),
-		"open":        vm.NewCFunction(AddonOpen, nil),
-		"type":        vm.NewString("Addon"),
+		"havePlugins":      vm.IoBool(havePlugins),
+		"open":             vm.NewCFunction(AddonOpen, nil),
+		"scanForNewAddons": vm.NewCFunction(AddonScanForNewAddons, nil),
+		"type":             vm.NewString("Addon"),
 	}
 	vm.Core.SetSlot("Addon", vm.ObjectWith(slots))
 }
@@ -218,11 +219,11 @@ func AddonOpen(vm *VM, target, locals *Object, msg *Message) *Object {
 	if err != nil {
 		return vm.IoError(err)
 	}
-	f, ok := open.(func(*VM) Addon)
+	f, ok := open.(func() Addon)
 	if !ok {
 		return vm.RaiseExceptionf("%s is not an iolang addon", path)
 	}
-	<-vm.LoadAddon(f(vm))
+	<-vm.LoadAddon(f())
 	return target
 }
 
