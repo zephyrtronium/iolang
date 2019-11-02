@@ -45,12 +45,9 @@ func (vm *VM) initFuture() {
 		"forward":      vm.NewCFunction(FutureForward, FutureTag),
 		"waitOnResult": vm.NewCFunction(FutureWaitOnResult, FutureTag),
 	}
-	vm.Core.SetSlot("Future", &Object{
-		Slots:  slots,
-		Protos: []*Object{}, // no protos so we forward where possible
-		Value:  &Future{},
-		Tag:    FutureTag,
-	})
+	// Don't use coreInstall because we want no protos so we forward where
+	// possible.
+	vm.Core.SetSlot("Future", vm.NewObject(slots, nil, &Future{}, FutureTag))
 }
 
 // NewFuture creates a new Future object with its own coroutine and runs it.
@@ -58,15 +55,7 @@ func (vm *VM) NewFuture(target *Object, msg *Message) *Object {
 	coro := vm.Coro.Clone()
 	m := vm.MessageObject(msg)
 	f := &Future{Coro: vm.VMFor(coro)}
-	o := &Object{
-		Slots: Slots{
-			"runTarget":  target,
-			"runMessage": m,
-		},
-		Protos: vm.CoreProto("Future"),
-		Value:  f,
-		Tag:    FutureTag,
-	}
+	o := vm.NewObject(Slots{"runTarget": target, "runMessage": m}, vm.CoreProto("Future"), f, FutureTag)
 	coro.SetSlots(Slots{
 		"runTarget":       target,
 		"runMessage":      m,

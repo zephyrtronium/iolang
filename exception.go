@@ -51,14 +51,7 @@ var ExceptionTag tagException
 
 // NewException creates a new Exception object with the given error.
 func (vm *VM) NewException(err error) *Object {
-	return &Object{
-		Slots: Slots{
-			"coroutine": vm.Coro,
-		},
-		Protos: vm.CoreProto("Exception"),
-		Value:  Exception{Err: err},
-		Tag:    ExceptionTag,
-	}
+	return vm.NewObject(Slots{"coroutine": vm.Coro}, vm.CoreProto("Exception"), Exception{Err: err}, ExceptionTag)
 }
 
 // NewExceptionf creates a new Io Exception with the given formatted error
@@ -107,12 +100,7 @@ func (vm *VM) initException() {
 		"stack":           vm.NewCFunction(ExceptionStack, ExceptionTag),
 		"type":            vm.NewString("Exception"),
 	}
-	vm.Core.SetSlot("Exception", &Object{
-		Slots:  slots,
-		Protos: []*Object{vm.BaseObject},
-		Value:  Exception{Err: fmt.Errorf("no error")},
-		Tag:    ExceptionTag,
-	})
+	vm.coreInstall("Exception", slots, Exception{Err: fmt.Errorf("no error")}, ExceptionTag)
 }
 
 // ExceptionError is an Exception method.

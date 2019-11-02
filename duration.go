@@ -12,11 +12,7 @@ const DurationTag = BasicTag("Duration")
 
 // NewDuration creates a new Duration object with the given duration.
 func (vm *VM) NewDuration(d time.Duration) *Object {
-	return &Object{
-		Protos: vm.CoreProto("Duration"),
-		Value:  d,
-		Tag:    DurationTag,
-	}
+	return vm.NewObject(nil, vm.CoreProto("Duration"), d, DurationTag)
 }
 
 // DurationArgAt evaluates the nth argument and returns it as a time.Duration.
@@ -60,11 +56,7 @@ func (vm *VM) initDuration() {
 		"years":      vm.NewCFunction(DurationYears, DurationTag),
 	}
 	slots["totalSeconds"] = slots["asNumber"]
-	vm.Core.SetSlot("Duration", &Object{
-		Slots:  slots,
-		Protos: []*Object{vm.BaseObject},
-		Tag:    DurationTag,
-	})
+	vm.coreInstall("Duration", slots, time.Duration(0), DurationTag)
 }
 
 // DurationAsNumber is a Duration method.

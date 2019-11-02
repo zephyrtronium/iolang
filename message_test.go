@@ -9,12 +9,8 @@ import (
 // TestPerform tests that objects can receive and possibly forward messages to
 // activate slots and produce appropriate results.
 func TestPerform(t *testing.T) {
-	pt := &performTester{obj: &Object{Protos: []*Object{testVM.BaseObject}}}
-	res := &Object{
-		Protos: []*Object{testVM.BaseObject},
-		Value:  pt,
-		Tag:    performTesterTag{},
-	}
+	pt := &performTester{obj: testVM.ObjectWith(nil)}
+	res := testVM.NewObject(nil, []*Object{testVM.BaseObject}, pt, performTesterTag{})
 	anc := testVM.ObjectWith(Slots{"t": res})
 	target := anc.Clone()
 	target.SetSlot("forward", testVM.NewCFunction(performTestForward, nil))

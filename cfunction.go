@@ -43,29 +43,23 @@ func (vm *VM) NewCFunction(f Fn, kind Tag) *Object {
 	u := reflect.ValueOf(f).Pointer()
 	name := path.Base(runtime.FuncForPC(u).Name())
 	if kind != nil {
-		return &Object{
-			Protos: vm.CoreProto("CFunction"),
-			Value: CFunction{
-				Function: func(vm *VM, target, locals *Object, msg *Message) *Object {
-					if target.Tag != kind {
-						return vm.RaiseExceptionf("receiver of %s must be %v, not %v", name, kind, target.Tag)
-					}
-					return f(vm, target, locals, msg)
-				},
-				Type: kind,
-				Name: name,
+		value := CFunction{
+			Function: func(vm *VM, target, locals *Object, msg *Message) *Object {
+				if target.Tag != kind {
+					return vm.RaiseExceptionf("receiver of %s must be %v, not %v", name, kind, target.Tag)
+				}
+				return f(vm, target, locals, msg)
 			},
-			Tag: CFunctionTag,
+			Type: kind,
+			Name: name,
 		}
+		return vm.NewObject(nil, vm.CoreProto("CFunction"), value, CFunctionTag)
 	}
-	return &Object{
-		Protos: vm.CoreProto("CFunction"),
-		Value: CFunction{
-			Function: f,
-			Name:     path.Base(runtime.FuncForPC(u).Name()),
-		},
-		Tag: CFunctionTag,
+	value := CFunction{
+		Function: f,
+		Name:     path.Base(runtime.FuncForPC(u).Name()),
 	}
+	return vm.NewObject(nil, vm.CoreProto("CFunction"), value, CFunctionTag)
 }
 
 // String returns the name of the object.
@@ -77,22 +71,20 @@ func (vm *VM) initCFunction() {
 	// We can't use NewCFunction yet because the proto doesn't exist. We also
 	// want Core CFunction to be a CFunction, but one that won't panic if it's
 	// used.
-	slots := Slots{}
-	proto := &Object{
-		Protos: []*Object{vm.BaseObject},
-		Value:  CFunction{Function: ObjectThisContext, Name: "ObjectThisContext"},
-		Tag:    CFunctionTag,
-	}
+	proto := vm.NewObject(nil, []*Object{vm.BaseObject}, CFunction{Function: ObjectThisContext, Name: "ObjectThisContext"}, CFunctionTag)
 	vm.Core.SetSlot("CFunction", proto)
 	// Now we can create CFunctions.
-	slots["=="] = vm.NewCFunction(CFunctionEqual, CFunctionTag)
-	slots["asString"] = vm.NewCFunction(CFunctionAsString, CFunctionTag)
+	slots := Slots{
+		"==":         vm.NewCFunction(CFunctionEqual, CFunctionTag),
+		"asString":   vm.NewCFunction(CFunctionAsString, CFunctionTag),
+		"id":         vm.NewCFunction(CFunctionID, CFunctionTag),
+		"performOn":  vm.NewCFunction(CFunctionPerformOn, CFunctionTag),
+		"typeName":   vm.NewCFunction(CFunctionTypeName, CFunctionTag),
+		"uniqueName": vm.NewCFunction(CFunctionUniqueName, CFunctionTag),
+	}
 	slots["asSimpleString"] = slots["asString"]
-	slots["id"] = vm.NewCFunction(CFunctionID, CFunctionTag)
 	slots["name"] = slots["asString"]
-	slots["performOn"] = vm.NewCFunction(CFunctionPerformOn, CFunctionTag)
-	slots["typeName"] = vm.NewCFunction(CFunctionTypeName, CFunctionTag)
-	slots["uniqueName"] = vm.NewCFunction(CFunctionUniqueName, CFunctionTag)
+	proto.SetSlots(slots)
 }
 
 // CFunctionAsString is a CFunction method.

@@ -25,11 +25,7 @@ const RangeTag = iolang.BasicTag("github.com/zephyrtronium/iolang/addons/range")
 // New creates a new Range object with the given start, stop, and step
 // values.
 func New(vm *VM, start, stop, step float64) *Object {
-	return &Object{
-		Protos: vm.AddonProto("Range"),
-		Value:  With(start, stop, step),
-		Tag:    RangeTag,
-	}
+	return vm.NewObject(nil, vm.AddonProto("Range"), With(start, stop, step), RangeTag)
 }
 
 // With creates a Range value with the given start, stop, and step values.

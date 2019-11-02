@@ -10,11 +10,7 @@ const DirectoryTag = BasicTag("Directory")
 
 // NewDirectory creates a new Directory with the given path.
 func (vm *VM) NewDirectory(path string) *Object {
-	return &Object{
-		Protos: vm.CoreProto("Directory"),
-		Value:  path,
-		Tag:    DirectoryTag,
-	}
+	return vm.NewObject(nil, vm.CoreProto("Directory"), path, DirectoryTag)
 }
 
 // DirectoryArgAt evaluates the nth argument and returns it as a string. If a
@@ -52,12 +48,7 @@ func (vm *VM) initDirectory() {
 		"setPath":                    vm.NewCFunction(DirectorySetPath, nil),
 		"type":                       vm.NewString("Directory"),
 	}
-	vm.Core.SetSlot("Directory", &Object{
-		Slots:  slots,
-		Protos: []*Object{vm.BaseObject},
-		Value:  "",
-		Tag:    DirectoryTag,
-	})
+	vm.coreInstall("Directory", slots, "", DirectoryTag)
 }
 
 // DirectoryAt is a Directory method.

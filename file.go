@@ -49,24 +49,17 @@ func (vm *VM) NewFile(file *os.File, mode string) *Object {
 	if file != nil {
 		f.Path = file.Name()
 	}
-	return &Object{
-		Protos: vm.CoreProto("File"),
-		Value:  f,
-		Tag:    FileTag,
-	}
+	return vm.NewObject(nil, vm.CoreProto("File"), f, FileTag)
 }
 
 // NewFileAt creates a File object unopened at the given path. The mode will be
 // set to "read". The path should use the OS's separator convention.
 func (vm *VM) NewFileAt(path string) *Object {
-	return &Object{
-		Protos: vm.CoreProto("File"),
-		Value: File{
-			Path: path,
-			Mode: "read",
-		},
-		Tag: FileTag,
+	f := File{
+		Path: path,
+		Mode: "read",
 	}
+	return vm.NewObject(nil, vm.CoreProto("File"), f, FileTag)
 }
 
 // ReadLine reads one line from the file such that the file cursor will be
@@ -187,12 +180,7 @@ func (vm *VM) initFile() {
 		"lastInfoChangeDate": vm.NewCFunction(FileLastInfoChangeDate, FileTag),
 	}
 	slots["descriptorId"] = slots["descriptor"]
-	vm.Core.SetSlot("File", &Object{
-		Slots:  slots,
-		Protos: []*Object{vm.BaseObject},
-		Value:  File{},
-		Tag:    FileTag,
-	})
+	vm.coreInstall("File", slots, File{}, FileTag)
 
 	stdin := vm.NewFile(os.Stdin, "read")
 	stdout := vm.NewFile(os.Stdout, "")

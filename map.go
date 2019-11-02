@@ -33,11 +33,7 @@ func (vm *VM) NewMap(value map[string]*Object) *Object {
 	if value == nil {
 		value = make(map[string]*Object)
 	}
-	return &Object{
-		Protos: vm.CoreProto("Map"),
-		Value:  value,
-		Tag:    MapTag,
-	}
+	return vm.NewObject(nil, vm.CoreProto("Map"), value, MapTag)
 }
 
 func (vm *VM) initMap() {
@@ -54,12 +50,7 @@ func (vm *VM) initMap() {
 		"type":          vm.NewString("Map"),
 		"values":        vm.NewCFunction(MapValues, MapTag),
 	}
-	vm.Core.SetSlot("Map", &Object{
-		Slots:  slots,
-		Protos: []*Object{vm.BaseObject},
-		Value:  make(map[string]*Object, 0),
-		Tag:    MapTag,
-	})
+	vm.coreInstall("Map", slots, make(map[string]*Object, 0), MapTag)
 }
 
 // MapAt is a Map method.

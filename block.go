@@ -105,44 +105,36 @@ func (vm *VM) NewBlock(msg *Message, scope *Object, args ...string) *Object {
 	if msg == nil {
 		msg = vm.CachedMessage(vm.Nil)
 	}
-	return &Object{
-		Protos: vm.CoreProto("Block"),
-		Value: &Block{
-			Message:     msg,
-			Self:        scope,
-			ArgNames:    args,
-			Activatable: scope == nil,
-		},
-		Tag: BlockTag,
+	value := &Block{
+		Message:     msg,
+		Self:        scope,
+		ArgNames:    args,
+		Activatable: scope == nil,
 	}
+	return vm.NewObject(nil, vm.CoreProto("Block"), value, BlockTag)
 }
 
 // NewLocals instantiates a Locals object for a block activation.
 func (vm *VM) NewLocals(self, call *Object) *Object {
-	lc := &Object{
-		Slots: Slots{
-			"self": self,
-			"call": call,
-		},
-		Protos: vm.CoreProto("Locals"),
+	slots := Slots{
+		"self": self,
+		"call": call,
 	}
-	return lc
+	return vm.NewObject(slots, vm.CoreProto("Locals"), nil, nil)
 }
 
 // NewCall creates a Call object sent from sender to the target's actor using
 // the message msg.
 func (vm *VM) NewCall(sender, actor *Object, msg *Message, target, context *Object) *Object {
-	return &Object{
-		Slots: Slots{
-			"activated":   actor,
-			"coroutine":   vm.Coro,
-			"message":     vm.MessageObject(msg),
-			"sender":      sender,
-			"slotContext": context,
-			"target":      target,
-		},
-		Protos: vm.CoreProto("Call"),
+	slots := Slots{
+		"activated":   actor,
+		"coroutine":   vm.Coro,
+		"message":     vm.MessageObject(msg),
+		"sender":      sender,
+		"slotContext": context,
+		"target":      target,
 	}
+	return vm.NewObject(slots, vm.CoreProto("Call"), nil, nil)
 }
 
 func (vm *VM) initBlock() {
@@ -161,12 +153,7 @@ func (vm *VM) initBlock() {
 		"type":             vm.NewString("Block"),
 	}
 	slots["code"] = slots["asString"]
-	vm.Core.SetSlot("Block", &Object{
-		Slots:  slots,
-		Protos: []*Object{vm.BaseObject},
-		Value:  &Block{},
-		Tag:    BlockTag,
-	})
+	vm.coreInstall("Block", slots, &Block{}, BlockTag)
 }
 
 func (vm *VM) initLocals() {
@@ -178,7 +165,8 @@ func (vm *VM) initLocals() {
 	}
 	slots["forward"] = vm.NewCFunction(LocalsForward, nil)
 	slots["updateSlot"] = vm.NewCFunction(LocalsUpdateSlot, nil)
-	vm.Core.SetSlot("Locals", &Object{Slots: slots, Protos: []*Object{}})
+	// Don't use coreInstall because Locals have no protos.
+	vm.Core.SetSlot("Locals", vm.NewObject(slots, nil, nil, nil))
 }
 
 // ObjectBlock is an Object method.
@@ -194,14 +182,7 @@ func (vm *VM) initLocals() {
 func ObjectBlock(vm *VM, target, locals *Object, msg *Message) *Object {
 	n := msg.ArgCount()
 	if n == 0 {
-		return &Object{
-			Protos: vm.CoreProto("Block"),
-			Value: &Block{
-				Message: vm.CachedMessage(vm.Nil),
-				Self:    locals,
-			},
-			Tag: BlockTag,
-		}
+		return vm.NewBlock(nil, locals)
 	}
 	args := make([]string, n-1)
 	for i, arg := range msg.Args[:n-1] {

@@ -43,15 +43,15 @@ type VM struct {
 // to occupy the System args slot, typically os.Args[1:].
 func NewVM(args ...string) *VM {
 	vm := VM{
-		Lobby: &Object{Slots: Slots{}},
+		Lobby: &Object{Slots: Slots{}, id: nextObject()},
 
-		Core:   &Object{},
-		Addons: &Object{},
+		Core:   &Object{id: nextObject()},
+		Addons: &Object{id: nextObject()},
 
-		BaseObject: &Object{},
-		True:       &Object{},
-		False:      &Object{},
-		Nil:        &Object{},
+		BaseObject: &Object{id: nextObject()},
+		True:       &Object{id: nextObject()},
+		False:      &Object{id: nextObject()},
+		Nil:        &Object{id: nextObject()},
 
 		Control: make(chan RemoteStop, 1),
 
@@ -97,6 +97,12 @@ func NewVM(args ...string) *VM {
 	vm.finalInit()
 
 	return &vm
+}
+
+// coreInstall is a convenience method to install a new Core proto that has
+// BaseObject as its proto.
+func (vm *VM) coreInstall(proto string, slots Slots, value interface{}, tag Tag) {
+	vm.Core.SetSlot(proto, vm.NewObject(slots, []*Object{vm.BaseObject}, value, tag))
 }
 
 // CoreProto returns a new Protos list for a type in vm.Core. Panics if there
@@ -162,7 +168,9 @@ func (vm *VM) initCore() {
 	vm.Core.Slots = make(Slots, 46)
 	vm.Core.Protos = []*Object{vm.BaseObject}
 	vm.Addons.Protos = []*Object{vm.BaseObject}
-	lp := &Object{Slots: Slots{"Core": vm.Core, "Addons": vm.Addons}, Protos: []*Object{vm.Core, vm.Addons}}
+	slots := Slots{"Core": vm.Core, "Addons": vm.Addons}
+	protos := []*Object{vm.Core, vm.Addons}
+	lp := vm.NewObject(slots, protos, nil, nil)
 	vm.Lobby.Protos = []*Object{lp}
 	vm.Lobby.Slots = Slots{"Protos": lp, "Lobby": vm.Lobby}
 }

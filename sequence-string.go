@@ -34,16 +34,13 @@ var validEncodings = []string{"ascii", "utf8", "number", "latin1", "utf16", "utf
 
 // NewString creates a new Sequence object representing the given string in
 // UTF-8 encoding.
-func (vm *VM) NewString(value string) *Object {
-	return &Object{
-		Protos: vm.CoreProto("String"),
-		Value: Sequence{
-			Value:   []byte(value),
-			Mutable: false,
-			Code:    "utf8",
-		},
-		Tag: SequenceTag,
+func (vm *VM) NewString(str string) *Object {
+	value := Sequence{
+		Value:   []byte(str),
+		Mutable: false,
+		Code:    "utf8",
 	}
+	return vm.NewObject(nil, vm.CoreProto("String"), value, SequenceTag)
 }
 
 // String returns a string representation of the object. If the sequence is

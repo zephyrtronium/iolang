@@ -14,11 +14,7 @@ const NumberTag = BasicTag("Number")
 
 // NewNumber creates a Number object with a given value.
 func (vm *VM) NewNumber(value float64) *Object {
-	return &Object{
-		Protos: vm.CoreProto("Number"),
-		Value:  value,
-		Tag:    NumberTag,
-	}
+	return vm.NewObject(nil, vm.CoreProto("Number"), value, NumberTag)
 }
 
 // NumberArgAt evaluates the nth argument and returns its Number value. If a
@@ -111,12 +107,7 @@ func (vm *VM) initNumber() {
 		"toggle":             vm.NewCFunction(NumberToggle, NumberTag),
 		"type":               vm.NewString("Number"),
 	}
-	vm.Core.SetSlot("Number", &Object{
-		Slots:  slots,
-		Protos: []*Object{vm.BaseObject},
-		Value:  float64(0),
-		Tag:    NumberTag,
-	})
+	vm.coreInstall("Number", slots, float64(0), NumberTag)
 
 	slots["%"] = slots["mod"]
 	slots["&"] = slots["bitwiseAnd"]

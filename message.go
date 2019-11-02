@@ -99,11 +99,7 @@ func (vm *VM) CachedMessage(v *Object) *Message {
 
 // MessageObject returns an Object with the given Message value.
 func (vm *VM) MessageObject(msg *Message) *Object {
-	return &Object{
-		Protos: vm.CoreProto("Message"),
-		Value:  msg,
-		Tag:    MessageTag,
-	}
+	return vm.NewObject(nil, vm.CoreProto("Message"), msg, MessageTag)
 }
 
 // DeepCopy creates a copy of the message linked to copies of each message
@@ -456,12 +452,7 @@ func (vm *VM) initMessage() {
 		"type":                       vm.NewString("Message"),
 	}
 	slots["opShuffleC"] = slots["opShuffle"]
-	vm.Core.SetSlot("Message", &Object{
-		Slots:  slots,
-		Protos: []*Object{vm.BaseObject},
-		Value:  &Message{Memo: vm.Nil},
-		Tag:    MessageTag,
-	})
+	vm.coreInstall("Message", slots, &Message{Memo: vm.Nil}, MessageTag)
 }
 
 // MessageAppendArg is a Message method.

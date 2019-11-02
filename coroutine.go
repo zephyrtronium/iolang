@@ -52,12 +52,7 @@ func (vm *VM) initCoroutine() {
 		"yield":                 vm.NewCFunction(CoroutineYield, CoroutineTag),
 	}
 	slots["resumeLater"] = slots["resume"]
-	vm.Coro = &Object{
-		Slots:  slots,
-		Protos: []*Object{vm.BaseObject},
-		Value:  vm.Control,
-		Tag:    CoroutineTag,
-	}
+	vm.Coro = vm.NewObject(slots, []*Object{vm.BaseObject}, vm.Control, CoroutineTag)
 	vm.Core.SetSlot("Coroutine", vm.Coro)
 }
 

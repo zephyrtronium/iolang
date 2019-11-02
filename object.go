@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/zephyrtronium/contains"
@@ -14,6 +15,9 @@ import (
 type Slots = map[string]*Object
 
 // Object is the basic type of Io. Everything is an Object.
+//
+// Always use NewObject, ObjectWith, or a type-specific constructor to obtain
+// new objects. Creating objects directly will result in arbitrary failures.
 type Object struct {
 	// Mutex is a lock which must be held when accessing the slots or protos of
 	// the object, or the value of the object if it is or may be mutable.
@@ -35,10 +39,8 @@ type Object struct {
 	// protoStack is the stack of protos to check during GetSlot.
 	protoStack []*Object
 
-	// TODO: I think the current implementation of UniqueID is wrong, since the
-	// GC can move objects. Better would be something like a goroutine serving
-	// uintptrs for each new object. Maybe make a new VM method to create an
-	// object with a given Value and Tag.
+	// id is the object's unique ID.
+	id uintptr
 }
 
 // Tag is a type indicator for iolang objects. Tag values must be comparable.
@@ -93,6 +95,7 @@ func (o *Object) Clone() *Object {
 		Protos: []*Object{o},
 		Value:  v,
 		Tag:    o.Tag,
+		id:     nextObject(),
 	}
 }
 
@@ -228,6 +231,11 @@ func (o *Object) IsKindOf(kind *Object) bool {
 	return false
 }
 
+// UniqueID returns the object's unique ID.
+func (o *Object) UniqueID() uintptr {
+	return o.id
+}
+
 // BasicTag is a special Tag type for basic primitive types which do not have
 // special activation and whose clones have values that are shallow copies of
 // their parents.
@@ -246,6 +254,16 @@ func (t BasicTag) CloneValue(value interface{}) interface{} {
 // String returns the receiver.
 func (t BasicTag) String() string {
 	return string(t)
+}
+
+// objcounter is the global counter for object IDs. All accesses to this must
+// be atomic.
+var objcounter uintptr
+
+// nextObject increments the object counter and returns its value as a unique
+// ID for a new object.
+func nextObject() uintptr {
+	return atomic.AddUintptr(&objcounter, 1)
 }
 
 // initObject sets up the "base" object that is the first proto of all other
@@ -335,12 +353,27 @@ func (vm *VM) initObject() {
 	vm.Core.SetSlot("Object", vm.BaseObject)
 }
 
-// ObjectWith creates a new object with the given slots and with the VM's
+// NewObject creates a new object with the given slots, protos, value, and tag.
+func (vm *VM) NewObject(slots Slots, protos []*Object, value interface{}, tag Tag) *Object {
+	if protos == nil {
+		protos = []*Object{}
+	}
+	return &Object{
+		Slots:  slots,
+		Protos: protos,
+		Value:  value,
+		Tag:    tag,
+		id:     nextObject(),
+	}
+}
+
+// ObjectWith creates a new basic object with the given slots and with the VM's
 // Core Object as its proto.
 func (vm *VM) ObjectWith(slots Slots) *Object {
 	return &Object{
 		Slots:  slots,
 		Protos: []*Object{vm.BaseObject},
+		id:     nextObject(),
 	}
 }
 
@@ -1105,13 +1138,14 @@ func ObjectShallowCopy(vm *VM, target, locals *Object, msg *Message) *Object {
 	}
 	target.Lock()
 	defer target.Unlock()
-	n := &Object{Slots: make(Slots, len(target.Slots)), Protos: make([]*Object, len(target.Protos))}
+	protos := make([]*Object, len(target.Protos))
+	slots := make(Slots, len(target.Slots))
 	// The shallow copy in Io doesn't actually copy the protos...
-	copy(n.Protos, target.Protos)
+	copy(protos, target.Protos)
 	for slot, value := range target.Slots {
-		n.Slots[slot] = value
+		slots[slot] = value
 	}
-	return n
+	return vm.NewObject(slots, protos, nil, nil)
 }
 
 // ObjectThisContext is an Object method.

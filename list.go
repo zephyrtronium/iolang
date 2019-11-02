@@ -31,11 +31,7 @@ var ListTag Tag = tagList{}
 
 // NewList creates a List with the given items.
 func (vm *VM) NewList(items ...*Object) *Object {
-	return &Object{
-		Protos: vm.CoreProto("List"),
-		Value:  items,
-		Tag:    ListTag,
-	}
+	return vm.NewObject(nil, vm.CoreProto("List"), items, ListTag)
 }
 
 // ListArgAt evaluates the nth argument and returns it as a slice of objects
@@ -97,12 +93,7 @@ func (vm *VM) initList() {
 	slots["empty"] = slots["removeAll"]
 	slots["exSlice"] = slots["slice"]
 	slots["push"] = slots["append"]
-	vm.Core.SetSlot("List", &Object{
-		Slots:  slots,
-		Protos: []*Object{vm.BaseObject},
-		Value:  []*Object{},
-		Tag:    ListTag,
-	})
+	vm.coreInstall("List", slots, []*Object{}, ListTag)
 	vm.BaseObject.SetSlot("list", slots["with"])
 }
 

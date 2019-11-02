@@ -179,24 +179,17 @@ func (vm *VM) NewSequence(value interface{}, mutable bool, encoding string) *Obj
 	if !vm.CheckEncoding(encoding) {
 		panic(fmt.Sprintf("unsupported encoding %q", encoding))
 	}
-	return &Object{
-		Protos: vm.CoreProto("Sequence"),
-		Value: Sequence{
-			Value:   copySeqVal(value),
-			Mutable: mutable,
-			Code:    encoding,
-		},
-		Tag: SequenceTag,
+	seq := Sequence{
+		Value:   copySeqVal(value),
+		Mutable: mutable,
+		Code:    encoding,
 	}
+	return vm.NewObject(nil, vm.CoreProto("Sequence"), seq, SequenceTag)
 }
 
 // SequenceObject creates a new Sequence object with the given value directly.
 func (vm *VM) SequenceObject(value Sequence) *Object {
-	return &Object{
-		Protos: vm.CoreProto("Sequence"),
-		Value:  value,
-		Tag:    SequenceTag,
-	}
+	return vm.NewObject(nil, vm.CoreProto("Sequence"), value, SequenceTag)
 }
 
 // SequenceFromBytes makes a mutable Sequence with the given type having the
@@ -1328,22 +1321,14 @@ func (vm *VM) initSequence() {
 	slots["exclusiveSlice"] = slots["exSlice"]
 	slots["inclusiveSlice"] = slots["inSlice"]
 	slots["slice"] = slots["exSlice"]
-	ms := &Object{
-		Slots:  slots,
-		Protos: []*Object{vm.BaseObject},
-		Value: Sequence{
-			Value:   []byte(nil),
-			Mutable: true,
-			Code:    "utf8",
-		},
-		Tag: SequenceTag,
-	}
-	is := ms.Clone()
-	is.Value = Sequence{
+	value := Sequence{
 		Value:   []byte(nil),
-		Mutable: false,
+		Mutable: true,
 		Code:    "utf8",
 	}
+	ms := vm.NewObject(slots, []*Object{vm.BaseObject}, value, SequenceTag)
+	value.Mutable = false
+	is := vm.NewObject(nil, []*Object{ms}, value, SequenceTag)
 	vm.Core.SetSlots(Slots{
 		"Sequence":          ms,
 		"ImmutableSequence": is,

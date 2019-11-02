@@ -52,12 +52,7 @@ func (vm *VM) initScheduler() {
 		finish: make(chan *VM),
 	}
 	vm.Sched = sched
-	vm.Core.SetSlot("Scheduler", &Object{
-		Slots:  slots,
-		Protos: []*Object{vm.BaseObject},
-		Value:  sched,
-		Tag:    SchedulerTag,
-	})
+	vm.coreInstall("Scheduler", slots, sched, SchedulerTag)
 	go sched.schedule()
 }
 

@@ -13,11 +13,7 @@ const DateTag = BasicTag("Date")
 
 // NewDate creates a new Date object with the given time.
 func (vm *VM) NewDate(date time.Time) *Object {
-	return &Object{
-		Protos: vm.CoreProto("Date"),
-		Value:  date,
-		Tag:    DateTag,
-	}
+	return vm.NewObject(nil, vm.CoreProto("Date"), date, DateTag)
 }
 
 // DateArgAt evaluates the nth argument and returns it as a time.Time. If a
@@ -86,12 +82,7 @@ func (vm *VM) initDate() {
 	// Since we don't have a forward-facing DST concept in Go, there isn't any
 	// obvious reason to have them be distinct in this implementation.
 	slots["isDaylightSavingsTime"] = slots["isDST"]
-	vm.Core.SetSlot("Date", &Object{
-		Slots:  slots,
-		Protos: []*Object{vm.BaseObject},
-		Value:  time.Now(),
-		Tag:    DateTag,
-	})
+	vm.coreInstall("Date", slots, time.Now(), DateTag)
 }
 
 // DateAsNumber is a Date method.
