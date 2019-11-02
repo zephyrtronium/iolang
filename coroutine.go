@@ -34,6 +34,7 @@ func (vm *VM) VMFor(coro *Object) *VM {
 		Sched:      vm.Sched,
 		Control:    coro.Value.(chan RemoteStop),
 		Coro:       coro,
+		addonmaps:  vm.addonmaps,
 		StartTime:  vm.StartTime,
 	}
 }

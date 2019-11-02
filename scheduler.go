@@ -9,6 +9,8 @@ type Scheduler struct {
 
 	// Main is the first coroutine in the VM, instantiated with NewVM().
 	Main *VM
+	// Alive is a channel that closes once all coroutines stop.
+	Alive <-chan bool
 
 	// coros is the map of all active coroutines this scheduler manages, which
 	// may include Main, to the VMs on which they are waiting, if any.
@@ -25,11 +27,6 @@ type Scheduler struct {
 	pause chan *VM
 	// finish is a channel for coroutines to indicate deactivation.
 	finish chan *VM
-
-	// addons is a channel to synchronize loading addons.
-	addons chan addontriple
-	// loaded is a set of the names of addons that have been loaded.
-	loaded map[string]struct{}
 }
 
 // SchedulerTag is the Tag for the Scheduler.
@@ -38,15 +35,6 @@ const SchedulerTag = BasicTag("Scheduler")
 // waitpair is a pair of coroutines such that a depends on b.
 type waitpair struct {
 	a, b *VM
-}
-
-// addontriple is a triple containing a coroutine waiting for an addon to be
-// loaded, the addon it wants to load, and a channel over which to send the
-// addon object once it loads.
-type addontriple struct {
-	coro *VM
-	add  Addon
-	ch   chan *Object
 }
 
 func (vm *VM) initScheduler() {
@@ -62,8 +50,6 @@ func (vm *VM) initScheduler() {
 		start:  make(chan waitpair), // TODO: buffer?
 		pause:  make(chan *VM),
 		finish: make(chan *VM),
-		addons: make(chan addontriple),
-		loaded: make(map[string]struct{}),
 	}
 	vm.Sched = sched
 	vm.Core.SetSlot("Scheduler", &Object{
@@ -92,19 +78,19 @@ func (s *Scheduler) Finish(coro *VM) {
 
 // schedule manages the start, pause, and finish channels and detects deadlocks.
 func (s *Scheduler) schedule() {
-loop:
+	alive := make(chan bool)
+	defer close(alive)
+	s.Alive = alive
 	for len(s.coros) > 0 {
 		select {
 		case w := <-s.start:
 			if w.b != nil {
 				// Look for a cycle.
 				s.m.Lock()
-				for c := s.coros[w.b]; c != nil; c = s.coros[c] {
-					if c == w.a {
-						s.m.Unlock()
-						w.a.Control <- RemoteStop{w.a.NewExceptionf("deadlock"), ExceptionStop}
-						continue loop
-					}
+				if s.checkCycle(w) {
+					s.m.Unlock()
+					w.a.Control <- RemoteStop{w.a.NewExceptionf("deadlock"), ExceptionStop}
+					continue
 				}
 				s.m.Unlock()
 			}
@@ -124,22 +110,19 @@ loop:
 				}
 			}
 			s.m.Unlock()
-		case a := <-s.addons:
-			if _, ok := s.loaded[a.add.AddonName()]; ok {
-				continue
-			}
-			s.loaded[a.add.AddonName()] = struct{}{}
-			// Create a new coroutine to run the init script for the addon, in
-			// case it ends up waiting on Main.
-			c := a.coro.VMFor(a.coro.Coro.Clone())
-			go func() {
-				s.start <- waitpair{a.coro, c}
-				s.finish <- c
-				a.ch <- c.reallyLoadAddon(a.add)
-				close(a.ch)
-			}()
 		}
 	}
+}
+
+// checkCycle checks whether adding the given edge would form a cycle in the
+// scheduler's dependency graph.
+func (s *Scheduler) checkCycle(w waitpair) bool {
+	for c := s.coros[w.b]; c != nil; c = s.coros[c] {
+		if c == w.a {
+			return true
+		}
+	}
+	return false
 }
 
 // SchedulerAwaitingCoros is a Scheduler method.

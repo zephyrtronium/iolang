@@ -1,0 +1,58 @@
+addon: Range
+import: "github.com/zephyrtronium/iolang/addons/Range"
+protos:
+  - proto: Range
+    # tag is the default text to use for the Tag argument to vm.NewCFunction.
+    # If omitted, the default is nil.
+    tag: RangeTag
+    # functions, strings, numbers, and custom define default slots for this
+    # proto, which are available before executing scripts.
+    functions:
+      # Each CFunction has an fn attribute that is the name of the Go function
+      # to use, and an optional tag attribute that overrides the DefaultTag
+      # setting for that function. 
+      at:
+        fn: At
+        # tag: RangeTag
+      contains: {fn: Contains}
+      first: {fn: First}
+      foreach: {fn: Foreach}
+      index: {fn: Index}
+      indexOf: {fn: IndexOf}
+      last: {fn: Last}
+      next: {fn: Next}
+      previous: {fn: Previous}
+      rewind: {fn: Rewind}
+      setIndex: {fn: SetIndex}
+      setRange: {fn: SetRange}
+      size: {fn: Size}
+      value: {fn: Value}
+    strings:
+      type: "Range"
+    # numbers:
+    # bools:
+    # custom:
+      # custom contains any slots other than CFunctions, strings, and numbers
+      # that can and should be set up at compile time. Each slot is of the form
+      # `slot: <literal Go code>`,
+      # e.g. `readBuffer: 'vm.NewSequence([]byte{}, true, "latin1")'.
+    value: "Range{}"
+depends:
+  # Depends contains the list of addons to import before executing any scripts.
+install:
+  # install contains slots to install on existing Core or Addon protos. E.g. we
+  # could do something like:
+  #
+  #   - proto: Number
+  #     tag: NumberTag
+  #     functions:
+  #       toBy: {fn: ToBy}
+  #
+  # The value field is ignored.
+scripts:
+  # scripts contains the list of Io scripts that should be executed after
+  # initializing the protos but before completing the import. The scripts are
+  # executed in order of their appearance here. The evaluation target for each
+  # script is vm.Addons instead of vm.Lobby. Each script has its text
+  # compressed and copied into the generated plugin source code.
+  - io/range.io

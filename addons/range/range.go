@@ -1,4 +1,8 @@
-package iorange
+//go:generate go run github.com/zephyrtronium/iolang/cmd/mkaddon addon.yaml addon.go
+//go:generate go fmt addon.go
+
+// Package Range provides an efficient iterator over linear numeric sequences.
+package Range
 
 import (
 	"fmt"
@@ -18,18 +22,18 @@ type Range struct {
 // RangeTag is the Tag for Range objects.
 const RangeTag = iolang.BasicTag("github.com/zephyrtronium/iolang/addons/range")
 
-// NewRange creates a new Range object with the given start, stop, and step
+// New creates a new Range object with the given start, stop, and step
 // values.
-func NewRange(vm *VM, start, stop, step float64) *Object {
+func New(vm *VM, start, stop, step float64) *Object {
 	return &Object{
 		Protos: vm.AddonProto("Range"),
-		Value:  RangeWith(start, stop, step),
+		Value:  With(start, stop, step),
 		Tag:    RangeTag,
 	}
 }
 
-// RangeWith creates a Range value with the given start, stop, and step values.
-func RangeWith(start, stop, step float64) Range {
+// With creates a Range value with the given start, stop, and step values.
+func With(start, stop, step float64) Range {
 	var last int64
 	if step > 0 {
 		v := math.Ceil((stop - start) / step)
@@ -299,7 +303,7 @@ func SetRange(vm *VM, target, locals *Object, msg *Message) *Object {
 		step = c
 	}
 	target.Lock()
-	target.Value = RangeWith(start, stop, step)
+	target.Value = With(start, stop, step)
 	target.Unlock()
 	return target
 }

@@ -8,14 +8,14 @@ package main
 import (
 	"github.com/zephyrtronium/iolang"
 
-	iorange "github.com/zephyrtronium/iolang/addons/range"
+	"github.com/zephyrtronium/iolang/addons/Range"
 )
 
 const numStaticAddons = 1
 
 func setupStaticAddons(vm *iolang.VM) {
-	ch := make(chan *iolang.Object, numStaticAddons)
-	go func() { ch <- <-vm.LoadAddon(iorange.OpenAddon(vm)) }()
+	ch := make(chan struct{}, numStaticAddons)
+	go func() { ch <- <-vm.LoadAddon(Range.IoAddon()) }()
 	for i := 0; i < numStaticAddons; i++ {
 		<-ch
 	}

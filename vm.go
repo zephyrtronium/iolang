@@ -31,6 +31,9 @@ type VM struct {
 	// Control channel.
 	Coro *Object
 
+	// addonmaps manages the VM's knowledge of addons.
+	addonmaps *addonmaps
+
 	// StartTime is the time at which VM initialization began, used for the
 	// Date clock method.
 	StartTime time.Time
@@ -88,7 +91,7 @@ func NewVM(args ...string) *VM {
 	vm.initScheduler()
 	vm.initCoroutine()
 	vm.initFuture()
-	vm.initPlugin()
+	vm.initAddon()
 	vm.initPath()
 
 	vm.finalInit()
@@ -1451,6 +1454,8 @@ Core AddonLoader := Object clone do(
 		tildeExpandsTo cloneAppendPath("/.eerie/base/addons") asOSPath,
 		tildeExpandsTo cloneAppendPath("/.eerie/activeEnv/addons") asOSPath
 	) selectInPlace(path, Directory with(path) exists)
+	/* Don't actually do the below segment so that we don't randomly open every
+	** plugin on the system.
 	// Add $GOPATH/pkg/$GOOS_$GOARCH_dynlink/... for go install
 	System getEnvironmentVariable("GOPATH") ?split(Path listSeparator) foreach(path,
 		top := Directory with(path cloneAppendPath("/pkg/#{System platform}_#{System arch}_dynlink"))
@@ -1461,6 +1466,9 @@ Core AddonLoader := Object clone do(
 			dirs appendSeq(p directories)
 		)
 	)
+	*/
+	// Initialize addon knowledge.
+	searchPaths foreach(path, Addon scanForNewAddons(path))
 )
 
 // Unit testing stuff ------
