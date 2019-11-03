@@ -4,9 +4,11 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync"
 )
 
 func (vm *VM) initSystem() {
+	systemOnce.Do(initPV)
 	slots := Slots{
 		"activeCpus":             vm.NewCFunction(SystemActiveCpus, nil),
 		"arch":                   vm.NewString(runtime.GOARCH),
@@ -64,6 +66,8 @@ func (vm *VM) initArgs(args []string) {
 	s, _ := vm.Core.GetLocalSlot("System")
 	s.SetSlot("args", vm.NewList(l...))
 }
+
+var systemOnce sync.Once
 
 // SetLaunchScript sets the System launchScript slot to the given string, as a
 // convenience for VM creators who intend to execute that Io source file. The

@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"plugin"
+	"sync"
 )
 
 // Addon is an interface via which an addon is loaded into a VM.
@@ -108,6 +109,7 @@ func (vm *VM) manageAddons() {
 }
 
 func (vm *VM) initAddon() {
+	addonOnce.Do(initAddonOnce)
 	vm.addonmaps = &addonmaps{
 		addons: make(chan addontriple),
 		scan:   make(chan *os.File),
@@ -256,9 +258,11 @@ func AddonScanForNewAddons(vm *VM, target, locals *Object, msg *Message) *Object
 // platforms might be added (likely).
 var havePlugins = false
 
-func init() {
+func initAddonOnce() {
 	_, err := plugin.Open("/dev/null")
 	if err == nil || err.Error() != "plugin: not implemented" {
 		havePlugins = true
 	}
 }
+
+var addonOnce sync.Once

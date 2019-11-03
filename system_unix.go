@@ -5,6 +5,7 @@ package iolang
 import (
 	"bytes"
 	"fmt"
+
 	"golang.org/x/sys/unix"
 )
 
@@ -13,7 +14,7 @@ import (
 // occurs on any platform on which it is not implemented.
 var platformVersion string
 
-func init() {
+func initPV() {
 	var uname unix.Utsname
 	if unix.Uname(&uname) == nil {
 		v, r := uname.Version[:], uname.Release[:]

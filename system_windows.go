@@ -2,6 +2,7 @@ package iolang
 
 import (
 	"fmt"
+
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
 )
@@ -11,7 +12,7 @@ import (
 // occurs on any platform on which it is not implemented.
 var platformVersion string
 
-func init() {
+func initPV() {
 	k, err := registry.OpenKey(registry.LOCAL_MACHINE, `SOFTWARE\Microsoft\Windows NT\CurrentVersion`, registry.QUERY_VALUE)
 	if err != nil {
 		// Presumably, we aren't on Windows NT, which means GetVersion should
