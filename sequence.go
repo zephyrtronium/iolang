@@ -13,11 +13,11 @@ import (
 // among a few separate files:
 //
 //    - sequence.go: The Sequence type itself and Go methods thereof.
-//    - sequence-immutable.go: Io methods for non-mutating Sequence methods.
-//    - sequence-mutable.go: Io methods for mutating Sequence methods.
-//    - sequence-string.go: Implementation of Sequence as a string type,
+//    - sequence_immutable.go: Io methods for non-mutating Sequence methods.
+//    - sequence_mutable.go: Io methods for mutating Sequence methods.
+//    - sequence_string.go: Implementation of Sequence as a string type,
 //        including encodings and representation.
-//    - sequence-math.go: Mathematical methods and operations. Eventually,
+//    - sequence_math.go: Mathematical methods and operations. Eventually,
 //        this should have different versions for different arches.
 
 // A Sequence is a collection of data of one fixed-size type.
@@ -1160,7 +1160,7 @@ func lockSeq(seq *Object) Sequence {
 func (vm *VM) initSequence() {
 	// We can't use vm.NewString until we create the proto after this.
 	slots := Slots{
-		// sequence-immutable.go:
+		// sequence_immutable.go:
 		"afterSeq":         vm.NewCFunction(SequenceAfterSeq, SequenceTag),
 		"asList":           vm.NewCFunction(SequenceAsList, SequenceTag),
 		"asStruct":         vm.NewCFunction(SequenceAsStruct, SequenceTag),
@@ -1194,7 +1194,7 @@ func (vm *VM) initSequence() {
 		"unpack":           vm.NewCFunction(SequenceUnpack, SequenceTag),
 		"withStruct":       vm.NewCFunction(SequenceWithStruct, nil),
 
-		// sequence-mutable.go:
+		// sequence_mutable.go:
 		"append":              vm.NewCFunction(SequenceAppend, SequenceTag),
 		"appendSeq":           vm.NewCFunction(SequenceAppendSeq, SequenceTag),
 		"asMutable":           vm.NewCFunction(SequenceAsMutable, SequenceTag),
@@ -1229,7 +1229,7 @@ func (vm *VM) initSequence() {
 		"sort":                vm.NewCFunction(SequenceSort, SequenceTag),
 		"zero":                vm.NewCFunction(SequenceZero, SequenceTag),
 
-		// sequence-string.go:
+		// sequence_string.go:
 		"appendPathSeq":          vm.NewCFunction(SequenceAppendPathSeq, SequenceTag),
 		"asBase64":               vm.NewCFunction(SequenceAsBase64, SequenceTag),
 		"asFixedSizeType":        vm.NewCFunction(SequenceAsFixedSizeType, SequenceTag),
@@ -1271,7 +1271,7 @@ func (vm *VM) initSequence() {
 		"urlEncoded":             vm.NewCFunction(SequenceURLEncoded, SequenceTag),
 		"validEncodings":         vm.NewCFunction(SequenceValidEncodings, nil),
 
-		// sequence-math.go:
+		// sequence_math.go:
 		"**=":                     vm.NewCFunction(SequenceStarStarEq, SequenceTag),
 		"*=":                      vm.NewCFunction(SequenceStarEq, SequenceTag),
 		"+=":                      vm.NewCFunction(SequencePlusEq, SequenceTag),
