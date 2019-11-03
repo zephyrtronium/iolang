@@ -1166,6 +1166,8 @@ Directory do(
 )
 
 Path do(
+	type := "Path"
+
 	with := method(
 		s := Sequence clone
 		call message arguments foreach(p,
@@ -1174,6 +1176,8 @@ Path do(
 		)
 		s
 	)
+
+	thisSourceFilePath := method(Path absolute(call message label))
 )
 
 Map do(
