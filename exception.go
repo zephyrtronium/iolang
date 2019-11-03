@@ -51,7 +51,7 @@ var ExceptionTag tagException
 
 // NewException creates a new Exception object with the given error.
 func (vm *VM) NewException(err error) *Object {
-	return vm.NewObject(Slots{"coroutine": vm.Coro}, vm.CoreProto("Exception"), Exception{Err: err}, ExceptionTag)
+	return vm.ObjectWith(Slots{"coroutine": vm.Coro}, vm.CoreProto("Exception"), Exception{Err: err}, ExceptionTag)
 }
 
 // NewExceptionf creates a new Io Exception with the given formatted error

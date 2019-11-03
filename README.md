@@ -2,7 +2,7 @@
 
 This is a pure Go implementation of [Io](http://iolanguage.org/). Much of the hard work has been done, but hard work still remains.
 
-To embed an iolang interpreter into a Go program, one would use the `NewVM()` function to get a `*VM`, use `SetSlot()` to make available any extras, then feed the VM code to evaluate with its `DoString()` and `DoReader()` methods. The VM also has methods like `NewNumber()`, `NewString()`, `ObjectWith()`, &c. to create primitives. The API is currently incomplete and will change.
+To embed an iolang interpreter into a Go program, one would use the `NewVM()` function to get a `*VM`, use `SetSlot()` to make available any extras, then feed the VM code to evaluate with its `DoString()` and `DoReader()` methods. The VM also has methods like `NewNumber()`, `NewString()`, `NewObject()`, &c. to create primitives. The API is currently incomplete and may change.
 
 The `io` directory contains a REPL as an example of embedding iolang.
 

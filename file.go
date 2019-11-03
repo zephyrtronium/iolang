@@ -49,7 +49,7 @@ func (vm *VM) NewFile(file *os.File, mode string) *Object {
 	if file != nil {
 		f.Path = file.Name()
 	}
-	return vm.NewObject(nil, vm.CoreProto("File"), f, FileTag)
+	return vm.ObjectWith(nil, vm.CoreProto("File"), f, FileTag)
 }
 
 // NewFileAt creates a File object unopened at the given path. The mode will be
@@ -59,7 +59,7 @@ func (vm *VM) NewFileAt(path string) *Object {
 		Path: path,
 		Mode: "read",
 	}
-	return vm.NewObject(nil, vm.CoreProto("File"), f, FileTag)
+	return vm.ObjectWith(nil, vm.CoreProto("File"), f, FileTag)
 }
 
 // ReadLine reads one line from the file such that the file cursor will be

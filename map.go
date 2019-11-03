@@ -33,7 +33,7 @@ func (vm *VM) NewMap(value map[string]*Object) *Object {
 	if value == nil {
 		value = make(map[string]*Object)
 	}
-	return vm.NewObject(nil, vm.CoreProto("Map"), value, MapTag)
+	return vm.ObjectWith(nil, vm.CoreProto("Map"), value, MapTag)
 }
 
 func (vm *VM) initMap() {

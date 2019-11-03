@@ -13,7 +13,7 @@ func (vm *VM) initPath() {
 		"listSeparator":   vm.NewString(string(filepath.ListSeparator)),
 		"separator":       vm.NewString(string(filepath.Separator)),
 	}
-	vm.Core.SetSlot("Path", vm.ObjectWith(slots))
+	vm.Core.SetSlot("Path", vm.NewObject(slots))
 }
 
 // PathAbsolute is a Path method.

@@ -40,7 +40,7 @@ func (vm *VM) NewString(str string) *Object {
 		Mutable: false,
 		Code:    "utf8",
 	}
-	return vm.NewObject(nil, vm.CoreProto("String"), value, SequenceTag)
+	return vm.ObjectWith(nil, vm.CoreProto("String"), value, SequenceTag)
 }
 
 // String returns a string representation of the object. If the sequence is

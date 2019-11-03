@@ -111,7 +111,7 @@ func (vm *VM) NewBlock(msg *Message, scope *Object, args ...string) *Object {
 		ArgNames:    args,
 		Activatable: scope == nil,
 	}
-	return vm.NewObject(nil, vm.CoreProto("Block"), value, BlockTag)
+	return vm.ObjectWith(nil, vm.CoreProto("Block"), value, BlockTag)
 }
 
 // NewLocals instantiates a Locals object for a block activation.
@@ -120,7 +120,7 @@ func (vm *VM) NewLocals(self, call *Object) *Object {
 		"self": self,
 		"call": call,
 	}
-	return vm.NewObject(slots, vm.CoreProto("Locals"), nil, nil)
+	return vm.ObjectWith(slots, vm.CoreProto("Locals"), nil, nil)
 }
 
 // NewCall creates a Call object sent from sender to the target's actor using
@@ -134,7 +134,7 @@ func (vm *VM) NewCall(sender, actor *Object, msg *Message, target, context *Obje
 		"slotContext": context,
 		"target":      target,
 	}
-	return vm.NewObject(slots, vm.CoreProto("Call"), nil, nil)
+	return vm.ObjectWith(slots, vm.CoreProto("Call"), nil, nil)
 }
 
 func (vm *VM) initBlock() {
@@ -166,7 +166,7 @@ func (vm *VM) initLocals() {
 	slots["forward"] = vm.NewCFunction(LocalsForward, nil)
 	slots["updateSlot"] = vm.NewCFunction(LocalsUpdateSlot, nil)
 	// Don't use coreInstall because Locals have no protos.
-	vm.Core.SetSlot("Locals", vm.NewObject(slots, nil, nil, nil))
+	vm.Core.SetSlot("Locals", vm.ObjectWith(slots, nil, nil, nil))
 }
 
 // ObjectBlock is an Object method.

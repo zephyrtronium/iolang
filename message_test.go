@@ -9,9 +9,9 @@ import (
 // TestPerform tests that objects can receive and possibly forward messages to
 // activate slots and produce appropriate results.
 func TestPerform(t *testing.T) {
-	pt := &performTester{obj: testVM.ObjectWith(nil)}
-	res := testVM.NewObject(nil, []*Object{testVM.BaseObject}, pt, performTesterTag{})
-	anc := testVM.ObjectWith(Slots{"t": res})
+	pt := &performTester{obj: testVM.NewObject(nil)}
+	res := testVM.ObjectWith(nil, []*Object{testVM.BaseObject}, pt, performTesterTag{})
+	anc := testVM.NewObject(Slots{"t": res})
 	target := anc.Clone()
 	target.SetSlot("forward", testVM.NewCFunction(performTestForward, nil))
 	tm := testVM.IdentMessage("t")
@@ -111,7 +111,7 @@ func BenchmarkPerform(b *testing.B) {
 // TestPerformNilResult tests that VM.Perform always converts nil to VM.Nil.
 func TestPerformNilResult(t *testing.T) {
 	cf := testVM.NewCFunction(nilResult, nil)
-	o := testVM.ObjectWith(Slots{
+	o := testVM.NewObject(Slots{
 		"f":       cf,
 		"forward": cf,
 	})

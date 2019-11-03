@@ -55,7 +55,7 @@ func (vm *VM) initSystem() {
 	} else {
 		slots["launchPath"] = vm.Nil
 	}
-	vm.Core.SetSlot("System", vm.ObjectWith(slots))
+	vm.Core.SetSlot("System", vm.NewObject(slots))
 }
 
 func (vm *VM) initArgs(args []string) {

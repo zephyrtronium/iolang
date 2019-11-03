@@ -14,7 +14,7 @@ const NumberTag = BasicTag("Number")
 
 // NewNumber creates a Number object with a given value.
 func (vm *VM) NewNumber(value float64) *Object {
-	return vm.NewObject(nil, vm.CoreProto("Number"), value, NumberTag)
+	return vm.ObjectWith(nil, vm.CoreProto("Number"), value, NumberTag)
 }
 
 // NumberArgAt evaluates the nth argument and returns its Number value. If a
@@ -129,7 +129,7 @@ func (vm *VM) initNumber() {
 	slots["shortMax"] = vm.NewNumber(32767)
 	slots["unsignedIntMax"] = vm.NewNumber(math.MaxUint64)
 	slots["unsignedLongMax"] = slots["unsignedIntMax"]
-	slots["constants"] = vm.ObjectWith(Slots{
+	slots["constants"] = vm.NewObject(Slots{
 		// Io originally had only e, inf, nan, and pi.
 		"e":       vm.NewNumber(math.E),
 		"pi":      vm.NewNumber(math.Pi),

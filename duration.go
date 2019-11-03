@@ -12,7 +12,7 @@ const DurationTag = BasicTag("Duration")
 
 // NewDuration creates a new Duration object with the given duration.
 func (vm *VM) NewDuration(d time.Duration) *Object {
-	return vm.NewObject(nil, vm.CoreProto("Duration"), d, DurationTag)
+	return vm.ObjectWith(nil, vm.CoreProto("Duration"), d, DurationTag)
 }
 
 // DurationArgAt evaluates the nth argument and returns it as a time.Duration.

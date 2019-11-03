@@ -52,7 +52,7 @@ func (vm *VM) initOpTable() {
 		"precedenceLevelCount": vm.NewNumber(leastBindingOp), // not really
 		"type":                 vm.NewString("OperatorTable"),
 	}
-	vm.Operators = vm.ObjectWith(slots)
+	vm.Operators = vm.NewObject(slots)
 	vm.Core.SetSlot("OperatorTable", vm.Operators)
 	// This method can be called post-initialization if both Core's and
 	// Core Message's OperatorTable slots are removed. In that case, we want to

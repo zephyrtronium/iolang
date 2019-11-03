@@ -13,7 +13,7 @@ const DateTag = BasicTag("Date")
 
 // NewDate creates a new Date object with the given time.
 func (vm *VM) NewDate(date time.Time) *Object {
-	return vm.NewObject(nil, vm.CoreProto("Date"), date, DateTag)
+	return vm.ObjectWith(nil, vm.CoreProto("Date"), date, DateTag)
 }
 
 // DateArgAt evaluates the nth argument and returns it as a time.Time. If a

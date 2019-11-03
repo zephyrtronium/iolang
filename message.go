@@ -99,7 +99,7 @@ func (vm *VM) CachedMessage(v *Object) *Message {
 
 // MessageObject returns an Object with the given Message value.
 func (vm *VM) MessageObject(msg *Message) *Object {
-	return vm.NewObject(nil, vm.CoreProto("Message"), msg, MessageTag)
+	return vm.ObjectWith(nil, vm.CoreProto("Message"), msg, MessageTag)
 }
 
 // DeepCopy creates a copy of the message linked to copies of each message

@@ -31,7 +31,7 @@ var ListTag tagList
 
 // NewList creates a List with the given items.
 func (vm *VM) NewList(items ...*Object) *Object {
-	return vm.NewObject(nil, vm.CoreProto("List"), items, ListTag)
+	return vm.ObjectWith(nil, vm.CoreProto("List"), items, ListTag)
 }
 
 // ListArgAt evaluates the nth argument and returns it as a slice of objects

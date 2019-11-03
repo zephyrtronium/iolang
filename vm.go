@@ -102,7 +102,7 @@ func NewVM(args ...string) *VM {
 // coreInstall is a convenience method to install a new Core proto that has
 // BaseObject as its proto.
 func (vm *VM) coreInstall(proto string, slots Slots, value interface{}, tag Tag) {
-	vm.Core.SetSlot(proto, vm.NewObject(slots, []*Object{vm.BaseObject}, value, tag))
+	vm.Core.SetSlot(proto, vm.ObjectWith(slots, []*Object{vm.BaseObject}, value, tag))
 }
 
 // CoreProto returns a new Protos list for a type in vm.Core. Panics if there
@@ -170,7 +170,7 @@ func (vm *VM) initCore() {
 	vm.Addons.Protos = []*Object{vm.BaseObject}
 	slots := Slots{"Core": vm.Core, "Addons": vm.Addons}
 	protos := []*Object{vm.Core, vm.Addons}
-	lp := vm.NewObject(slots, protos, nil, nil)
+	lp := vm.ObjectWith(slots, protos, nil, nil)
 	vm.Lobby.Protos = []*Object{lp}
 	vm.Lobby.Slots = Slots{"Protos": lp, "Lobby": vm.Lobby}
 }

@@ -232,7 +232,7 @@ func TestGetLocalSlot(t *testing.T) {
 // TestObjectGoActivate tests that an Object set to be activatable activates its
 // activate slot when activated.
 func TestObjectGoActivate(t *testing.T) {
-	o := testVM.ObjectWith(Slots{})
+	o := testVM.NewObject(Slots{})
 	testVM.Lobby.SetSlot("TestObjectActivate", o)
 	cases := map[string]SourceTestCase{
 		"InactiveNoActivate": {`getSlot("TestObjectActivate") removeSlot("activate") setIsActivatable(false)`, PassEqual(o)},

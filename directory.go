@@ -10,7 +10,7 @@ const DirectoryTag = BasicTag("Directory")
 
 // NewDirectory creates a new Directory with the given path.
 func (vm *VM) NewDirectory(path string) *Object {
-	return vm.NewObject(nil, vm.CoreProto("Directory"), path, DirectoryTag)
+	return vm.ObjectWith(nil, vm.CoreProto("Directory"), path, DirectoryTag)
 }
 
 // DirectoryArgAt evaluates the nth argument and returns it as a string. If a

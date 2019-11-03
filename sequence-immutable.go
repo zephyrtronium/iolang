@@ -343,7 +343,7 @@ func SequenceAsStruct(vm *VM, target, locals *Object, msg *Message) *Object {
 		}
 		slots[nam.String()] = vm.NewNumber(v)
 	}
-	return vm.ObjectWith(slots)
+	return vm.NewObject(slots)
 }
 
 // SequenceAsSymbol is a Sequence method.
@@ -844,7 +844,7 @@ func SequenceFindSeqs(vm *VM, target, locals *Object, msg *Message) *Object {
 	}
 	obj.Unlock()
 	if j >= 0 {
-		return vm.ObjectWith(Slots{"match": m, "index": vm.NewNumber(float64(j))})
+		return vm.NewObject(Slots{"match": m, "index": vm.NewNumber(float64(j))})
 	}
 	return vm.Nil
 }

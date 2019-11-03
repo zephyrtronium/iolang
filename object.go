@@ -353,8 +353,9 @@ func (vm *VM) initObject() {
 	vm.Core.SetSlot("Object", vm.BaseObject)
 }
 
-// NewObject creates a new object with the given slots, protos, value, and tag.
-func (vm *VM) NewObject(slots Slots, protos []*Object, value interface{}, tag Tag) *Object {
+// ObjectWith creates a new object with the given slots, protos, value, and
+// tag.
+func (vm *VM) ObjectWith(slots Slots, protos []*Object, value interface{}, tag Tag) *Object {
 	if protos == nil {
 		protos = []*Object{}
 	}
@@ -367,9 +368,9 @@ func (vm *VM) NewObject(slots Slots, protos []*Object, value interface{}, tag Ta
 	}
 }
 
-// ObjectWith creates a new basic object with the given slots and with the VM's
+// NewObject creates a new object with the given slots and with the VM's
 // Core Object as its proto.
-func (vm *VM) ObjectWith(slots Slots) *Object {
+func (vm *VM) NewObject(slots Slots) *Object {
 	return &Object{
 		Slots:  slots,
 		Protos: []*Object{vm.BaseObject},
@@ -1145,7 +1146,7 @@ func ObjectShallowCopy(vm *VM, target, locals *Object, msg *Message) *Object {
 	for slot, value := range target.Slots {
 		slots[slot] = value
 	}
-	return vm.NewObject(slots, protos, nil, nil)
+	return vm.ObjectWith(slots, protos, nil, nil)
 }
 
 // ObjectThisContext is an Object method.

@@ -53,13 +53,13 @@ func (vm *VM) NewCFunction(f Fn, kind Tag) *Object {
 			Type: kind,
 			Name: name,
 		}
-		return vm.NewObject(nil, vm.CoreProto("CFunction"), value, CFunctionTag)
+		return vm.ObjectWith(nil, vm.CoreProto("CFunction"), value, CFunctionTag)
 	}
 	value := CFunction{
 		Function: f,
 		Name:     path.Base(runtime.FuncForPC(u).Name()),
 	}
-	return vm.NewObject(nil, vm.CoreProto("CFunction"), value, CFunctionTag)
+	return vm.ObjectWith(nil, vm.CoreProto("CFunction"), value, CFunctionTag)
 }
 
 // String returns the name of the object.
@@ -71,7 +71,7 @@ func (vm *VM) initCFunction() {
 	// We can't use NewCFunction yet because the proto doesn't exist. We also
 	// want Core CFunction to be a CFunction, but one that won't panic if it's
 	// used.
-	proto := vm.NewObject(nil, []*Object{vm.BaseObject}, CFunction{Function: ObjectThisContext, Name: "ObjectThisContext"}, CFunctionTag)
+	proto := vm.ObjectWith(nil, []*Object{vm.BaseObject}, CFunction{Function: ObjectThisContext, Name: "ObjectThisContext"}, CFunctionTag)
 	vm.Core.SetSlot("CFunction", proto)
 	// Now we can create CFunctions.
 	slots := Slots{

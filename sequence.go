@@ -184,12 +184,12 @@ func (vm *VM) NewSequence(value interface{}, mutable bool, encoding string) *Obj
 		Mutable: mutable,
 		Code:    encoding,
 	}
-	return vm.NewObject(nil, vm.CoreProto("Sequence"), seq, SequenceTag)
+	return vm.ObjectWith(nil, vm.CoreProto("Sequence"), seq, SequenceTag)
 }
 
 // SequenceObject creates a new Sequence object with the given value directly.
 func (vm *VM) SequenceObject(value Sequence) *Object {
-	return vm.NewObject(nil, vm.CoreProto("Sequence"), value, SequenceTag)
+	return vm.ObjectWith(nil, vm.CoreProto("Sequence"), value, SequenceTag)
 }
 
 // SequenceFromBytes makes a mutable Sequence with the given type having the
@@ -1326,9 +1326,9 @@ func (vm *VM) initSequence() {
 		Mutable: true,
 		Code:    "utf8",
 	}
-	ms := vm.NewObject(slots, []*Object{vm.BaseObject}, value, SequenceTag)
+	ms := vm.ObjectWith(slots, []*Object{vm.BaseObject}, value, SequenceTag)
 	value.Mutable = false
-	is := vm.NewObject(nil, []*Object{ms}, value, SequenceTag)
+	is := vm.ObjectWith(nil, []*Object{ms}, value, SequenceTag)
 	vm.Core.SetSlots(Slots{
 		"Sequence":          ms,
 		"ImmutableSequence": is,
