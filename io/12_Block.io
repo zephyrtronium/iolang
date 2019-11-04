@@ -5,7 +5,7 @@ Block do(
 	asString := method(Formatter clone formatBlock(getSlot("self")) buf)
 
 	callWithArgList := method(args,
-		getSlot("self") doMessage(argList asMessage setName("call"))
+		getSlot("self") doMessage(args asMessage setName("call"))
 	)
 
 	Formatter := Object clone do(
