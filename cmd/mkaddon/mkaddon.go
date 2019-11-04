@@ -107,9 +107,6 @@ func main() {
 			panic(err)
 		}
 		w := zlib.NewWriter(&buf)
-		if err != nil {
-			panic(err)
-		}
 		if _, err = io.Copy(w, in); err != nil {
 			panic(err)
 		}
