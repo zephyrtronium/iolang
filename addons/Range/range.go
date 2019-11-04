@@ -1,5 +1,5 @@
 //go:generate go run github.com/zephyrtronium/iolang/cmd/mkaddon addon.yaml addon.go
-//go:generate go fmt addon.go
+//go:generate gofmt -s -w addon.go
 
 // Package Range provides an efficient iterator over linear numeric sequences.
 package Range

@@ -168,6 +168,7 @@ import (
 	"github.com/zephyrtronium/iolang"
 )
 
+// IoAddon returns a loader for the {{.Addon}} addon.
 func IoAddon() iolang.Addon {
 	return addon{{.Addon}}{}
 }

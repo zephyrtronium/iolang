@@ -9,6 +9,7 @@ import (
 	"github.com/zephyrtronium/iolang"
 )
 
+// IoAddon returns a loader for the Range addon.
 func IoAddon() iolang.Addon {
 	return addonRange{}
 }
