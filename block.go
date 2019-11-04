@@ -154,6 +154,8 @@ func (vm *VM) initBlock() {
 	}
 	slots["code"] = slots["asString"]
 	vm.coreInstall("Block", slots, &Block{}, BlockTag)
+	// Call doesn't have anything special, so we'll set it up here.
+	vm.coreInstall("Call", nil, nil, nil)
 }
 
 func (vm *VM) initLocals() {
