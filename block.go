@@ -3,17 +3,15 @@ package iolang
 import (
 	"bytes"
 	"strings"
-	"sync"
 )
 
-// A Block is a reusable, portable set of executable messages. Essentially a
-// function.
+// A Block is a reusable, lexically scoped message. Essentially a function.
+//
+// NOTE: Unlike most other primitives in iolang, Block values are NOT
+// synchronized. It is a race condition to modify a block that might be in use,
+// such as 'call activated' or any block or method object in a scope other than
+// the locals of the innermost currently executing block.
 type Block struct {
-	// RWMutex protects the block value so that it cannot be changed while
-	// being performed. This lock is acquired for reading by vm.ActivateBlock;
-	// normal users should not need to acquire it directly.
-	sync.RWMutex
-
 	// Message is the message that the block performs.
 	Message *Message
 	// Self is the block's lexical scope. If nil, then the block is a method,
@@ -46,8 +44,6 @@ func (tagBlock) Activate(vm *VM, self, target, locals, context *Object, msg *Mes
 
 func (tagBlock) CloneValue(value interface{}) interface{} {
 	b := value.(*Block)
-	b.RLock()
-	defer b.RUnlock()
 	return &Block{
 		Message:     b.Message.DeepCopy(),
 		Self:        b.Self,
@@ -70,7 +66,6 @@ var BlockTag tagBlock
 // Activatable flag. Panics if blk is not a Block object.
 func (vm *VM) ActivateBlock(blk, target, locals, context *Object, msg *Message) *Object {
 	b := blk.Value.(*Block)
-	b.RLock()
 	scope := b.Self
 	if scope == nil {
 		scope = target
@@ -83,7 +78,6 @@ func (vm *VM) ActivateBlock(blk, target, locals, context *Object, msg *Message) 
 	args := append([]string{}, b.ArgNames...)
 	m := b.Message
 	pass := b.PassStops
-	b.RUnlock()
 	for i, arg := range args {
 		x, stop := msg.EvalArgAt(vm, locals, i)
 		if stop != NoStop {
@@ -221,12 +215,10 @@ func ObjectMethod(vm *VM, target, locals *Object, msg *Message) *Object {
 // argumentNames returns a list of the argument names of the block.
 func BlockArgumentNames(vm *VM, target, locals *Object, msg *Message) *Object {
 	blk := target.Value.(*Block)
-	blk.RLock()
 	l := make([]*Object, len(blk.ArgNames))
 	for i, n := range blk.ArgNames {
 		l[i] = vm.NewString(n)
 	}
-	blk.RUnlock()
 	return vm.NewList(l...)
 }
 
@@ -236,7 +228,6 @@ func BlockArgumentNames(vm *VM, target, locals *Object, msg *Message) *Object {
 func BlockAsString(vm *VM, target, locals *Object, msg *Message) *Object {
 	blk := target.Value.(*Block)
 	b := bytes.Buffer{}
-	blk.RLock()
 	if blk.Self == nil {
 		b.WriteString("method(")
 	} else {
@@ -249,7 +240,6 @@ func BlockAsString(vm *VM, target, locals *Object, msg *Message) *Object {
 	b.WriteByte('\n')
 	blk.Message.stringRecurse(vm, &b)
 	b.WriteString("\n)")
-	blk.RUnlock()
 	return vm.NewString(b.String())
 }
 
@@ -265,8 +255,6 @@ func BlockCall(vm *VM, target, locals *Object, msg *Message) *Object {
 // message returns the block's message.
 func BlockMessage(vm *VM, target, locals *Object, msg *Message) *Object {
 	blk := target.Value.(*Block)
-	blk.RLock()
-	defer blk.RUnlock()
 	return vm.MessageObject(blk.Message)
 }
 
@@ -275,8 +263,6 @@ func BlockMessage(vm *VM, target, locals *Object, msg *Message) *Object {
 // passStops returns whether the block returns control flow signals upward.
 func BlockPassStops(vm *VM, target, locals *Object, msg *Message) *Object {
 	blk := target.Value.(*Block)
-	blk.RLock()
-	defer blk.RUnlock()
 	return vm.IoBool(blk.PassStops)
 }
 
@@ -319,8 +305,6 @@ func BlockPerformOn(vm *VM, target, locals *Object, msg *Message) *Object {
 // scope returns the scope of the block, or nil if the block is a method.
 func BlockScope(vm *VM, target, locals *Object, msg *Message) *Object {
 	blk := target.Value.(*Block)
-	blk.RLock()
-	defer blk.RUnlock()
 	return blk.Self
 }
 
@@ -339,9 +323,7 @@ func BlockSetArgumentNames(vm *VM, target, locals *Object, msg *Message) *Object
 		}
 		l[i] = s
 	}
-	blk.Lock()
 	blk.ArgNames = l
-	blk.Unlock()
 	return target
 }
 
@@ -354,9 +336,7 @@ func BlockSetMessage(vm *VM, target, locals *Object, msg *Message) *Object {
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
 	}
-	blk.Lock()
 	blk.Message = m
-	blk.Unlock()
 	return target
 }
 
@@ -370,30 +350,25 @@ func BlockSetPassStops(vm *VM, target, locals *Object, msg *Message) *Object {
 	if stop != NoStop {
 		return vm.Stop(r, stop)
 	}
-	t := vm.AsBool(r)
-	blk.Lock()
-	blk.PassStops = t
-	blk.Unlock()
+	blk.PassStops = vm.AsBool(r)
 	return target
 }
 
 // BlockSetScope is a Block method.
 //
 // setScope changes the context of the block. If nil, the block becomes a
-// method.
+// method (but whether it is activatable does not change).
 func BlockSetScope(vm *VM, target, locals *Object, msg *Message) *Object {
 	blk := target.Value.(*Block)
 	r, stop := msg.EvalArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(r, stop)
 	}
-	blk.Lock()
 	if r == vm.Nil {
 		blk.Self = nil
 	} else {
 		blk.Self = r
 	}
-	blk.Unlock()
 	return target
 }
 

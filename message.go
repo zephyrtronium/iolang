@@ -6,18 +6,15 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"sync"
 )
 
 // A Message is the fundamental syntactic element and functionality of Io.
+//
+// NOTE: Unlike most other primitive types in iolang, Message values are NOT
+// synchronized. It is a race condition to modify a message that might be in
+// use, such as 'call message' or any message object in a scope other than the
+// locals of the innermost currently executing block.
 type Message struct {
-	// RWMutex protects the message value so that it does not change while
-	// being performed. This lock is acquired for reading by vm.Perform; normal
-	// users should not need to acquire it directly. CFunctions that want to
-	// acquire this mutex for writing should do so asynchronously to avoid
-	// deadlocks when modifying a message being performed.
-	sync.RWMutex
-
 	// Text is the name of this message.
 	Text string
 	// Args are the message's argument messages.
@@ -108,8 +105,6 @@ func (m *Message) DeepCopy() *Message {
 	if m == nil {
 		return nil
 	}
-	m.RLock()
-	defer m.RUnlock()
 	fm := &Message{
 		Text: m.Text,
 		Args: make([]*Message, len(m.Args)),
@@ -138,19 +133,14 @@ func (m *Message) ArgCount() int {
 	if m == nil {
 		return 0
 	}
-	m.RLock()
-	n := len(m.Args)
-	m.RUnlock()
-	return n
+	return len(m.Args)
 }
 
 // AssertArgCount returns an error if the message does not have the given
 // number of arguments. name is the name of the message used in the generated
 // error message.
 func (m *Message) AssertArgCount(name string, n int) error {
-	m.RLock()
-	defer m.RUnlock()
-	if len(m.Args) != n {
+	if m.ArgCount() != n {
 		return fmt.Errorf("%s must have %d arguments", name, n)
 	}
 	return nil
@@ -159,11 +149,10 @@ func (m *Message) AssertArgCount(name string, n int) error {
 // ArgAt returns the argument at position n, or nil if the position is out of
 // bounds.
 func (m *Message) ArgAt(n int) (r *Message) {
-	m.RLock()
-	if 0 <= n && n < len(m.Args) {
+	if 0 <= n && n < m.ArgCount() {
+		// m is guaranteed to be non-nil because ArgCount >= 1.
 		r = m.Args[n]
 	}
-	m.RUnlock()
 	return r
 }
 
@@ -208,7 +197,6 @@ func (m *Message) Eval(vm *VM, locals *Object) (result *Object, control Stop) {
 func (m *Message) Send(vm *VM, target, locals *Object) (result *Object, control Stop) {
 	firstTarget := target
 	for m != nil {
-		m.RLock()
 		if m.Memo != nil {
 			// If there is a memo, the message automatically becomes it instead
 			// of performing.
@@ -217,12 +205,6 @@ func (m *Message) Send(vm *VM, target, locals *Object) (result *Object, control 
 		} else if !m.IsTerminator() {
 			result, control = vm.Perform(target, locals, m)
 			if control != NoStop {
-				if control == ExceptionStop {
-					if e, ok := result.Value.(*Exception); ok {
-						e.Stack = append(e.Stack, m)
-					}
-				}
-				m.RUnlock()
 				return result, control
 			}
 			target = result
@@ -230,7 +212,6 @@ func (m *Message) Send(vm *VM, target, locals *Object) (result *Object, control 
 			target = firstTarget
 		}
 		next := m.Next
-		m.RUnlock()
 		m = next
 	}
 	if result == nil {
@@ -246,13 +227,9 @@ func (m *Message) Send(vm *VM, target, locals *Object) (result *Object, control 
 // NOTE: It is unsafe to call this while holding the lock of any object.
 func (vm *VM) Perform(target, locals *Object, msg *Message) (result *Object, control Stop) {
 	var v, proto *Object
-	// RLock is a recursive lock, so we can acquire it here regardless of
-	// whether it's held by Send.
-	msg.RLock()
 	if v, proto = target.GetSlot(msg.Text); proto == nil {
 		var forward, fp *Object
 		if forward, fp = target.GetSlot("forward"); fp == nil {
-			msg.RUnlock()
 			return vm.NewExceptionf("%v does not respond to %s", target.Tag, msg.Name()), ExceptionStop
 		}
 		v, proto = forward, fp
@@ -261,7 +238,6 @@ func (vm *VM) Perform(target, locals *Object, msg *Message) (result *Object, con
 	// activating the select default, because we want to catch control flow
 	// from this activation as well.
 	result = v.Activate(vm, target, locals, proto, msg)
-	msg.RUnlock()
 	if result == nil {
 		result = vm.Nil
 	}
@@ -323,22 +299,18 @@ func (vm *VM) doPause(result *Object) (*Object, Stop) {
 }
 
 // InsertAfter links another message to follow this one.
-func (m *Message) InsertAfter(other *Message) {
+func (m *Message) InsertAfter(next *Message) {
 	if m == nil {
 		return
 	}
-	m.Lock()
 	if m.Next != nil {
-		m.Next.Prev = other
+		m.Next.Prev = next
 	}
-	if other != nil {
-		other.Lock()
-		other.Next = m.Next
-		other.Prev = m
-		other.Unlock()
+	if next != nil {
+		next.Next = m.Next
+		next.Prev = m
 	}
-	m.Next = other
-	m.Unlock()
+	m.Next = next
 }
 
 // IsStart determines whether this message is the start of a "statement." This
@@ -348,14 +320,10 @@ func (m *Message) IsStart() bool {
 	if m == nil {
 		return true
 	}
-	m.RLock()
 	r := m.Prev == nil
 	if !r {
-		m.Prev.RLock()
 		r = m.Prev.IsTerminator()
-		m.Prev.RUnlock()
 	}
-	m.RUnlock()
 	return r
 }
 
@@ -365,19 +333,14 @@ func (m *Message) IsTerminator() bool {
 	if m == nil {
 		return true
 	}
-	m.RLock()
 	r := m.Text == ";" || m.Text == "\n"
-	m.RUnlock()
 	return r
 }
 
 // Name returns the name of the message, which is its text if it is non-nil.
 func (m *Message) Name() string {
 	if m != nil {
-		m.RLock()
-		r := m.Text
-		m.RUnlock()
-		return r
+		return m.Text
 	}
 	return "<nil message>"
 }
@@ -393,7 +356,6 @@ func (m *Message) stringRecurse(vm *VM, b *bytes.Buffer) {
 		return
 	}
 	for m != nil {
-		m.RLock()
 		b.WriteString(m.Text)
 		if len(m.Args) > 0 {
 			b.WriteByte('(')
@@ -410,7 +372,6 @@ func (m *Message) stringRecurse(vm *VM, b *bytes.Buffer) {
 		if m.Text == ";" {
 			b.WriteByte('\n')
 		}
-		m.RUnlock()
 		m = m.Next
 	}
 }
@@ -459,16 +420,14 @@ func (vm *VM) initMessage() {
 //
 // appendArg adds a message as an argument to the message.
 func MessageAppendArg(vm *VM, target, locals *Object, msg *Message) *Object {
+	target.Lock()
 	m := target.Value.(*Message)
+	target.Unlock()
 	nm, exc, stop := msg.MessageArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
 	}
-	go func() {
-		m.Lock()
-		m.Args = append(m.Args, nm)
-		m.Unlock()
-	}()
+	m.Args = append(m.Args, nm)
 	return target
 }
 
@@ -481,11 +440,7 @@ func MessageAppendCachedArg(vm *VM, target, locals *Object, msg *Message) *Objec
 	if stop != NoStop {
 		return vm.Stop(r, stop)
 	}
-	go func() {
-		m.Lock()
-		m.Args = append(m.Args, vm.CachedMessage(r))
-		m.Unlock()
-	}()
+	m.Args = append(m.Args, vm.CachedMessage(r))
 	return target
 }
 
@@ -498,9 +453,7 @@ func MessageArgAt(vm *VM, target, locals *Object, msg *Message) *Object {
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
 	}
-	m.RLock()
 	r := m.ArgAt(int(n))
-	m.RUnlock()
 	return vm.MessageObject(r)
 }
 
@@ -521,8 +474,6 @@ func MessageArgsEvaluatedIn(vm *VM, target, locals *Object, msg *Message) *Objec
 	if stop != NoStop {
 		return vm.Stop(ctx, stop)
 	}
-	m.RLock()
-	defer m.RUnlock()
 	l := make([]*Object, m.ArgCount())
 	for k, v := range m.Args {
 		r, stop := v.Eval(vm, ctx)
@@ -539,12 +490,10 @@ func MessageArgsEvaluatedIn(vm *VM, target, locals *Object, msg *Message) *Objec
 // arguments returns a list of the arguments to the message as messages.
 func MessageArguments(vm *VM, target, locals *Object, msg *Message) *Object {
 	m := target.Value.(*Message)
-	m.RLock()
 	l := make([]*Object, m.ArgCount())
 	for k, v := range m.Args {
 		l[k] = vm.MessageObject(v)
 	}
-	m.RUnlock()
 	return vm.NewList(l...)
 }
 
@@ -554,8 +503,6 @@ func MessageArguments(vm *VM, target, locals *Object, msg *Message) *Object {
 // evaluated.
 func MessageAsMessageWithEvaluatedArgs(vm *VM, target, locals *Object, msg *Message) *Object {
 	m := target.Value.(*Message)
-	m.RLock()
-	defer m.RUnlock()
 	nm := &Message{
 		Text: m.Text,
 		Args: make([]*Message, m.ArgCount()),
@@ -595,8 +542,6 @@ func MessageAsString(vm *VM, target, locals *Object, msg *Message) *Object {
 // if there is not one, though this may also mean that nil is cached.
 func MessageCachedResult(vm *VM, target, locals *Object, msg *Message) *Object {
 	m := target.Value.(*Message)
-	m.RLock()
-	defer m.RUnlock()
 	return m.Memo
 }
 
@@ -606,8 +551,6 @@ func MessageCachedResult(vm *VM, target, locals *Object, msg *Message) *Object {
 // at which the message was parsed.
 func MessageCharacterNumber(vm *VM, target, locals *Object, msg *Message) *Object {
 	m := target.Value.(*Message)
-	m.RLock()
-	defer m.RUnlock()
 	return vm.NewNumber(float64(m.Col))
 }
 
@@ -661,8 +604,6 @@ func MessageFromString(vm *VM, target, locals *Object, msg *Message) *Object {
 // message will evaluate.
 func MessageHasCachedResult(vm *VM, target, locals *Object, msg *Message) *Object {
 	m := target.Value.(*Message)
-	m.RLock()
-	defer m.RUnlock()
 	return vm.IoBool(m.Memo != nil)
 }
 
@@ -671,8 +612,6 @@ func MessageHasCachedResult(vm *VM, target, locals *Object, msg *Message) *Objec
 // isEndOfLine returns whether the message is a terminator.
 func MessageIsEndOfLine(vm *VM, target, locals *Object, msg *Message) *Object {
 	m := target.Value.(*Message)
-	m.RLock()
-	defer m.RUnlock()
 	return vm.IoBool(m.IsTerminator())
 }
 
@@ -682,8 +621,6 @@ func MessageIsEndOfLine(vm *VM, target, locals *Object, msg *Message) *Object {
 // it was parsed.
 func MessageLabel(vm *VM, target, locals *Object, msg *Message) *Object {
 	m := target.Value.(*Message)
-	m.RLock()
-	defer m.RUnlock()
 	return vm.NewString(m.Label)
 }
 
@@ -695,18 +632,13 @@ func MessageLast(vm *VM, target, locals *Object, msg *Message) *Object {
 	if m == nil {
 		return target
 	}
-	m.RLock()
 	if m.Next == nil {
-		m.RUnlock()
 		return target
 	}
 	for m.Next != nil {
 		next := m.Next
-		m.RUnlock()
 		m = next
-		m.RLock()
 	}
-	m.RUnlock()
 	return vm.MessageObject(m)
 }
 
@@ -719,18 +651,13 @@ func MessageLastBeforeEndOfLine(vm *VM, target, locals *Object, msg *Message) *O
 	if m == nil {
 		return target
 	}
-	m.RLock()
 	if m.Next.IsTerminator() {
-		m.RUnlock()
 		return target
 	}
 	for !m.Next.IsTerminator() {
 		next := m.Next
-		m.RUnlock()
 		m = next
-		m.RLock()
 	}
-	m.RUnlock()
 	return vm.MessageObject(m)
 }
 
@@ -739,8 +666,6 @@ func MessageLastBeforeEndOfLine(vm *VM, target, locals *Object, msg *Message) *O
 // lineNumber returns the line number at which the message was parsed.
 func MessageLineNumber(vm *VM, target, locals *Object, msg *Message) *Object {
 	m := target.Value.(*Message)
-	m.RLock()
-	defer m.RUnlock()
 	return vm.NewNumber(float64(m.Line))
 }
 
@@ -759,8 +684,6 @@ func MessageNext(vm *VM, target, locals *Object, msg *Message) *Object {
 	if m == nil {
 		return vm.Nil
 	}
-	m.RLock()
-	defer m.RUnlock()
 	return vm.MessageObject(m.Next)
 }
 
@@ -773,21 +696,16 @@ func MessageNextIgnoreEndOfLines(vm *VM, target, locals *Object, msg *Message) *
 	if m == nil {
 		return target
 	}
-	m.RLock()
 	if !m.Next.IsTerminator() {
 		next := m.Next
-		m.RUnlock()
 		return vm.MessageObject(next)
 	}
 	// I think the original returns the terminator at the end of the chain if
 	// that is encountered, but that seems like a breach of contract.
 	for m.Next.IsTerminator() {
 		next := m.Next
-		m.RUnlock()
 		m = next
-		m.RLock()
 	}
-	m.RUnlock()
 	return vm.MessageObject(m)
 }
 
@@ -800,8 +718,6 @@ func MessageOpShuffle(vm *VM, target, locals *Object, msg *Message) *Object {
 	if m == nil {
 		return target
 	}
-	m.Lock()
-	defer m.Unlock()
 	if err := vm.OpShuffle(target); err != nil {
 		return vm.RaiseException(err)
 	}
@@ -816,8 +732,6 @@ func MessagePrevious(vm *VM, target, locals *Object, msg *Message) *Object {
 	if m == nil {
 		return vm.Nil
 	}
-	m.RLock()
-	defer m.RUnlock()
 	return vm.MessageObject(m.Prev)
 }
 
@@ -828,11 +742,7 @@ func MessagePrevious(vm *VM, target, locals *Object, msg *Message) *Object {
 func MessageRemoveCachedResult(vm *VM, target, locals *Object, msg *Message) *Object {
 	m := target.Value.(*Message)
 	if m != nil {
-		go func() {
-			m.Lock()
-			m.Memo = nil
-			m.Unlock()
-		}()
+		m.Memo = nil
 	}
 	return target
 }
@@ -861,11 +771,7 @@ func MessageSetArguments(vm *VM, target, locals *Object, msg *Message) *Object {
 		args[k] = arg
 	}
 	obj.Unlock()
-	go func() {
-		m.Lock()
-		m.Args = args
-		m.Unlock()
-	}()
+	m.Args = args
 	return target
 }
 
@@ -879,11 +785,7 @@ func MessageSetCachedResult(vm *VM, target, locals *Object, msg *Message) *Objec
 	if stop != NoStop {
 		return vm.Stop(r, stop)
 	}
-	go func() {
-		m.Lock()
-		m.Memo = r
-		m.Unlock()
-	}()
+	m.Memo = r
 	return target
 }
 
@@ -897,11 +799,7 @@ func MessageSetCharacterNumber(vm *VM, target, locals *Object, msg *Message) *Ob
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
 	}
-	go func() {
-		m.Lock()
-		m.Col = int(n)
-		m.Unlock()
-	}()
+	m.Col = int(n)
 	return target
 }
 
@@ -914,11 +812,7 @@ func MessageSetLabel(vm *VM, target, locals *Object, msg *Message) *Object {
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
 	}
-	go func() {
-		m.Lock()
-		m.Label = s
-		m.Unlock()
-	}()
+	m.Label = s
 	return target
 }
 
@@ -931,11 +825,7 @@ func MessageSetLineNumber(vm *VM, target, locals *Object, msg *Message) *Object 
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
 	}
-	go func() {
-		m.Lock()
-		m.Line = int(n)
-		m.Unlock()
-	}()
+	m.Line = int(n)
 	return target
 }
 
@@ -948,11 +838,7 @@ func MessageSetName(vm *VM, target, locals *Object, msg *Message) *Object {
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
 	}
-	go func() {
-		m.Lock()
-		m.Text = s
-		m.Unlock()
-	}()
+	m.Text = s
 	return target
 }
 
@@ -967,24 +853,14 @@ func MessageSetNext(vm *VM, target, locals *Object, msg *Message) *Object {
 		return vm.Stop(r, stop)
 	}
 	if r == vm.Nil {
-		go func() {
-			m.Lock()
-			m.Next = nil
-			m.Unlock()
-		}()
+		m.Next = nil
 		return target
 	}
 	nm, ok := r.Value.(*Message)
 	if !ok {
 		return vm.RaiseExceptionf("argument 0 to setNext must be Message, not %s", vm.TypeName(r))
 	}
-	go func() {
-		m.Lock()
-		r.Lock()
-		m.Next = nm
-		nm.Prev = m
-		m.Unlock()
-		r.Unlock()
-	}()
+	m.Next = nm
+	nm.Prev = m
 	return target
 }
