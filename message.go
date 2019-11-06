@@ -94,8 +94,12 @@ func (vm *VM) CachedMessage(v *Object) *Message {
 	}
 }
 
-// MessageObject returns an Object with the given Message value.
+// MessageObject returns an Object with the given Message value. If msg is nil,
+// the result is nil.
 func (vm *VM) MessageObject(msg *Message) *Object {
+	if msg == nil {
+		return nil
+	}
 	return vm.ObjectWith(nil, vm.CoreProto("Message"), msg, MessageTag)
 }
 
