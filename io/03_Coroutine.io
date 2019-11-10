@@ -25,3 +25,15 @@ Coroutine do(
 
 	main := method(setResult(self getSlot("runTarget") doMessage(runMessage, self getSlot("runLocals"))))
 )
+
+Object do(
+	setSlot("@", getSlot("futureSend"))
+	setSlot("@@", getSlot("asyncSend"))
+
+	coroDo := method(call delegateToMethod(self, "coroFor") run)
+	coroDoLater := method(call delegateToMethod(self, "coroWith") run)
+	coroFor := method(Coroutine clone setRunTarget(call sender) setRunLocals(call sender) setRunMessage(call argAt(0)))
+	coroWith := method(Coroutine clone setRunTarget(self) setRunLocals(call sender) setRunMessage(call argAt(0)))
+	
+	currentCoro := method(Coroutine currentCoroutine)
+)
