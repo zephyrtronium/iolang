@@ -79,17 +79,17 @@ func (s *Scheduler) schedule() {
 	for len(s.coros) > 0 {
 		select {
 		case w := <-s.start:
+			s.m.Lock()
 			if w.b != nil {
 				// Look for a cycle.
-				s.m.Lock()
 				if s.checkCycle(w) {
 					s.m.Unlock()
 					w.a.Control <- RemoteStop{w.a.NewExceptionf("deadlock"), ExceptionStop}
 					continue
 				}
-				s.m.Unlock()
 			}
 			s.coros[w.a] = w.b
+			s.m.Unlock()
 		case c := <-s.pause:
 			s.m.Lock()
 			delete(s.coros, c)
