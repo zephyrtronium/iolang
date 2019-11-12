@@ -23,7 +23,7 @@ func (c SourceTestCase) TestFunc(name string) func(*testing.T) {
 			t.Fatalf("could not opshuffle %q: %v", c.Source, err)
 		}
 		if r, s := testVM.DoMessage(msg, testVM.Lobby); !c.Pass(r, s) {
-			t.Errorf("%q produced wrong result; got %T@%p (%s)", c.Source, r, r, s)
+			t.Errorf("%q produced wrong result; got %s@%p (%s)", c.Source, testVM.AsString(r), r, s)
 		}
 	}
 }
@@ -457,7 +457,39 @@ func TestObjectMethods(t *testing.T) {
 		"AsString": {
 			"isSequence": {`Object asString`, PassTag(SequenceTag)},
 		},
+		"AsyncSend": {
+			"spawns":      {`yield; yield; yield; asyncSend(wait(1)); wait(testValues coroWaitTime); Scheduler coroCount`, PassEqual(testVM.NewNumber(1))},
+			"sideEffects": {`testValues asyncSendSideEffect := 0; asyncSend(Lobby testValues asyncSendSideEffect = 1); wait(testValues coroWaitTime); testValues asyncSendSideEffect`, PassEqual(testVM.NewNumber(1))},
+		},
+		"Block": {
+			"noMessage": {`block`, PassTag(BlockTag)},
+			"exception": {`block(Exception raise)`, PassSuccess()},
+		},
+		"Break": {
+			"break":     {`break`, PassControl(testVM.Nil, BreakStop)},
+			"value":     {`break(Lobby)`, PassControl(testVM.Lobby, BreakStop)},
+			"continue":  {`break(continue)`, PassControl(testVM.Nil, ContinueStop)},
+			"exception": {`break(Exception raise)`, PassFailure()},
+		},
+		"Clone": {
+			"new":   {`Object clone != Object`, PassIdentical(testVM.True)},
+			"proto": {`Object clone protos containsIdenticalTo(Object)`, PassIdentical(testVM.True)},
+			"init":  {`testValues initValue := 0; Object clone do(init := method(Lobby testValues initValue = 1)) clone; testValues initValue`, PassEqual(testVM.NewNumber(1))},
+		},
+		"CloneWithoutInit": {
+			"new":   {`Object cloneWithoutInit != Object`, PassIdentical(testVM.True)},
+			"proto": {`Object cloneWithoutInit protos containsIdenticalTo(Object)`, PassIdentical(testVM.True)},
+			"init":  {`testValues noInitValue := 0; Object clone do(init := method(Lobby testValues noInitValue = 1)) cloneWithoutInit; testValues noInitValue`, PassEqual(testVM.NewNumber(0))},
+		},
 	}
+	// If this test runs before TestLobbySlots, any new slots that tests create
+	// will cause that to fail. To circumvent this, we provide an object to
+	// carry test values, then remove it once all tests have run. This object
+	// initially carries default test configuration values.
+	config := Slots{
+		"coroWaitTime": testVM.NewNumber(0.02),
+	}
+	testVM.Lobby.SetSlot("testValues", testVM.NewObject(config))
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
 			for name, s := range c {
@@ -465,4 +497,5 @@ func TestObjectMethods(t *testing.T) {
 			}
 		})
 	}
+	testVM.Lobby.RemoveSlot("testValues")
 }
