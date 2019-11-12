@@ -292,10 +292,10 @@ func (ll *shufLevel) doLevel(vm *VM, ops, asgns map[string]*Object, m *Message) 
 // *OpTable, it is used for operators; otherwise, the VM's default OpTable is
 // used. Panics if msg is not a Message object.
 func (vm *VM) OpShuffle(msg *Object) (err error) {
-	m := msg.Value.(*Message)
-	if m == nil {
+	if msg == nil {
 		return nil
 	}
+	m := msg.Value.(*Message)
 	if m.Name() == "__noShuffling__" {
 		// We could make __noShuffling__ just an Object with an OperatorTable
 		// that is empty, but doing it this way allows us to skip shuffling
