@@ -381,12 +381,12 @@ func TestObjectSlots(t *testing.T) {
 // TestObjectScript tests Object methods by executing Io scripts.
 func TestObjectMethods(t *testing.T) {
 	cases := map[string]map[string]SourceTestCase{
-		"EvalArg": {
+		"evalArg": {
 			"evalArg":   {`evalArg(Lobby)`, PassEqual(testVM.Lobby)},
 			"continue":  {`evalArg(continue; Lobby)`, PassControl(testVM.Nil, ContinueStop)},
 			"exception": {`evalArg(Exception raise; Lobby)`, PassFailure()},
 		},
-		"NotEqual": {
+		"notEqual": {
 			"0!=1":         {`0 !=(1)`, PassIdentical(testVM.True)},
 			"0!=0":         {`0 !=(0)`, PassIdentical(testVM.False)},
 			"1!=0":         {`1 !=(0)`, PassIdentical(testVM.True)},
@@ -395,7 +395,7 @@ func TestObjectMethods(t *testing.T) {
 			"continue":     {`Lobby !=(continue); Lobby`, PassControl(testVM.Nil, ContinueStop)},
 			"exception":    {`Lobby !=(Exception raise); Lobby`, PassFailure()},
 		},
-		"Less": {
+		"less": {
 			"0<1":          {`0 <(1)`, PassIdentical(testVM.True)},
 			"0<0":          {`0 <(0)`, PassIdentical(testVM.False)},
 			"1<0":          {`1 <(0)`, PassIdentical(testVM.False)},
@@ -404,7 +404,7 @@ func TestObjectMethods(t *testing.T) {
 			"continue":     {`0 <(continue); Lobby`, PassControl(testVM.Nil, ContinueStop)},
 			"exception":    {`0 <(Exception raise); Lobby`, PassFailure()},
 		},
-		"LessEqual": {
+		"lessEqual": {
 			"0<=1":         {`0 <=(1)`, PassIdentical(testVM.True)},
 			"0<=0":         {`0 <=(0)`, PassIdentical(testVM.True)},
 			"1<=0":         {`1 <=(0)`, PassIdentical(testVM.False)},
@@ -413,7 +413,7 @@ func TestObjectMethods(t *testing.T) {
 			"continue":     {`0 <=(continue); Lobby`, PassControl(testVM.Nil, ContinueStop)},
 			"exception":    {`0 <=(Exception raise); Lobby`, PassFailure()},
 		},
-		"Equal": {
+		"equal": {
 			"0==1":         {`0 ==(1)`, PassIdentical(testVM.False)},
 			"0==0":         {`0 ==(0)`, PassIdentical(testVM.True)},
 			"1==0":         {`1 ==(0)`, PassIdentical(testVM.False)},
@@ -422,7 +422,7 @@ func TestObjectMethods(t *testing.T) {
 			"continue":     {`Lobby ==(continue); Lobby`, PassControl(testVM.Nil, ContinueStop)},
 			"exception":    {`Lobby ==(Exception raise); Lobby`, PassFailure()},
 		},
-		"Greater": {
+		"greater": {
 			"0>1":          {`0 >(1)`, PassIdentical(testVM.False)},
 			"0>0":          {`0 >(0)`, PassIdentical(testVM.False)},
 			"1>0":          {`1 >(0)`, PassIdentical(testVM.True)},
@@ -431,7 +431,7 @@ func TestObjectMethods(t *testing.T) {
 			"continue":     {`0 >(continue); Lobby`, PassControl(testVM.Nil, ContinueStop)},
 			"exception":    {`0 >(Exception raise); Lobby`, PassFailure()},
 		},
-		"GreaterEqual": {
+		"greaterEqual": {
 			"0>=1":         {`0 >=(1)`, PassIdentical(testVM.False)},
 			"0>=0":         {`0 >=(0)`, PassIdentical(testVM.True)},
 			"1>=0":         {`1 >=(0)`, PassIdentical(testVM.True)},
@@ -440,7 +440,7 @@ func TestObjectMethods(t *testing.T) {
 			"continue":     {`0 >=(continue); Lobby`, PassControl(testVM.Nil, ContinueStop)},
 			"exception":    {`0 >=(Exception raise); Lobby`, PassFailure()},
 		},
-		"AncestorWithSlot": {
+		"ancestorWithSlot": {
 			"local":         {`Number ancestorWithSlot("abs")`, PassIdentical(testVM.Nil)},
 			"localInProtos": {`Lobby ancestorWithSlot("Lobby")`, PassIdentical(testVM.Lobby)},
 			"nowhere":       {`Lobby ancestorWithSlot("this slot doesn't exist")`, PassIdentical(testVM.Nil)},
@@ -448,38 +448,56 @@ func TestObjectMethods(t *testing.T) {
 			"continue":      {`Lobby ancestorWithSlot(continue); Lobby`, PassControl(testVM.Nil, ContinueStop)},
 			"exception":     {`Lobby ancestorWithSlot(Exception raise); Lobby`, PassFailure()},
 		},
-		"AppendProto": {
+		"appendProto": {
 			"appendProto": {`Object clone do(appendProto(Lobby)) protos containsIdenticalTo(Lobby)`, PassIdentical(testVM.True)},
 			"continue":    {`Object clone appendProto(continue); Lobby`, PassControl(testVM.Nil, ContinueStop)},
 			"exception":   {`Object clone appendProto(Exception raise); Lobby`, PassFailure()},
 		},
 		// asGoRepr gets no tests //
-		"AsString": {
+		"asString": {
 			"isSequence": {`Object asString`, PassTag(SequenceTag)},
 		},
-		"AsyncSend": {
+		"asyncSend": {
 			"spawns":      {`yield; yield; yield; asyncSend(wait(1)); wait(testValues coroWaitTime); Scheduler coroCount`, PassEqual(testVM.NewNumber(1))},
 			"sideEffects": {`testValues asyncSendSideEffect := 0; asyncSend(Lobby testValues asyncSendSideEffect = 1); wait(testValues coroWaitTime); testValues asyncSendSideEffect`, PassEqual(testVM.NewNumber(1))},
 		},
-		"Block": {
+		"block": {
 			"noMessage": {`block`, PassTag(BlockTag)},
 			"exception": {`block(Exception raise)`, PassSuccess()},
 		},
-		"Break": {
+		"break": {
 			"break":     {`break`, PassControl(testVM.Nil, BreakStop)},
 			"value":     {`break(Lobby)`, PassControl(testVM.Lobby, BreakStop)},
 			"continue":  {`break(continue)`, PassControl(testVM.Nil, ContinueStop)},
 			"exception": {`break(Exception raise)`, PassFailure()},
 		},
-		"Clone": {
+		"clone": {
 			"new":   {`Object clone != Object`, PassIdentical(testVM.True)},
 			"proto": {`Object clone protos containsIdenticalTo(Object)`, PassIdentical(testVM.True)},
 			"init":  {`testValues initValue := 0; Object clone do(init := method(Lobby testValues initValue = 1)) clone; testValues initValue`, PassEqual(testVM.NewNumber(1))},
 		},
-		"CloneWithoutInit": {
+		"cloneWithoutInit": {
 			"new":   {`Object cloneWithoutInit != Object`, PassIdentical(testVM.True)},
 			"proto": {`Object cloneWithoutInit protos containsIdenticalTo(Object)`, PassIdentical(testVM.True)},
 			"init":  {`testValues noInitValue := 0; Object clone do(init := method(Lobby testValues noInitValue = 1)) cloneWithoutInit; testValues noInitValue`, PassEqual(testVM.NewNumber(0))},
+		},
+		"compare": {
+			"incomparable": {`Object compare("string")`, PassTag(NumberTag)},
+			"continue":     {`Object compare(continue)`, PassControl(testVM.Nil, ContinueStop)},
+			"exception":    {`Object compare(Exception raise)`, PassFailure()},
+		},
+		"contextWithSlot": {
+			"local":         {`Number contextWithSlot("abs")`, PassEqual(testVM.NewNumber(0))},
+			"localInProtos": {`Lobby contextWithSlot("Lobby")`, PassIdentical(testVM.Lobby)},
+			"nowhere":       {`Lobby contextWithSlot("this slot doesn't exist")`, PassIdentical(testVM.Nil)},
+			"bad":           {`Lobby contextWithSlot(0)`, PassFailure()},
+			"continue":      {`Lobby contextWithSlot(continue); Lobby`, PassControl(testVM.Nil, ContinueStop)},
+			"exception":     {`Lobby contextWithSlot(Exception raise); Lobby`, PassFailure()},
+		},
+		"continue": {
+			"continue":  {`continue`, PassControl(testVM.Nil, ContinueStop)},
+			"value":     {`continue(Lobby)`, PassControl(testVM.Lobby, ContinueStop)},
+			"exception": {`continue(Exception raise)`, PassFailure()},
 		},
 	}
 	// If this test runs before TestLobbySlots, any new slots that tests create
