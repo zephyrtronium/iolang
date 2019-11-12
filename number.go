@@ -386,11 +386,14 @@ func NumberClip(vm *VM, target, locals *Object, msg *Message) *Object {
 // greater, or 0 if they are equal.
 func NumberCompare(vm *VM, target, locals *Object, msg *Message) *Object {
 	// Io doesn't actually define a Number compare, but I'm doing it anyway.
-	arg, exc, stop := msg.NumberArgAt(vm, locals, 0)
+	arg, stop := msg.EvalArgAt(vm, locals, 0)
 	if stop != NoStop {
-		return vm.Stop(exc, stop)
+		return vm.Stop(arg, stop)
 	}
-	a, b := target.Value.(float64), arg
+	if arg.Tag != NumberTag {
+		return vm.NewNumber(float64(PtrCompare(target, arg)))
+	}
+	a, b := target.Value.(float64), arg.Value.(float64)
 	if a < b {
 		return vm.NewNumber(-1)
 	}
