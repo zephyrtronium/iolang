@@ -1,7 +1,4 @@
-// +build !windows
-// +build !plan9
-// +build !wasm
-// +build !darwin
+// +build darwin
 
 package iolang
 
@@ -28,7 +25,7 @@ func FileLastAccessDate(vm *VM, target, locals *Object, msg *Message) *Object {
 	if !ok {
 		panic(fmt.Sprintf("iolang: %T.Sys() returned wrong type %T", fi, si))
 	}
-	return vm.NewDate(time.Unix(s.Atim.Unix()))
+	return vm.NewDate(time.Unix(s.Atimespec.Sec, s.Atimespec.Nsec))
 }
 
 // FileLastInfoChangeDate is a File method.
@@ -48,5 +45,5 @@ func FileLastInfoChangeDate(vm *VM, target, locals *Object, msg *Message) *Objec
 	if !ok {
 		panic(fmt.Sprintf("iolang: %T.Sys() returned wrong type %T", fi, si))
 	}
-	return vm.NewDate(time.Unix(s.Ctim.Unix()))
+	return vm.NewDate(time.Unix(s.Ctimespec.Sec, s.Ctimespec.Nsec))
 }
