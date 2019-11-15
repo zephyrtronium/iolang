@@ -188,16 +188,17 @@ func (vm *VM) initCore() {
 // finalInit runs Core initialization scripts once the VM can execute code.
 func (vm *VM) finalInit() {
 	for i, data := range coreIo {
+		name := coreFiles[i]
 		r, err := zlib.NewReader(bytes.NewReader(data))
 		if err != nil {
-			panic(fmt.Errorf("iolang: error decompressing initialization code: %w", err))
+			panic(fmt.Errorf("iolang: error decompressing initialization code from %s: %w", name, err))
 		}
-		msg, err := vm.Parse(r, coreFiles[i])
+		msg, err := vm.Parse(r, name)
 		if err != nil {
-			panic(fmt.Errorf("iolang: error parsing initialization code: %w", err))
+			panic(fmt.Errorf("iolang: error parsing initialization code from %s: %w", name, err))
 		}
 		if result, stop := msg.Eval(vm, vm.Core); stop != NoStop {
-			panic(fmt.Errorf("iolang: error executing initialization code: %s (%v)", vm.AsString(result), stop))
+			panic(fmt.Errorf("iolang: error executing initialization code from %s: %s (%v)", name, vm.AsString(result), stop))
 		}
 	}
 }
