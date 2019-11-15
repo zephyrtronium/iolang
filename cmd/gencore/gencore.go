@@ -38,7 +38,7 @@ func main() {
 			if _, err = fmt.Fprintf(out, "\t%#v,\n", data); err != nil {
 				panic(err)
 			}
-			paths = append(paths, path)
+			paths = append(paths, filepath.ToSlash(path))
 		}
 	}
 	if _, err = fmt.Fprintf(out, "}\n\nvar coreFiles = %#v\n", paths); err != nil {
