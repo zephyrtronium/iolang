@@ -458,7 +458,7 @@ func TestObjectMethods(t *testing.T) {
 			"isSequence": {`Object asString`, PassTag(SequenceTag)},
 		},
 		"asyncSend": {
-			"spawns":      {`yield; yield; yield; asyncSend(wait(1)); wait(testValues coroWaitTime); Scheduler coroCount`, PassEqual(testVM.NewNumber(1))},
+			"spawns":      {`yield; yield; yield; testValues asyncSendCoros := Scheduler coroCount; asyncSend(wait(1)); wait(testValues coroWaitTime); Scheduler coroCount - testValues asyncSendCoros`, PassEqual(testVM.NewNumber(1))},
 			"sideEffects": {`testValues asyncSendSideEffect := 0; asyncSend(Lobby testValues asyncSendSideEffect = 1); wait(testValues coroWaitTime); testValues asyncSendSideEffect`, PassEqual(testVM.NewNumber(1))},
 		},
 		"block": {
