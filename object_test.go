@@ -499,6 +499,35 @@ func TestObjectMethods(t *testing.T) {
 			"value":     {`continue(Lobby)`, PassControl(testVM.Lobby, ContinueStop)},
 			"exception": {`continue(Exception raise)`, PassFailure()},
 		},
+		"do": {
+			"result":    {`Object do(Lobby)`, PassIdentical(testVM.BaseObject)},
+			"context":   {`testValues doValue := 0; testValues do(doValue := 1); testValues doValue`, PassEqual(testVM.NewNumber(1))},
+			"continue":  {`do(continue)`, PassControl(testVM.Nil, ContinueStop)},
+			"exception": {`do(Exception raise)`, PassFailure()},
+		},
+		// TODO: doFile needs special testing
+		"doMessage": {
+			"doMessage": {`testValues doMessageValue := 0; testValues doMessage(message(doMessageValue = 1)); testValues doMessageValue`, PassEqual(testVM.NewNumber(1))},
+			"context":   {`testValues doMessageValue := 2; doMessage(message(testValues doMessageValue = doMessageValue + 1), testValues); testValues doMessageValue`, PassEqual(testVM.NewNumber(3))},
+			"bad":       {`testValues doMessage("doMessageValue := 4")`, PassFailure()},
+		},
+		"doString": {
+			"doString": {`testValues doStringValue := 0; testValues doString("doStringValue = 1"); testValues doStringValue`, PassEqual(testVM.NewNumber(1))},
+			"label":    {`testValues doStringLabel := "foo"; testValues doString("doStringLabel = thisMessage label", "bar"); testValues doStringLabel`, PassEqual(testVM.NewString("bar"))},
+			"bad":      {`testValues doString(message(doStringValue := 4))`, PassFailure()},
+		},
+		"evalArgAndReturnNil": {
+			"result":    {`evalArgAndReturnNil(Lobby)`, PassIdentical(testVM.Nil)},
+			"eval":      {`testValues evalNil := 0; evalArgAndReturnNil(testValues evalNil := 1); testValues evalNil`, PassEqual(testVM.NewNumber(1))},
+			"continue":  {`evalArgAndReturnNil(continue)`, PassControl(testVM.Nil, ContinueStop)},
+			"exception": {`evalArgAndReturnNil(Exception raise)`, PassFailure()},
+		},
+		"evalArgAndReturnSelf": {
+			"result":    {`evalArgAndReturnSelf(nil)`, PassIdentical(testVM.Lobby)},
+			"eval":      {`testValues evalSelf := 0; evalArgAndReturnSelf(testValues evalSelf := 1); testValues evalSelf`, PassEqual(testVM.NewNumber(1))},
+			"continue":  {`evalArgAndReturnSelf(continue)`, PassControl(testVM.Nil, ContinueStop)},
+			"exception": {`evalArgAndReturnSelf(Exception raise)`, PassFailure()},
+		},
 	}
 	// If this test runs before TestLobbySlots, any new slots that tests create
 	// will cause that to fail. To circumvent this, we provide an object to
