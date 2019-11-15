@@ -19,7 +19,7 @@ func TestLazyOptable(t *testing.T) {
 					t.Fatalf("OperatorTable missing %s after parsing", c)
 				}
 				if _, ok := r.Value.(map[string]*Object); !ok {
-					t.Fatalf("OperatorTable %s has wrong type; want Map, have %v", c, r.Tag)
+					t.Fatalf("OperatorTable %s has wrong type; want Map, have %v", c, testVM.TypeName(r))
 				}
 			})
 			t.Run("Change", func(t *testing.T) {
@@ -30,7 +30,7 @@ func TestLazyOptable(t *testing.T) {
 					t.Fatalf("OperatorTable missing %s after parsing", c)
 				}
 				if _, ok := r.Value.(map[string]*Object); !ok {
-					t.Fatalf("OperatorTable %s has wrong type; want Map, have %v", c, r.Tag)
+					t.Fatalf("OperatorTable %s has wrong type; want Map, have %v", c, testVM.TypeName(r))
 				}
 			})
 		})

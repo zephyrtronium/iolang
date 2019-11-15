@@ -46,7 +46,7 @@ func (vm *VM) NewCFunction(f Fn, kind Tag) *Object {
 		value := CFunction{
 			Function: func(vm *VM, target, locals *Object, msg *Message) *Object {
 				if target.Tag != kind {
-					return vm.RaiseExceptionf("receiver of %s must be %v, not %v", name, kind, target.Tag)
+					return vm.RaiseExceptionf("receiver of %s must be %v, not %v", name, kind, vm.TypeName(target))
 				}
 				return f(vm, target, locals, msg)
 			},

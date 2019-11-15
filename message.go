@@ -235,7 +235,7 @@ func (vm *VM) Perform(target, locals *Object, msg *Message) (result *Object, con
 	if v, proto = target.GetSlot(msg.Text); proto == nil {
 		var forward, fp *Object
 		if forward, fp = target.GetSlot("forward"); fp == nil {
-			return vm.NewExceptionf("%v does not respond to %s", target.Tag, msg.Name()), ExceptionStop
+			return vm.NewExceptionf("%v does not respond to %s", vm.TypeName(target), msg.Name()), ExceptionStop
 		}
 		v, proto = forward, fp
 	}
