@@ -32,8 +32,8 @@ type VM struct {
 	// evaluator checks this between each message. NoStop stops tell the
 	// coroutine to yield, and all other stops have their results returned.
 	Control chan RemoteStop
-	// Coro is the Coroutine object for this VM. The object's value is the
-	// Control channel.
+	// Coro is the Coroutine object for this VM. The object's value contains the
+	// Control channel and a pointer to Debug.
 	Coro *Object
 
 	// addonmaps manages the VM's knowledge of addons.
@@ -42,6 +42,10 @@ type VM struct {
 	// StartTime is the time at which VM initialization began, used for the
 	// Date clock method.
 	StartTime time.Time
+
+	// Debug is an atomic flag controlling whether debugging is enabled for
+	// this coroutine.
+	Debug uint32
 }
 
 // NewVM prepares a new VM to interpret Io code. String arguments may be passed
@@ -98,6 +102,7 @@ func NewVM(args ...string) *VM {
 	vm.initFuture()
 	vm.initAddon()
 	vm.initPath()
+	vm.initDebugger()
 
 	vm.finalInit()
 

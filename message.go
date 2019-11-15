@@ -230,6 +230,7 @@ func (m *Message) Send(vm *VM, target, locals *Object) (result *Object, control 
 //
 // NOTE: It is unsafe to call this while holding the lock of any object.
 func (vm *VM) Perform(target, locals *Object, msg *Message) (result *Object, control Stop) {
+	vm.DebugMessage(target, locals, msg)
 	var v, proto *Object
 	if v, proto = target.GetSlot(msg.Text); proto == nil {
 		var forward, fp *Object

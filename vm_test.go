@@ -102,7 +102,7 @@ func TestCoreSlots(t *testing.T) {
 		// "Compiler",
 		"Coroutine",
 		"Date",
-		// "Debugger",
+		"Debugger",
 		"Directory",
 		"DirectoryCollector",
 		// "DummyLine",
