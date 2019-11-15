@@ -27,35 +27,48 @@ func (vm *VM) initSystem() {
 		"type":           vm.NewString("System"),
 		"version":        vm.NewString(IoVersion),
 	}
+	// os.Getwd and various other functions panic instead of returning an error
+	// on js/wasm, but only in browser. It seems to be that the best way to
+	// catch this is to recover.
+	var exe, wd string
+	defer func() {
+		// We don't actually care whether there was a panic, just whether we
+		// got values.
+		recover()
+		if wd == "" {
+			if exe == "" {
+				// os.Executable failed.
+				slots["installPrefix"] = vm.Nil
+				slots["ioPath"] = vm.Nil
+			}
+			// os.Getwd failed.
+			slots["launchPath"] = vm.Nil
+		}
+		vm.Core.SetSlot("System", vm.NewObject(slots))
+	}()
 	// installPrefix is the directory two above the executable path, and ioPath
 	// is $installPrefix/lib/io. It is notable that paths on the System object
 	// use the operating system's path separators, unlike most other paths in
 	// Io, which are / only.
 	//
-	// In the case that Io is launched via `go run`, this will be nonsense. The
-	// industrious thing to do would be to search $GOPATH for something that
-	// looks like this package, but it would be expensive and not guaranteed to
-	// be correct. Instead, the nonsense shall remain nonsense.
+	// In the case that Io is launched via `go run`, this will be nonsense.
 	exe, err := os.Executable()
 	if err == nil {
 		ip := filepath.Dir(filepath.Dir(exe))
 		slots["installPrefix"] = vm.NewString(ip)
 		slots["ioPath"] = vm.NewString(filepath.Join(ip, "lib", "io"))
 	} else {
-		// os.Executable is unsupported on nacl.
-		// TODO: no idea what should be reasonable here.
-		slots["installPrefix"] = vm.NewString("")
-		slots["ioPath"] = vm.NewString("")
+		// Let the defer take care of it.
+		exe = ""
 	}
 	// launchPath is the working directory at the time of VM initialization,
 	// which is now.
-	wd, err := os.Getwd()
+	wd, err = os.Getwd()
 	if err == nil {
 		slots["launchPath"] = vm.NewString(wd)
 	} else {
-		slots["launchPath"] = vm.Nil
+		wd = ""
 	}
-	vm.Core.SetSlot("System", vm.NewObject(slots))
 }
 
 func (vm *VM) initArgs(args []string) {
