@@ -194,12 +194,7 @@ func (addon{{.Addon}}) Depends() []string {
 
 func (addon{{.Addon}}) Init(vm *iolang.VM) {
 {{range .Protos}}	slots{{.Proto}} := {{template "mkslots" .}}
-	vm.Install({{printf "%q" .Proto}}, &iolang.Object{
-		Slots: slots{{.Proto}},
-		Protos: []*iolang.Object{vm.BaseObject},
-{{with .Value}}		Value: {{.}},{{end}}
-{{with .Tag}}		Tag: {{.}},{{end}}
-	})
+	vm.Install({{printf "%q" .Proto}}, vm.ObjectWith(slots{{.Proto}}, []*iolang.Object{vm.BaseObject}, {{or .Value "nil"}}, {{or .Tag "nil"}}))
 {{end}}
 {{range .Install}}	merge{{.Proto}} := {{template "mkslots" .}}
 	if obj, ok := vm.Core.GetLocalSlot({{printf "%q" .Proto}}); ok {

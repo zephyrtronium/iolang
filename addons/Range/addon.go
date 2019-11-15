@@ -53,12 +53,7 @@ func (addonRange) Init(vm *iolang.VM) {
 
 		"type": vm.NewString("Range"),
 	}
-	vm.Install("Range", &iolang.Object{
-		Slots:  slotsRange,
-		Protos: []*iolang.Object{vm.BaseObject},
-		Value:  Range{},
-		Tag:    RangeTag,
-	})
+	vm.Install("Range", vm.ObjectWith(slotsRange, []*iolang.Object{vm.BaseObject}, Range{}, RangeTag))
 
 	for i, b := range addonRangeIo {
 		r, err := zlib.NewReader(bytes.NewReader(b))
