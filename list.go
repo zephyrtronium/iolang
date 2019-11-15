@@ -144,7 +144,7 @@ outer:
 			if stop != NoStop {
 				return vm.Stop(c, stop)
 			}
-			if c.Tag == NumberTag && c.Value.(float64) == 0 {
+			if c.Tag() == NumberTag && c.Value.(float64) == 0 {
 				continue outer
 			}
 		}
@@ -998,7 +998,7 @@ func ListSortInPlaceBy(vm *VM, target, locals *Object, msg *Message) *Object {
 	if stop != NoStop {
 		return vm.Stop(r, stop)
 	}
-	if r.Tag != BlockTag {
+	if r.Tag() != BlockTag {
 		return vm.RaiseExceptionf("argument 0 to List sortInPlaceBy must be Block, not %s", vm.TypeName(r))
 	}
 	target.Lock()

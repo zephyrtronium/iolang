@@ -31,8 +31,8 @@ type Object struct {
 
 	// Value is the object's type-specific primitive value.
 	Value interface{}
-	// Tag is the type indicator of the object.
-	Tag Tag
+	// tag is the type indicator of the object.
+	tag Tag
 
 	// protoSet is the set of protos checked during GetSlot.
 	protoSet contains.Set
@@ -61,7 +61,7 @@ type Tag interface {
 
 // Activate activates the object.
 func (o *Object) Activate(vm *VM, target, locals, context *Object, msg *Message) *Object {
-	if o.Tag == nil {
+	if o.Tag() == nil {
 		// Basic object. Check the isActivatable slot.
 		ok, proto := o.GetSlot("isActivatable")
 		// We can't use vm.AsBool even though it's one of the few situations
@@ -77,7 +77,7 @@ func (o *Object) Activate(vm *VM, target, locals, context *Object, msg *Message)
 		}
 		return o
 	}
-	return o.Tag.Activate(vm, o, target, locals, context, msg)
+	return o.Tag().Activate(vm, o, target, locals, context, msg)
 }
 
 // Clone returns a new object with empty slots and this object as its only
@@ -86,15 +86,15 @@ func (o *Object) Activate(vm *VM, target, locals, context *Object, msg *Message)
 // is nil.
 func (o *Object) Clone() *Object {
 	var v interface{}
-	if o.Tag != nil {
+	if o.Tag() != nil {
 		o.Lock()
-		v = o.Tag.CloneValue(o.Value)
+		v = o.Tag().CloneValue(o.Value)
 		o.Unlock()
 	}
 	return &Object{
 		Protos: []*Object{o},
 		Value:  v,
-		Tag:    o.Tag,
+		tag:    o.Tag(),
 		id:     nextObject(),
 	}
 }
@@ -231,6 +231,11 @@ func (o *Object) IsKindOf(kind *Object) bool {
 	return false
 }
 
+// Tag returns the object's type indicator.
+func (o *Object) Tag() Tag {
+	return o.tag
+}
+
 // UniqueID returns the object's unique ID.
 func (o *Object) UniqueID() uintptr {
 	return o.id
@@ -283,35 +288,35 @@ func (vm *VM) initObject() {
 		"asGoRepr":             vm.NewCFunction(ObjectAsGoRepr, nil),
 		"asString":             vm.NewCFunction(ObjectAsString, nil),
 		"asyncSend":            vm.NewCFunction(ObjectAsyncSend, nil), // future.go
-		"block":                vm.NewCFunction(ObjectBlock, nil),
-		"break":                vm.NewCFunction(ObjectBreak, nil),
+		"block":                vm.NewCFunction(ObjectBlock, nil),     // block.go
+		"break":                vm.NewCFunction(ObjectBreak, nil),     // control.go
 		"clone":                vm.NewCFunction(ObjectClone, nil),
 		"cloneWithoutInit":     vm.NewCFunction(ObjectCloneWithoutInit, nil),
 		"compare":              vm.NewCFunction(ObjectCompare, nil),
 		"contextWithSlot":      vm.NewCFunction(ObjectContextWithSlot, nil),
-		"continue":             vm.NewCFunction(ObjectContinue, nil),
+		"continue":             vm.NewCFunction(ObjectContinue, nil), // control.go
 		"do":                   vm.NewCFunction(ObjectDo, nil),
 		"doFile":               vm.NewCFunction(ObjectDoFile, nil),
 		"doMessage":            vm.NewCFunction(ObjectDoMessage, nil),
 		"doString":             vm.NewCFunction(ObjectDoString, nil),
 		"evalArgAndReturnNil":  vm.NewCFunction(ObjectEvalArgAndReturnNil, nil),
 		"evalArgAndReturnSelf": vm.NewCFunction(ObjectEvalArgAndReturnSelf, nil),
-		"for":                  vm.NewCFunction(ObjectFor, nil),
+		"for":                  vm.NewCFunction(ObjectFor, nil), // control.go
 		"foreachSlot":          vm.NewCFunction(ObjectForeachSlot, nil),
 		"futureSend":           vm.NewCFunction(ObjectFutureSend, nil), // future.go
 		"getLocalSlot":         vm.NewCFunction(ObjectGetLocalSlot, nil),
 		"getSlot":              vm.NewCFunction(ObjectGetSlot, nil),
 		"hasLocalSlot":         vm.NewCFunction(ObjectHasLocalSlot, nil),
-		"if":                   vm.NewCFunction(ObjectIf, nil),
+		"if":                   vm.NewCFunction(ObjectIf, nil), // control.go
 		"isError":              vm.False,
 		"isIdenticalTo":        vm.NewCFunction(ObjectIsIdenticalTo, nil),
 		"isKindOf":             vm.NewCFunction(ObjectIsKindOf, nil),
 		"isNil":                vm.False,
 		"isTrue":               vm.True,
 		"lexicalDo":            vm.NewCFunction(ObjectLexicalDo, nil),
-		"loop":                 vm.NewCFunction(ObjectLoop, nil),
+		"loop":                 vm.NewCFunction(ObjectLoop, nil), // control.go
 		"message":              vm.NewCFunction(ObjectMessage, nil),
-		"method":               vm.NewCFunction(ObjectMethod, nil),
+		"method":               vm.NewCFunction(ObjectMethod, nil), // block.go
 		"not":                  vm.Nil,
 		"or":                   vm.True,
 		"perform":              vm.NewCFunction(ObjectPerform, nil),
@@ -322,7 +327,7 @@ func (vm *VM) initObject() {
 		"removeAllSlots":       vm.NewCFunction(ObjectRemoveAllSlots, nil),
 		"removeProto":          vm.NewCFunction(ObjectRemoveProto, nil),
 		"removeSlot":           vm.NewCFunction(ObjectRemoveSlot, nil),
-		"return":               vm.NewCFunction(ObjectReturn, nil),
+		"return":               vm.NewCFunction(ObjectReturn, nil), // control.go
 		"setProto":             vm.NewCFunction(ObjectSetProto, nil),
 		"setProtos":            vm.NewCFunction(ObjectSetProtos, nil),
 		"setSlot":              vm.NewCFunction(ObjectSetSlot, nil),
@@ -337,7 +342,7 @@ func (vm *VM) initObject() {
 		"uniqueId":             vm.NewCFunction(ObjectUniqueID, nil),
 		"updateSlot":           vm.NewCFunction(ObjectUpdateSlot, nil),
 		"wait":                 vm.NewCFunction(ObjectWait, nil),
-		"while":                vm.NewCFunction(ObjectWhile, nil),
+		"while":                vm.NewCFunction(ObjectWhile, nil), // control.go
 	}
 	slots["evalArg"] = slots[""]
 	slots["ifError"] = slots["thisContext"]
@@ -363,7 +368,7 @@ func (vm *VM) ObjectWith(slots Slots, protos []*Object, value interface{}, tag T
 		Slots:  slots,
 		Protos: protos,
 		Value:  value,
-		Tag:    tag,
+		tag:    tag,
 		id:     nextObject(),
 	}
 }
@@ -385,8 +390,8 @@ func (vm *VM) TypeName(o *Object) string {
 	if typ, proto := o.GetSlot("type"); proto != nil {
 		return vm.AsString(typ)
 	}
-	if o.Tag != nil {
-		return o.Tag.String()
+	if o.Tag() != nil {
+		return o.Tag().String()
 	}
 	return "Object"
 }
@@ -812,7 +817,6 @@ func ObjectAncestorWithSlot(vm *VM, target, locals *Object, msg *Message) *Objec
 	copy(protos, target.Protos)
 	target.Unlock()
 	for _, p := range protos {
-		// TODO: this finds the slot on target if target is in its own protos
 		_, proto := p.GetSlot(slot)
 		if proto != nil {
 			return proto
@@ -1134,7 +1138,7 @@ func ObjectSetProtos(vm *VM, target, locals *Object, msg *Message) *Object {
 //
 // shallowCopy creates a new object with the receiver's slots and protos.
 func ObjectShallowCopy(vm *VM, target, locals *Object, msg *Message) *Object {
-	if target.Tag != nil {
+	if target.Tag() != nil {
 		return vm.RaiseExceptionf("shallowCopy cannot be used on primitives")
 	}
 	target.Lock()

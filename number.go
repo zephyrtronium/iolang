@@ -390,7 +390,7 @@ func NumberCompare(vm *VM, target, locals *Object, msg *Message) *Object {
 	if stop != NoStop {
 		return vm.Stop(arg, stop)
 	}
-	if arg.Tag != NumberTag {
+	if arg.Tag() != NumberTag {
 		return vm.NewNumber(float64(PtrCompare(target, arg)))
 	}
 	a, b := target.Value.(float64), arg.Value.(float64)

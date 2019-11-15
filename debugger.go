@@ -54,7 +54,7 @@ func (vm *VM) DebugMessage(target, locals *Object, msg *Message) {
 		if !ok {
 			return
 		}
-		if debug.Tag != DebuggerTag {
+		if debug.Tag() != DebuggerTag {
 			return
 		}
 		dbg := debug.Value.(Debugger)

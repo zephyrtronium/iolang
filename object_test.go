@@ -92,7 +92,7 @@ func PassTag(want Tag) func(*Object, Stop) bool {
 		if control != NoStop {
 			return false
 		}
-		return result.Tag == want
+		return result.Tag() == want
 	}
 }
 
