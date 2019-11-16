@@ -137,8 +137,8 @@ func MapEmpty(vm *VM, target, locals *Object, msg *Message) *Object {
 // not included in the loop; any keys removed during the loop are iterated with
 // nil value.
 func MapForeach(vm *VM, target, locals *Object, msg *Message) (result *Object) {
-	kn, vn, hkn, _, ev := ForeachArgs(msg)
-	if !hkn {
+	kn, vn, hkn, hvn, ev := ForeachArgs(msg)
+	if !hvn {
 		return vm.RaiseExceptionf("foreach requires 2 or 3 args")
 	}
 	// We don't want to hold the lock while performing code, so we first grab

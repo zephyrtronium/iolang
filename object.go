@@ -917,8 +917,8 @@ func ObjectDoString(vm *VM, target, locals *Object, msg *Message) *Object {
 //
 // foreachSlot performs a loop on each slot of an object.
 func ObjectForeachSlot(vm *VM, target, locals *Object, msg *Message) (result *Object) {
-	kn, vn, hkn, _, ev := ForeachArgs(msg)
-	if !hkn {
+	kn, vn, hkn, hvn, ev := ForeachArgs(msg)
+	if !hvn {
 		return vm.RaiseExceptionf("foreachSlot requires 2 or 3 args")
 	}
 	// To be safe in a parallel world, we need to make a copy of the target's
