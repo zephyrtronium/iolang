@@ -114,6 +114,28 @@ func PassSuccess() func(*Object, Stop) bool {
 	}
 }
 
+// PassLocalSlots returns a Pass function for a SourceTestCase that returns
+// true iff the result locally has all of the slots in want and none of the
+// slots in exclude.
+func PassLocalSlots(want, exclude []string) func(*Object, Stop) bool {
+	return func(result *Object, control Stop) bool {
+		if control != NoStop {
+			return false
+		}
+		for _, slot := range want {
+			if _, ok := result.GetLocalSlot(slot); !ok {
+				return false
+			}
+		}
+		for _, slot := range exclude {
+			if _, ok := result.GetLocalSlot(slot); ok {
+				return false
+			}
+		}
+		return true
+	}
+}
+
 // CheckSlots is a testing helper to check whether an object has exactly the
 // slots we expect.
 func CheckSlots(t *testing.T, obj *Object, slots []string) {
@@ -380,6 +402,8 @@ func TestObjectSlots(t *testing.T) {
 
 // TestObjectScript tests Object methods by executing Io scripts.
 func TestObjectMethods(t *testing.T) {
+	list012 := testVM.NewList(testVM.NewNumber(0), testVM.NewNumber(1), testVM.NewNumber(2))
+	listxyz := testVM.NewList(testVM.NewString("x"), testVM.NewString("y"), testVM.NewString("z"))
 	cases := map[string]map[string]SourceTestCase{
 		"evalArg": {
 			"evalArg":   {`evalArg(Lobby)`, PassEqual(testVM.Lobby)},
@@ -528,13 +552,49 @@ func TestObjectMethods(t *testing.T) {
 			"continue":  {`evalArgAndReturnSelf(continue)`, PassControl(testVM.Nil, ContinueStop)},
 			"exception": {`evalArgAndReturnSelf(Exception raise)`, PassFailure()},
 		},
+		"for": {
+			"result":         {`testValues do(forResult := for(forCtr, 0, 2, forCtr * 2)) forResult`, PassEqual(testVM.NewNumber(4))},
+			"nothing":        {`testValues do(forResult := for(forCtr, 2, 0, Exception raise)) forResult`, PassIdentical(testVM.Nil)},
+			"order":          {`testValues do(forList := list; for(forCtr, 0, 2, forList append(forCtr))) forList`, PassEqual(list012)},
+			"step":           {`testValues do(forList := list; for(forCtr, 2, 0, -1, forList append(forCtr))) forList reverse`, PassEqual(list012)},
+			"continue":       {`testValues do(forList := list; for(forCtr, 0, 2, forList append(forCtr); continue; forList append(forCtr))) forList`, PassEqual(list012)},
+			"continueResult": {`testValues do(forResult := for(forCtr, 0, 2, continue(forCtr * 2))) forResult`, PassEqual(testVM.NewNumber(4))},
+			"break":          {`testValues do(for(forCtr, 0, 2, break)) forCtr`, PassEqual(testVM.NewNumber(0))},
+			"breakResult":    {`testValues do(forResult := for(forCtr, 0, 2, break(4))) forResult`, PassEqual(testVM.NewNumber(4))},
+			"return":         {`testValues do(for(forCtr, 0, 2, return))`, PassControl(testVM.Nil, ReturnStop)},
+			"exception":      {`testValues do(for(forCtr, 0, 2, Exception raise))`, PassFailure()},
+			"name":           {`testValues do(for(forCtrNew no responderino, 0, 2, nil))`, PassLocalSlots([]string{"forCtrNew"}, []string{"no", "responderino"})},
+			"short":          {`testValues do(for(forCtr))`, PassFailure()},
+			"long":           {`testValues do(for(forCtr, 0, 1, 2, 3, 4, 5))`, PassFailure()},
+		},
+		"foreachSlot": {
+			"result":         {`testValues do(foreachSlotResult := obj foreachSlot(value, 4)) foreachSlotResult`, PassEqual(testVM.NewNumber(4))},
+			"nothing":        {`testValues do(foreachSlotResult := Object clone foreachSlot(value, Exception raise)) foreachSlotResult`, PassIdentical(testVM.Nil)},
+			"key":            {`testValues do(forList := list; obj foreachSlot(slot, value, forList append(slot))) forList sort`, PassEqual(listxyz)},
+			"value":          {`testValues do(forList := list; obj foreachSlot(slot, value, forList append(value))) forList sort`, PassEqual(list012)},
+			"continue":       {`testValues do(forList := list; obj foreachSlot(slot, value, forList append(slot); continue; forList append(slot))) forList sort`, PassEqual(listxyz)},
+			"continueResult": {`testValues do(foreachSlotResult := obj foreachSlot(slot, value, continue(Lobby))) foreachSlotResult`, PassIdentical(testVM.Lobby)},
+			"break":          {`testValues do(foreachSlotIters := 0; obj foreachSlot(slot, value, foreachSlotIters = foreachSlotIters + 1; break)) foreachSlotIters`, PassEqual(testVM.NewNumber(1))},
+			"breakResult":    {`testValues do(foreachSlotResult := obj foreachSlot(slot, value, break(Lobby))) foreachSlotResult`, PassIdentical(testVM.Lobby)},
+			"return":         {`testValues do(obj foreachSlot(slot, value, return))`, PassControl(testVM.Nil, ReturnStop)},
+			"exception":      {`testValues do(obj foreachSlot(slot, value, Exception raise))`, PassFailure()},
+			"name":           {`testValues do(obj foreachSlot(slotNew no responderino, valueNew no responderino, nil))`, PassLocalSlots([]string{"slotNew", "valueNew"}, []string{"no", "responderino"})},
+			"short":          {`testValues do(obj foreachSlot(nil))`, PassFailure()},
+			"long":           {`testValues do(obj foreachSlot(slot, value, 1, 2, 3))`, PassFailure()},
+		},
 	}
 	// If this test runs before TestLobbySlots, any new slots that tests create
 	// will cause that to fail. To circumvent this, we provide an object to
 	// carry test values, then remove it once all tests have run. This object
 	// initially carries default test configuration values.
 	config := Slots{
+		// coroWaitTime is the time in seconds that coros should wait while
+		// testing methods that spawn new coroutines. The new coroutines may
+		// take any amount of time to execute, as the VM does not wait for them
+		// to finish.
 		"coroWaitTime": testVM.NewNumber(0.02),
+		// obj is a generic object with some slots to simplify some tests.
+		"obj": testVM.NewObject(Slots{"x": testVM.NewNumber(1), "y": testVM.NewNumber(2), "z": testVM.NewNumber(0)}),
 	}
 	testVM.Lobby.SetSlot("testValues", testVM.NewObject(config))
 	for name, c := range cases {
