@@ -515,12 +515,18 @@ func ObjectHasLocalSlot(vm *VM, target, locals *Object, msg *Message) *Object {
 // slotNames returns a list of the names of the slots on this object.
 func ObjectSlotNames(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
-	names := make([]*Object, 0, len(target.Slots))
+	// We can't allocate Io strings during this, because doing so deadlocks if
+	// the receiver is Core.
+	names := make([]string, 0, len(target.Slots))
 	for name := range target.Slots {
-		names = append(names, vm.NewString(name))
+		names = append(names, name)
 	}
 	target.Unlock()
-	return vm.NewList(names...)
+	v := make([]*Object, len(names))
+	for i, name := range names {
+		v[i] = vm.NewString(name)
+	}
+	return vm.NewList(v...)
 }
 
 // ObjectSlotValues is an Object method.
