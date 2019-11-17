@@ -419,6 +419,10 @@ func TestObjectMethods(t *testing.T) {
 			"continue":     {`Lobby !=(continue); Lobby`, PassControl(testVM.Nil, ContinueStop)},
 			"exception":    {`Lobby !=(Exception raise); Lobby`, PassFailure()},
 		},
+		"minus": {
+			"-1":   {`-(1)`, PassEqual(testVM.NewNumber(-1))},
+			"-seq": {`-("abc")`, PassFailure()},
+		},
 		"less": {
 			"0<1":          {`0 <(1)`, PassIdentical(testVM.True)},
 			"0<0":          {`0 <(0)`, PassIdentical(testVM.False)},
@@ -466,6 +470,7 @@ func TestObjectMethods(t *testing.T) {
 		},
 		"ancestorWithSlot": {
 			"local":         {`Number ancestorWithSlot("abs")`, PassIdentical(testVM.Nil)},
+			"proto":         {`Lobby clone ancestorWithSlot("Lobby")`, PassIdentical(testVM.Lobby)},
 			"localInProtos": {`Lobby ancestorWithSlot("Lobby")`, PassIdentical(testVM.Lobby)},
 			"nowhere":       {`Lobby ancestorWithSlot("this slot doesn't exist")`, PassIdentical(testVM.Nil)},
 			"bad":           {`Lobby ancestorWithSlot(0)`, PassFailure()},
@@ -484,6 +489,7 @@ func TestObjectMethods(t *testing.T) {
 		"asyncSend": {
 			"spawns":      {`yield; yield; yield; testValues asyncSendCoros := Scheduler coroCount; asyncSend(wait(1)); wait(testValues coroWaitTime); Scheduler coroCount - testValues asyncSendCoros`, PassEqual(testVM.NewNumber(1))},
 			"sideEffects": {`testValues asyncSendSideEffect := 0; asyncSend(Lobby testValues asyncSendSideEffect = 1); wait(testValues coroWaitTime); testValues asyncSendSideEffect`, PassEqual(testVM.NewNumber(1))},
+			"empty":       {`asyncSend`, PassFailure()},
 		},
 		"block": {
 			"noMessage": {`block`, PassTag(BlockTag)},
@@ -512,6 +518,7 @@ func TestObjectMethods(t *testing.T) {
 		},
 		"contextWithSlot": {
 			"local":         {`Number contextWithSlot("abs")`, PassEqual(testVM.NewNumber(0))},
+			"proto":         {`Lobby clone contextWithSlot("Lobby")`, PassIdentical(testVM.Lobby)},
 			"localInProtos": {`Lobby contextWithSlot("Lobby")`, PassIdentical(testVM.Lobby)},
 			"nowhere":       {`Lobby contextWithSlot("this slot doesn't exist")`, PassIdentical(testVM.Nil)},
 			"bad":           {`Lobby contextWithSlot(0)`, PassFailure()},
@@ -581,6 +588,37 @@ func TestObjectMethods(t *testing.T) {
 			"name":           {`testValues do(obj foreachSlot(slotNew no responderino, valueNew no responderino, nil))`, PassLocalSlots([]string{"slotNew", "valueNew"}, []string{"no", "responderino"})},
 			"short":          {`testValues do(obj foreachSlot(nil))`, PassFailure()},
 			"long":           {`testValues do(obj foreachSlot(slot, value, 1, 2, 3))`, PassFailure()},
+		},
+		"futureSend": {
+			"result":      {`futureSend(1) isNil not`, PassIdentical(testVM.True)},
+			"evaluates":   {`futureSend(1) + 1`, PassEqual(testVM.NewNumber(2))},
+			"spawns":      {`yield; yield; yield; testValues futureSendCoros := Scheduler coroCount; futureSend(wait(1)); wait(testValues coroWaitTime); Scheduler coroCount - testValues futureSendCoros`, PassEqual(testVM.NewNumber(1))},
+			"sideEffects": {`testValues futureSendSideEffect := 0; futureSend(Lobby testValues futureSendSideEffect = 1); wait(testValues coroWaitTime); testValues futureSendSideEffect`, PassEqual(testVM.NewNumber(1))},
+			"empty":       {`futureSend`, PassFailure()},
+		},
+		"getLocalSlot": {
+			"local":    {`getLocalSlot("Lobby")`, PassIdentical(testVM.Lobby)},
+			"ancestor": {`Lobby clone getLocalSlot("Lobby")`, PassIdentical(testVM.Nil)},
+			"never":    {`getLocalSlot("this slot does not exist")`, PassIdentical(testVM.Nil)},
+			"bad":      {`getLocalSlot(Lobby)`, PassFailure()},
+		},
+		"getSlot": {
+			"local":    {`getSlot("Lobby")`, PassIdentical(testVM.Lobby)},
+			"ancestor": {`Lobby clone getSlot("Lobby")`, PassIdentical(testVM.Lobby)},
+			"never":    {`getSlot("this slot does not exist")`, PassIdentical(testVM.Nil)},
+			"bad":      {`getSlot(Lobby)`, PassFailure()},
+		},
+		"hasLocalSlot": {
+			"local":    {`hasLocalSlot("Lobby")`, PassIdentical(testVM.True)},
+			"ancestor": {`Lobby clone hasLocalSlot("Lobby")`, PassIdentical(testVM.False)},
+			"never":    {`hasLocalSlot("this slot does not exist")`, PassIdentical(testVM.False)},
+			"bad":      {`hasLocalSlot(Lobby)`, PassFailure()},
+		},
+		"hasSlot": {
+			"local":    {`hasSlot("Lobby")`, PassIdentical(testVM.True)},
+			"ancestor": {`Lobby clone hasSlot("Lobby")`, PassIdentical(testVM.True)},
+			"never":    {`hasSlot("this slot does not exist")`, PassIdentical(testVM.False)},
+			"bad":      {`hasSlot(Lobby)`, PassFailure()},
 		},
 	}
 	// If this test runs before TestLobbySlots, any new slots that tests create
