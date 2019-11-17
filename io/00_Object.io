@@ -20,7 +20,7 @@ Object do(
 	proto := method(protos first)
 	hasProto := getSlot("isKindOf")
 
-	hasSlot := method(slot, hasLocalSlot(slot) or ancestorWithSlot(slot) != nil)
+	hasSlot := method(slot, self hasLocalSlot(slot) or self ancestorWithSlot(slot) isNil not)
 	setSlotWithType := method(slot, value,
 		setSlot(slot, value)
 		value type := slot
