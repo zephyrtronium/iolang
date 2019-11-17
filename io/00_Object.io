@@ -17,12 +17,12 @@ Object do(
 		a
 	)
 
-	proto := method(protos first)
+	proto := method(getSlot("self") protos first)
 	hasProto := getSlot("isKindOf")
 
-	hasSlot := method(slot, self hasLocalSlot(slot) or self ancestorWithSlot(slot) isNil not)
+	hasSlot := method(slot, getSlot("self") hasLocalSlot(slot) or getSlot("self") ancestorWithSlot(slot) isNil not)
 	setSlotWithType := method(slot, value,
-		setSlot(slot, value)
+		getSlot("self") setSlot(slot, value)
 		value type := slot
 	)
 	newSlot := method(slot, value,
@@ -86,8 +86,7 @@ Object do(
 		nil
 	)
 	slotSummary := method(kw,
-		// We should use isKindOf(block), but that's actually much slower.
-		if(type == "Block", return asSimpleString)
+		if(getSlot("self") isKindOf(Block), return getSlot("self") asSimpleString)
 		s := Sequence clone appendSeq(" ", asSimpleString, ":\n")
 		descs := slotDescriptionMap
 		kw ifNonNil(descs = descs select(k, v, k asMutable lowercase containsSeq(kw)))
@@ -143,7 +142,6 @@ Object do(
 
 	isLaunchScript := method(call message label == System launchScript)
 
-	// These won't work until we implement Path and Sequence pathComponent.
 	relativeDoFile := doRelativeFile := method(p,
 		self doFile(Path with(call message label pathComponent, p))
 	)
