@@ -51,9 +51,9 @@ Object do(
 
 	asBoolean := true
 
-	addTrait := method(v,
+	addTrait := method(v, res,
 		if(call argCount == 0, Exception raise("Object addTrait requires one or two arguments"))
-		res := call evalArgAt(1) ifNilEval(Map clone)
+		res := res ifNilEval(Map clone)
 		getSlot("v") foreachSlot(k, v,
 			if(getSlot("self") hasLocalSlot(k),
 				if(k == "type", continue)
