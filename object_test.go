@@ -1,6 +1,7 @@
 package iolang
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -23,7 +24,23 @@ func (c SourceTestCase) TestFunc(name string) func(*testing.T) {
 			t.Fatalf("could not opshuffle %q: %v", c.Source, err)
 		}
 		if r, s := testVM.DoMessage(msg, testVM.Lobby); !c.Pass(r, s) {
-			t.Errorf("%q produced wrong result; got %s@%p (%s)", c.Source, testVM.AsString(r), r, s)
+			if s == ExceptionStop && r.Tag() == ExceptionTag {
+				w := strings.Builder{}
+				ex := r.Value.(Exception)
+				fmt.Fprintf(&w, "%q produced wrong result; an exception occurred:\n", c.Source)
+				for i := len(ex.Stack) - 1; i >= 0; i-- {
+					m := ex.Stack[i]
+					if m.IsStart() {
+						fmt.Fprintf(&w, "\t%s\t%s:%d\n", m.Name(), m.Label, m.Line)
+					} else {
+						fmt.Fprintf(&w, "\t%s %s\t%s:%d\n", m.Prev.Name(), m.Name(), m.Label, m.Line)
+					}
+				}
+				fmt.Fprint(&w, testVM.AsString(r))
+				t.Error(w.String())
+			} else {
+				t.Errorf("%q produced wrong result; got %s@%p (%s)", c.Source, testVM.AsString(r), r, s)
+			}
 		}
 	}
 }
@@ -129,6 +146,39 @@ func PassLocalSlots(want, exclude []string) func(*Object, Stop) bool {
 		}
 		for _, slot := range exclude {
 			if _, ok := result.GetLocalSlot(slot); ok {
+				return false
+			}
+		}
+		return true
+	}
+}
+
+// PassEqualSlots returns a Pass function for a SourceTestCase that returns
+// true iff the result has exactly the same slots as want and the slots' values
+// compare equal.
+func PassEqualSlots(want Slots) func(*Object, Stop) bool {
+	return func(result *Object, control Stop) bool {
+		if control != NoStop {
+			return false
+		}
+		result.Lock()
+		defer result.Unlock()
+		for slot := range result.Slots {
+			if _, ok := want[slot]; !ok {
+				return false
+			}
+		}
+		for slot, value := range want {
+			x, ok := result.Slots[slot]
+			if !ok {
+				return false
+			}
+			v, stop := testVM.Compare(x, value)
+			if stop != NoStop {
+				return false
+			}
+			n, ok := v.Value.(float64)
+			if !ok || n != 0 {
 				return false
 			}
 		}
@@ -477,6 +527,13 @@ func TestObjectMethods(t *testing.T) {
 			"effect":    {`testValues questionEffect := 0; ?testValues questionEffect := 1; testValues questionEffect`, PassEqual(testVM.NewNumber(1))},
 			"continue":  {`?continue`, PassControl(testVM.Nil, ContinueStop)},
 			"exception": {`?Exception raise`, PassFailure()},
+		},
+		"addTrait": {
+			"all":    {`Object clone addTrait(testValues obj)`, PassEqualSlots(Slots{"x": testVM.NewNumber(1), "y": testVM.NewNumber(2), "z": testVM.NewNumber(0)})},
+			"res":    {`Object clone do(x := 4) addTrait(testValues obj, Map clone do(atPut("x", "w")))`, PassEqualSlots(Slots{"w": testVM.NewNumber(1), "x": testVM.NewNumber(4), "y": testVM.NewNumber(2), "z": testVM.NewNumber(0)})},
+			"unres":  {`Object clone do(x := 4) addTrait(testValues obj, Map clone do(atPut("w", "x")))`, PassFailure()},
+			"badres": {`Object clone do(x := 4) addTrait(testValues obj, Map clone do(atPut("x", 1)))`, PassFailure()},
+			"short":  {`Object clone addTrait`, PassFailure()},
 		},
 		"ancestorWithSlot": {
 			"local":         {`Number ancestorWithSlot("abs")`, PassIdentical(testVM.Nil)},
