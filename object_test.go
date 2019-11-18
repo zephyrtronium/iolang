@@ -423,6 +423,9 @@ func TestObjectMethods(t *testing.T) {
 			"-1":   {`-(1)`, PassEqual(testVM.NewNumber(-1))},
 			"-seq": {`-("abc")`, PassFailure()},
 		},
+		"dotdot": {
+			"1..2": {`1 ..(2)`, PassEqual(testVM.NewString("12"))},
+		},
 		"less": {
 			"0<1":          {`0 <(1)`, PassIdentical(testVM.True)},
 			"0<0":          {`0 <(0)`, PassIdentical(testVM.False)},
@@ -467,6 +470,13 @@ func TestObjectMethods(t *testing.T) {
 			"identical":    {`Lobby >=(Lobby)`, PassIdentical(testVM.True)},
 			"continue":     {`0 >=(continue); Lobby`, PassControl(testVM.Nil, ContinueStop)},
 			"exception":    {`0 >=(Exception raise); Lobby`, PassFailure()},
+		},
+		"question": {
+			"have":      {`?Lobby`, PassIdentical(testVM.Lobby)},
+			"not":       {`?nothing`, PassIdentical(testVM.Nil)},
+			"effect":    {`testValues questionEffect := 0; ?testValues questionEffect := 1; testValues questionEffect`, PassEqual(testVM.NewNumber(1))},
+			"continue":  {`?continue`, PassControl(testVM.Nil, ContinueStop)},
+			"exception": {`?Exception raise`, PassFailure()},
 		},
 		"ancestorWithSlot": {
 			"local":         {`Number ancestorWithSlot("abs")`, PassIdentical(testVM.Nil)},
