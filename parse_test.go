@@ -8,6 +8,7 @@ import (
 // TestParseArgs tests that messages are parsed with the correct number of
 // arguments.
 func TestParseArgs(t *testing.T) {
+	vm := TestVM()
 	cases := map[string]struct {
 		text string
 		n    int
@@ -30,7 +31,7 @@ func TestParseArgs(t *testing.T) {
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
-			msg, err := testVM.ParseScanner(strings.NewReader(c.text), "TestParseArgs")
+			msg, err := vm.ParseScanner(strings.NewReader(c.text), "TestParseArgs")
 			if msg == nil {
 				t.Fatalf("%q parsed to nil (err: %v)", c.text, err)
 			}
@@ -46,6 +47,7 @@ func TestParseArgs(t *testing.T) {
 
 // TestParseErrors tests that certain illegal phrasings result in errors.
 func TestParseErrors(t *testing.T) {
+	vm := TestVM()
 	cases := map[string]string{
 		"BareComma":         "a, b",
 		"UnclosedBracket":   "abc(def",
@@ -60,7 +62,7 @@ func TestParseErrors(t *testing.T) {
 	}
 	for name, text := range cases {
 		t.Run(name, func(t *testing.T) {
-			_, err := testVM.ParseScanner(strings.NewReader(text), "TestParseErrors")
+			_, err := vm.ParseScanner(strings.NewReader(text), "TestParseErrors")
 			if err == nil {
 				t.Errorf("%q failed to cause an error", text)
 			}
@@ -70,6 +72,7 @@ func TestParseErrors(t *testing.T) {
 
 // TestParseComments tests that the parser ignores comments.
 func TestParseComments(t *testing.T) {
+	vm := TestVM()
 	cases := map[string]struct {
 		text string
 		msgs []string
@@ -90,7 +93,7 @@ func TestParseComments(t *testing.T) {
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
-			msg, err := testVM.ParseScanner(strings.NewReader(c.text), "TestParseComments")
+			msg, err := vm.ParseScanner(strings.NewReader(c.text), "TestParseComments")
 			if err != nil {
 				t.Errorf("%q caused an error: %v", c.text, err)
 			}

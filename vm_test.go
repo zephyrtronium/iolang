@@ -5,33 +5,23 @@ import (
 	"testing"
 )
 
-// testVM is the VM used for all tests.
-var testVM *VM
-
-// BenchDummy is a dummy variable to prevent dead code elimination in
-// benchmarks.
-var BenchDummy *Object
-
-func init() {
-	testVM = NewVM()
-}
-
 // TestNewVM tests that NewVM creates an object.
 func TestNewVM(t *testing.T) {
 	// We can use testVM to test NewVM.
-	if testVM == nil {
+	if TestVM() == nil {
 		t.Fatal("testVM is nil")
 	}
 }
 
 // TestNewVMAttrs tests that a new VM has the attributes we expect.
 func TestNewVMAttrs(t *testing.T) {
+	vm := TestVM()
 	attrs := []string{
 		"Lobby", "Core", "Addons",
 		"BaseObject", "True", "False", "Nil", "Operators",
 		"Sched", "Control", "Coro",
 	}
-	v := reflect.ValueOf(testVM).Elem()
+	v := reflect.ValueOf(vm).Elem()
 	for _, attr := range attrs {
 		t.Run("Attr"+attr, func(t *testing.T) {
 			e := v.FieldByName(attr)
@@ -44,7 +34,7 @@ func TestNewVMAttrs(t *testing.T) {
 		})
 	}
 	t.Run("AttrStartTime", func(t *testing.T) {
-		if testVM.StartTime.IsZero() {
+		if vm.StartTime.IsZero() {
 			t.Fatal("VM attribute StartTime is zero")
 		}
 	})
@@ -52,15 +42,17 @@ func TestNewVMAttrs(t *testing.T) {
 
 // TestLobbySlots tests that a new VM Lobby has the slots we expect.
 func TestLobbySlots(t *testing.T) {
+	vm := TestVM()
 	slots := []string{"Lobby", "Protos"}
-	CheckSlots(t, testVM.Lobby, slots)
+	CheckSlots(t, vm.Lobby, slots)
 }
 
 // TestLobbyProtos tests that a new VM Lobby has the protos we expect.
 func TestLobbyProtos(t *testing.T) {
+	vm := TestVM()
 	// Lobby's proto is a generic object that has Core and Addon slots and Core
 	// and Addons as protos. Check that this is all correct.
-	protos := testVM.Lobby.Protos
+	protos := vm.Lobby.Protos
 	switch len(protos) {
 	case 0:
 		t.Fatal("Lobby has no protos")
@@ -81,11 +73,11 @@ func TestLobbyProtos(t *testing.T) {
 	default:
 		t.Error("Lobby proto has too many protos: expected 2, have", len(opro))
 	}
-	if opro[0] != testVM.Core {
-		t.Errorf("Lobby proto has wrong proto: expected %T@%p (Core), have %T@%p", testVM.Core, testVM.Core, opro, opro)
+	if opro[0] != vm.Core {
+		t.Errorf("Lobby proto has wrong proto: expected %T@%p (Core), have %T@%p", vm.Core, vm.Core, opro, opro)
 	}
-	if opro[1] != testVM.Addons {
-		t.Errorf("Lobby proto has wrong proto: expected %T@%p (Addons), have %T@%p", testVM.Addons, testVM.Addons, opro, opro)
+	if opro[1] != vm.Addons {
+		t.Errorf("Lobby proto has wrong proto: expected %T@%p (Addons), have %T@%p", vm.Addons, vm.Addons, opro, opro)
 	}
 }
 
@@ -139,20 +131,20 @@ func TestCoreSlots(t *testing.T) {
 		"tildeExpandsTo",
 		"true",
 	}
-	CheckSlots(t, testVM.Core, slots)
+	CheckSlots(t, TestVM().Core, slots)
 }
 
 // TestCoreProtos checks that a new VM Core is an Object type.
 func TestCoreProtos(t *testing.T) {
-	CheckObjectIsProto(t, testVM.Core)
+	CheckObjectIsProto(t, TestVM().Core)
 }
 
 // TestAddonsSlots checks that a new VM Addons has empty slots.
 func TestAddonsSlots(t *testing.T) {
-	CheckSlots(t, testVM.Addons, nil)
+	CheckSlots(t, TestVM().Addons, nil)
 }
 
 // TestAddonsProtos checks that a new VM Addons is an Object type.
 func TestAddonsProtos(t *testing.T) {
-	CheckObjectIsProto(t, testVM.Addons)
+	CheckObjectIsProto(t, TestVM().Addons)
 }

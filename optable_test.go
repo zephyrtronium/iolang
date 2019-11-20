@@ -8,29 +8,30 @@ import (
 // TestLazyOptable tests that a new OperatorTable is created whenever
 // one is needed but does not exist.
 func TestLazyOptable(t *testing.T) {
+	vm := TestVM()
 	cases := []string{"operators", "assignOperators"}
 	for _, c := range cases {
 		t.Run(c, func(t *testing.T) {
 			t.Run("Remove", func(t *testing.T) {
-				testVM.Operators.RemoveSlot(c)
-				testVM.Parse(strings.NewReader("Lobby"), "TestLazyOptable")
-				r, proto := testVM.Operators.GetSlot(c)
+				vm.Operators.RemoveSlot(c)
+				vm.Parse(strings.NewReader("Lobby"), "TestLazyOptable")
+				r, proto := vm.Operators.GetSlot(c)
 				if proto == nil {
 					t.Fatalf("OperatorTable missing %s after parsing", c)
 				}
 				if _, ok := r.Value.(map[string]*Object); !ok {
-					t.Fatalf("OperatorTable %s has wrong type; want Map, have %v", c, testVM.TypeName(r))
+					t.Fatalf("OperatorTable %s has wrong type; want Map, have %v", c, vm.TypeName(r))
 				}
 			})
 			t.Run("Change", func(t *testing.T) {
-				testVM.Operators.SetSlot(c, testVM.Nil)
-				testVM.Parse(strings.NewReader("Lobby"), "TestLazyOptable")
-				r, proto := testVM.Operators.GetSlot(c)
+				vm.Operators.SetSlot(c, vm.Nil)
+				vm.Parse(strings.NewReader("Lobby"), "TestLazyOptable")
+				r, proto := vm.Operators.GetSlot(c)
 				if proto == nil {
 					t.Fatalf("OperatorTable missing %s after parsing", c)
 				}
 				if _, ok := r.Value.(map[string]*Object); !ok {
-					t.Fatalf("OperatorTable %s has wrong type; want Map, have %v", c, testVM.TypeName(r))
+					t.Fatalf("OperatorTable %s has wrong type; want Map, have %v", c, vm.TypeName(r))
 				}
 			})
 		})
@@ -73,6 +74,7 @@ func (m *Message) Diff(other *Message) *Message {
 // TestOptableShuffle tests that operator precedence shuffling produces the
 // correct message chains using the default OperatorTable.
 func TestOptableShuffle(t *testing.T) {
+	vm := TestVM()
 	cases := map[string]string{
 		"x+y":      "x +(y)",
 		"x+y+z":    "x +(y) +(z)",
@@ -102,11 +104,11 @@ func TestOptableShuffle(t *testing.T) {
 	}
 	for c, s := range cases {
 		t.Run(c, func(t *testing.T) {
-			a, err := testVM.Parse(strings.NewReader(c), "TestOptableShuffle")
+			a, err := vm.Parse(strings.NewReader(c), "TestOptableShuffle")
 			if err != nil {
 				t.Fatalf("error parsing %q: %v", c, err)
 			}
-			b, err := testVM.ParseUnshuffled(strings.NewReader(s), "TestOptableShuffle")
+			b, err := vm.ParseUnshuffled(strings.NewReader(s), "TestOptableShuffle")
 			if err != nil {
 				t.Fatalf("error parsing unshuffled %q: %v", s, err)
 			}
@@ -120,6 +122,7 @@ func TestOptableShuffle(t *testing.T) {
 // TestOptableErrors tests that invalid operator expressions produce errors when
 // shuffled.
 func TestOptableErrors(t *testing.T) {
+	vm := TestVM()
 	cases := map[string]string{
 		"AssignStart":    ":= x",
 		"AssignOnly":     ":=",
@@ -129,19 +132,19 @@ func TestOptableErrors(t *testing.T) {
 		"BadAssignOp":    "x <>< y",
 		"BadOp":          "x $ y",
 	}
-	ops, _ := testVM.Operators.GetSlot("operators")
-	asgn, _ := testVM.Operators.GetSlot("assignOperators")
-	ops.Value.(map[string]*Object)["$"] = testVM.Nil
-	asgn.Value.(map[string]*Object)["<><"] = testVM.Nil
+	ops, _ := vm.Operators.GetSlot("operators")
+	asgn, _ := vm.Operators.GetSlot("assignOperators")
+	ops.Value.(map[string]*Object)["$"] = vm.Nil
+	asgn.Value.(map[string]*Object)["<><"] = vm.Nil
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
-			_, err := testVM.Parse(strings.NewReader(c), "TestOptableErrors")
+			_, err := vm.Parse(strings.NewReader(c), "TestOptableErrors")
 			if err == nil {
 				t.Errorf("%q failed to cause a parsing error", c)
 			}
 		})
 	}
-	testVM.initOpTable()
+	vm.initOpTable()
 }
 
 // TODO: tests on changing the operator table
