@@ -325,11 +325,7 @@ func (m *Message) IsStart() bool {
 	if m == nil {
 		return true
 	}
-	r := m.Prev == nil
-	if !r {
-		r = m.Prev.IsTerminator()
-	}
-	return r
+	return m.Prev.IsTerminator()
 }
 
 // IsTerminator determines whether this message is the end of an expression.
@@ -338,8 +334,7 @@ func (m *Message) IsTerminator() bool {
 	if m == nil {
 		return true
 	}
-	r := m.Text == ";" || m.Text == "\n"
-	return r
+	return m.Text == ";" || m.Text == "\n"
 }
 
 // Name returns the name of the message, which is its text if it is non-nil.

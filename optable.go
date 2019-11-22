@@ -165,7 +165,7 @@ func (ll *shufLevel) doLevel(vm *VM, ops, asgns map[string]*Object, m *Message) 
 	if op, ok := asgns[m.Name()]; ok {
 		// Assignment operator.
 		lhs := ll.m
-		if lhs == nil {
+		if m.IsStart() {
 			// Assigning to nothing is illegal.
 			err = fmt.Errorf("%s assigning to nothing", m.Name())
 			return ll, nil, err
