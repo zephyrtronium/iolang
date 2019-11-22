@@ -99,6 +99,13 @@ Object do(
 
 	setSlot("?", method(
 			m := call argAt(0)
+			// Even though ? is the most binding operator, operator shuffling
+			// changes ?(m) into ?((m)) to try to preserve precedence of
+			// parentheses. Check for this case and circumvent it (although the
+			// original doesn't).
+			if(m name isEmpty and m next isNil and m argCount == 1,
+				m = m argAt(0)
+			)
 			self getSlot(m name) ifNonNilEval(m doInContext(self, call sender))
 		) setPassStops(true)
 	)

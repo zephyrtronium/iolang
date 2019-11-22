@@ -304,6 +304,7 @@ func TestObjectMethods(t *testing.T) {
 			"effect":    {`testValues questionEffect := 0; ?testValues questionEffect := 1; testValues questionEffect`, PassEqual(vm.NewNumber(1))},
 			"continue":  {`?continue`, PassControl(vm.Nil, ContinueStop)},
 			"exception": {`?Exception raise`, PassFailure()},
+			"parens":    {`testValues questionEffect := 0; ?(testValues questionEffect := 1); testValues questionEffect`, PassEqual(vm.NewNumber(1))},
 		},
 		"addTrait": {
 			"all":    {`Object clone addTrait(testValues obj)`, PassEqualSlots(Slots{"x": vm.NewNumber(1), "y": vm.NewNumber(2), "z": vm.NewNumber(0)})},
