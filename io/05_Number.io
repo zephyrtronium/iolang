@@ -20,4 +20,6 @@ Number do(
 		Sequence sequenceSets foreach(set, if(in(set), return true))
 		false
 	)
+
+	justSerialized := method(stream, stream write(self asSimpleString))
 )

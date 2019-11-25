@@ -424,4 +424,12 @@ List do(
 		)
 	)
 	sortByKey := method(call delegateToMethod(self, "sortKey") sort)
+
+	justSerialized := method(stream,
+		stream write("list(")
+		self foreach(i, v,
+			getSlot("v") justSerialized(stream)
+			stream write(if(i < self size - 1, ", ", ")"))
+		)
+	)
 )

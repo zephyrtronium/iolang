@@ -82,4 +82,14 @@ Map do(
 
 	isEmpty := method(size == 0)
 	isNotEmpty := method(size != 0)
+
+	justSerialized := method(stream,
+		stream write("Map clone do(")
+		self foreach(k, v,
+			stream write("atPut(", k asSimpleString, ", ")
+			getSlot("v") justSerialized(stream)
+			stream write(");")
+		)
+		stream write(")")
+	)
 )

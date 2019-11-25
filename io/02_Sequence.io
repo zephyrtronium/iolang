@@ -120,4 +120,6 @@ Sequence do(
 	setY := method(v, atPut(1, v); self)
 	setZ := method(v, atPut(2, v); self)
 	set := method(call evalArgs foreach(i, v, atPut(i, v)))
+
+	justSerialized := method(stream, stream write(self asSimpleString))
 )

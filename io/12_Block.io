@@ -107,6 +107,8 @@ Block do(
 			appendSeq(")")
 		)
 	)
+
+	justSerialized := method(stream, stream write(code))
 )
 
 Core getLocalSlot("CFunction") ifNil(Exception raise) do(

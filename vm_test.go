@@ -120,6 +120,7 @@ func TestCoreSlots(t *testing.T) {
 		// "Sandbox",
 		"Scheduler",
 		"Sequence",
+		"SerializationStream",
 		"String",
 		"System",
 		"TestRunner",

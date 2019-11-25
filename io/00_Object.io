@@ -1,10 +1,14 @@
 Object do(
 	print := method(File standardOutput write(getSlot("self") asString); getSlot("self"))
 	println := method(File standardOutput write(getSlot("self") asString, "\n"); getSlot("self"))
+	write := method(call evalArgs foreach(print); getSlot("self"))
+	writeln := method(call evalArgs foreach(print); "\n" print; getSlot("self"))
 	// Use setSlot directly to circumvent operator shuffling.
 	setSlot("and", method(v, v isTrue))
 	setSlot("-", method(v, v negate))
 	setSlot("..", method(v, getSlot("self") asString .. v asString))
+
+	init := getSlot("thisContext")
 
 	ancestors := method(a,
 		if(a,
@@ -152,14 +156,49 @@ Object do(
 	relativeDoFile := doRelativeFile := method(p,
 		self doFile(Path with(call message label pathComponent, p))
 	)
+	launchFile := method(path, args,
+		args ifNil(args = list)
+		System do(launchPath := path pathComponent; launchScript := path)
+		Directory setCurrentWorkingDirectory(System launchPath)
+		self doFile(path)
+	)
+
+	inlineMethod := method(call message argAt(0) clone setIsActivatable(true))
 	
 	yield := method(Coroutine currentCoroutine yield)
 	pause := method(Coroutine currentCoroutine pause)
+
+	deprecatedWarning := method(alt,
+		m := call sender call ifNil(Exception raise("deprecatedWarning must be called from within a Block")) message
+		self writeln("Warning in ", m label, ": ", m name, if(alt, " is deprecated. Use " .. alt .. " instead.", "is deprecated."))
+	)
+
+	serialized := method(stream,
+		if(stream isNil, stream := SerializationStream clone)
+		justSerialized(stream)
+		stream ?output
+	)
+	justSerialized := method(stream,
+		stream write(getSlot("self") getLocalSlot("type") ifNonNilEval(getSlot("self") proto type) ifNilEval(getSlot("self") type), " clone do(\n")
+		getSlot("self") serializedSlots(stream)
+		stream write(")\n")
+	)
+	serializedSlots := method(stream,
+		getSlot("self") serializedSlotsWithNames(getSlot("self") slotNames, stream)
+	)
+	serializedSlotsWithNames := method(names, stream,
+		names foreach(name,
+			stream write("\t", name, " := ")
+			getSlot("self") getSlot(name) serialized(stream)
+			stream write("\n")
+		)
+	)
 )
 
 false do(
 	setSlot("or",  method(v, v isTrue))
 	asBoolean := false
+	justSerialized := method(stream, stream write("false"))
 )
 
 nil do(
@@ -167,4 +206,16 @@ nil do(
 	catch := nil
 	pass := nil
 	asBoolean := nil
+	justSerialized := method(stream, stream write("nil"))
+)
+
+true do(
+	justSerialized := method(stream, stream write("true"))
+)
+
+SerializationStream := Object clone do(
+	init := method(
+		self output := Sequence clone
+	)
+	write := method(call evalArgs foreach(v, self output appendSeq(v)))
 )
