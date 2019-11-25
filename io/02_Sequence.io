@@ -123,3 +123,10 @@ Sequence do(
 
 	justSerialized := method(stream, stream write(self asSimpleString))
 )
+
+Vector := Sequence clone setItemType("float32") setEncoding("number")
+vector := method(
+	v := Vector clone
+	call evalArgs foreach(x, v append(x))
+	v
+)

@@ -126,11 +126,12 @@ func TestCoreSlots(t *testing.T) {
 		"TestRunner",
 		"TestSuite",
 		"UnitTest",
-		// "Vector",
+		"Vector",
 		"false",
 		"nil",
 		"tildeExpandsTo",
 		"true",
+		"vector",
 	}
 	CheckSlots(t, TestVM().Core, slots)
 }
