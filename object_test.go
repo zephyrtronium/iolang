@@ -7,7 +7,7 @@ import (
 // TestGetSlot tests that GetSlot can find local and ancestor slots, and that no
 // object is checked more than once.
 func TestGetSlot(t *testing.T) {
-	vm := TestVM()
+	vm := TestingVM()
 	cases := map[string]struct {
 		o, v, p *Object
 		slot    string
@@ -31,7 +31,7 @@ func TestGetSlot(t *testing.T) {
 
 // BenchmarkGetSlot benchmarks VM.GetSlot in various depths of search.
 func BenchmarkGetSlot(b *testing.B) {
-	vm := TestVM()
+	vm := TestingVM()
 	o := vm.BaseObject.Clone().Clone().Clone().Clone().Clone().Clone().Clone().Clone().Clone().Clone().Clone()
 	cases := map[string]struct {
 		o    *Object
@@ -53,7 +53,7 @@ func BenchmarkGetSlot(b *testing.B) {
 // TestGetLocalSlot tests that GetLocalSlot can find local but not ancestor
 // slots.
 func TestGetLocalSlot(t *testing.T) {
-	vm := TestVM()
+	vm := TestingVM()
 	cases := map[string]struct {
 		o, v *Object
 		ok   bool
@@ -79,7 +79,7 @@ func TestGetLocalSlot(t *testing.T) {
 // TestObjectGoActivate tests that an Object set to be activatable activates its
 // activate slot when activated.
 func TestObjectGoActivate(t *testing.T) {
-	vm := TestVM()
+	vm := TestingVM()
 	o := vm.NewObject(Slots{})
 	vm.Lobby.SetSlot("TestObjectActivate", o)
 	cases := map[string]SourceTestCase{
@@ -227,12 +227,12 @@ func TestObjectSlots(t *testing.T) {
 		"writeln",
 		"yield",
 	}
-	CheckSlots(t, TestVM().BaseObject, slots)
+	CheckSlots(t, TestingVM().BaseObject, slots)
 }
 
 // TestObjectScript tests Object methods by executing Io scripts.
 func TestObjectMethods(t *testing.T) {
-	vm := TestVM()
+	vm := TestingVM()
 	list012 := vm.NewList(vm.NewNumber(0), vm.NewNumber(1), vm.NewNumber(2))
 	listxyz := vm.NewList(vm.NewString("x"), vm.NewString("y"), vm.NewString("z"))
 	cases := map[string]map[string]SourceTestCase{

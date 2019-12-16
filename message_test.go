@@ -9,7 +9,7 @@ import (
 // TestPerform tests that objects can receive and possibly forward messages to
 // activate slots and produce appropriate results.
 func TestPerform(t *testing.T) {
-	vm := TestVM()
+	vm := TestingVM()
 	pt := &performTester{obj: vm.NewObject(nil)}
 	res := vm.ObjectWith(nil, []*Object{vm.BaseObject}, pt, performTesterTag{})
 	anc := vm.NewObject(Slots{"t": res})
@@ -80,7 +80,7 @@ func performTestForward(vm *VM, target, locals *Object, msg *Message) *Object {
 }
 
 func BenchmarkPerform(b *testing.B) {
-	vm := TestVM()
+	vm := TestingVM()
 	o := vm.BaseObject.Clone().Clone().Clone().Clone().Clone().Clone().Clone().Clone().Clone().Clone().Clone()
 	p := vm.BaseObject.Clone()
 	nm := vm.IdentMessage("type")
@@ -112,7 +112,7 @@ func BenchmarkPerform(b *testing.B) {
 
 // TestPerformNilResult tests that VM.Perform always converts nil to VM.Nil.
 func TestPerformNilResult(t *testing.T) {
-	vm := TestVM()
+	vm := TestingVM()
 	cf := vm.NewCFunction(nilResult, nil)
 	o := vm.NewObject(Slots{
 		"f":       cf,

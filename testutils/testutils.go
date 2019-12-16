@@ -1,44 +1,48 @@
-package iolang
+// Package testutils provides utilities for testing Io code in Go.
+package testutils
 
 import (
 	"fmt"
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/zephyrtronium/iolang"
 )
 
 // testVM is the VM used for all tests.
-var testVM *VM
+var testVM *iolang.VM
 
 var testVMInit sync.Once
 
-// TestVM returns a VM for testing Io. The VM is shared by all tests.
-func TestVM() *VM {
-	testVMInit.Do(ResetTestVM)
+// TestingVM returns a VM for testing Io. The VM is shared by all tests that
+// use this package.
+func TestingVM() *iolang.VM {
+	testVMInit.Do(ResetTestingVM)
 	return testVM
 }
 
-// ResetTestVM reinitializes the VM returned by TestVM. It is not safe to
+// ResetTestingVM reinitializes the VM returned by TestVM. It is not safe to
 // call this in parallel tests.
-func ResetTestVM() {
-	testVM = NewVM()
+func ResetTestingVM() {
+	testVM = iolang.NewVM()
 }
 
-// BenchDummy is a dummy variable to prevent dead code elimination in
-// benchmarks.
-var BenchDummy *Object
-
-// A SourceTestCase is a test case containing source code and a predicate to
+// A SourceTestCase is a test case containing Io source code and a predicate to
 // check the result.
 type SourceTestCase struct {
+	// Source is the Io source code to execute.
 	Source string
-	Pass   func(result *Object, control Stop) bool
+	// Pass is a predicate taking the result of executing Source. If Pass
+	// returns false, then the test fails.
+	Pass func(result *iolang.Object, control iolang.Stop) bool
 }
 
-// TestFunc returns a test function for the test case.
+// TestFunc returns a test function for the test case. This uses TestingVM to
+// parse and execute the code.
 func (c SourceTestCase) TestFunc(name string) func(*testing.T) {
 	return func(t *testing.T) {
-		vm := TestVM()
+		vm := TestingVM()
 		msg, err := vm.ParseScanner(strings.NewReader(c.Source), name)
 		if err != nil {
 			t.Fatalf("could not parse %q: %v", c.Source, err)
@@ -47,9 +51,9 @@ func (c SourceTestCase) TestFunc(name string) func(*testing.T) {
 			t.Fatalf("could not opshuffle %q: %v", c.Source, err)
 		}
 		if r, s := vm.DoMessage(msg, vm.Lobby); !c.Pass(r, s) {
-			if s == ExceptionStop && r.Tag() == ExceptionTag {
+			if s == iolang.ExceptionStop && r.Tag() == iolang.ExceptionTag {
 				w := strings.Builder{}
-				ex := r.Value.(Exception)
+				ex := r.Value.(iolang.Exception)
 				fmt.Fprintf(&w, "%q produced wrong result; an exception occurred:\n", c.Source)
 				for i := len(ex.Stack) - 1; i >= 0; i-- {
 					m := ex.Stack[i]
@@ -70,18 +74,19 @@ func (c SourceTestCase) TestFunc(name string) func(*testing.T) {
 
 // PassEqual returns a Pass function for a SourceTestCase that predicates on
 // equality. To determine equality, this first checks for equal identities; if
-// not, it checks that the result of TestVM.Compare(want, result) is 0.
-func PassEqual(want *Object) func(*Object, Stop) bool {
-	return func(result *Object, control Stop) bool {
-		vm := TestVM()
-		if control != NoStop {
+// not, it checks that the result of TestingVM().Compare(want, result) is 0. If
+// the Stop is not NoStop, then the predicate returns false.
+func PassEqual(want *iolang.Object) func(*iolang.Object, iolang.Stop) bool {
+	return func(result *iolang.Object, control iolang.Stop) bool {
+		vm := TestingVM()
+		if control != iolang.NoStop {
 			return false
 		}
 		if want == result {
 			return true
 		}
 		v, stop := vm.Compare(want, result)
-		if stop != NoStop {
+		if stop != iolang.NoStop {
 			return false
 		}
 		n, ok := v.Value.(float64)
@@ -93,10 +98,11 @@ func PassEqual(want *Object) func(*Object, Stop) bool {
 }
 
 // PassIdentical returns a Pass function for a SourceTestCase that predicates
-// on identity equality.
-func PassIdentical(want *Object) func(*Object, Stop) bool {
-	return func(result *Object, control Stop) bool {
-		if control != NoStop {
+// on identity equality, i.e. the result must be exactly the given object. If
+// the Stop is not NoStop, then the predicate returns false.
+func PassIdentical(want *iolang.Object) func(*iolang.Object, iolang.Stop) bool {
+	return func(result *iolang.Object, control iolang.Stop) bool {
+		if control != iolang.NoStop {
 			return false
 		}
 		return want == result
@@ -106,9 +112,9 @@ func PassIdentical(want *Object) func(*Object, Stop) bool {
 // PassControl returns a Pass function for a SourceTestCase that predicates on
 // equality with a certain control flow status. The control flow check precedes
 // the value check. Equality here has the same semantics as in PassEqual.
-func PassControl(want *Object, stop Stop) func(*Object, Stop) bool {
-	return func(result *Object, control Stop) bool {
-		vm := TestVM()
+func PassControl(want *iolang.Object, stop iolang.Stop) func(*iolang.Object, iolang.Stop) bool {
+	return func(result *iolang.Object, control iolang.Stop) bool {
+		vm := TestingVM()
 		if control != stop {
 			return false
 		}
@@ -116,7 +122,7 @@ func PassControl(want *Object, stop Stop) func(*Object, Stop) bool {
 			return true
 		}
 		v, stop := vm.Compare(want, result)
-		if stop != NoStop {
+		if stop != iolang.NoStop {
 			return false
 		}
 		n, ok := v.Value.(float64)
@@ -128,10 +134,11 @@ func PassControl(want *Object, stop Stop) func(*Object, Stop) bool {
 }
 
 // PassTag returns a Pass function for a SourceTestCase that predicates on
-// equality of the Tag of the result.
-func PassTag(want Tag) func(*Object, Stop) bool {
-	return func(result *Object, control Stop) bool {
-		if control != NoStop {
+// equality of the Tag of the result. If the Stop is not NoStop, then the
+// predicate returns false.
+func PassTag(want iolang.Tag) func(*iolang.Object, iolang.Stop) bool {
+	return func(result *iolang.Object, control iolang.Stop) bool {
+		if control != iolang.NoStop {
 			return false
 		}
 		return result.Tag() == want
@@ -140,28 +147,29 @@ func PassTag(want Tag) func(*Object, Stop) bool {
 
 // PassFailure returns a Pass function for a SourceTestCase that returns true
 // iff the result is a raised exception.
-func PassFailure() func(*Object, Stop) bool {
+func PassFailure() func(*iolang.Object, iolang.Stop) bool {
 	// This doesn't need to be a function returning a function, but it's nice to
 	// stay consistent with the other predicate generators.
-	return func(result *Object, control Stop) bool {
-		return control == ExceptionStop
+	return func(result *iolang.Object, control iolang.Stop) bool {
+		return control == iolang.ExceptionStop
 	}
 }
 
 // PassSuccess returns a Pass function for a SourceTestCase that returns true
 // iff the control flow status is NoStop.
-func PassSuccess() func(*Object, Stop) bool {
-	return func(result *Object, control Stop) bool {
-		return control == NoStop
+func PassSuccess() func(*iolang.Object, iolang.Stop) bool {
+	return func(result *iolang.Object, control iolang.Stop) bool {
+		return control == iolang.NoStop
 	}
 }
 
 // PassLocalSlots returns a Pass function for a SourceTestCase that returns
 // true iff the result locally has all of the slots in want and none of the
-// slots in exclude.
-func PassLocalSlots(want, exclude []string) func(*Object, Stop) bool {
-	return func(result *Object, control Stop) bool {
-		if control != NoStop {
+// slots in exclude. If the Stop is not NoStop, then the predicate returns
+// false.
+func PassLocalSlots(want, exclude []string) func(*iolang.Object, iolang.Stop) bool {
+	return func(result *iolang.Object, control iolang.Stop) bool {
+		if control != iolang.NoStop {
 			return false
 		}
 		for _, slot := range want {
@@ -180,11 +188,11 @@ func PassLocalSlots(want, exclude []string) func(*Object, Stop) bool {
 
 // PassEqualSlots returns a Pass function for a SourceTestCase that returns
 // true iff the result has exactly the same slots as want and the slots' values
-// compare equal.
-func PassEqualSlots(want Slots) func(*Object, Stop) bool {
-	return func(result *Object, control Stop) bool {
-		vm := TestVM()
-		if control != NoStop {
+// compare equal. If the Stop is not NoStop, then the predicate returns false.
+func PassEqualSlots(want iolang.Slots) func(*iolang.Object, iolang.Stop) bool {
+	return func(result *iolang.Object, control iolang.Stop) bool {
+		vm := TestingVM()
+		if control != iolang.NoStop {
 			return false
 		}
 		result.Lock()
@@ -200,7 +208,7 @@ func PassEqualSlots(want Slots) func(*Object, Stop) bool {
 				return false
 			}
 			v, stop := vm.Compare(x, value)
-			if stop != NoStop {
+			if stop != iolang.NoStop {
 				return false
 			}
 			n, ok := v.Value.(float64)
@@ -214,7 +222,7 @@ func PassEqualSlots(want Slots) func(*Object, Stop) bool {
 
 // CheckSlots is a testing helper to check whether an object has exactly the
 // slots we expect.
-func CheckSlots(t *testing.T, obj *Object, slots []string) {
+func CheckSlots(t *testing.T, obj *iolang.Object, slots []string) {
 	t.Helper()
 	obj.Lock()
 	defer obj.Unlock()
@@ -242,7 +250,7 @@ func CheckSlots(t *testing.T, obj *Object, slots []string) {
 
 // CheckObjectIsProto is a testing helper to check that an object has exactly
 // one proto, which is Core Object. obj must come from the test VM.
-func CheckObjectIsProto(t *testing.T, obj *Object) {
+func CheckObjectIsProto(t *testing.T, obj *iolang.Object) {
 	t.Helper()
 	obj.Lock()
 	defer obj.Unlock()
@@ -253,7 +261,7 @@ func CheckObjectIsProto(t *testing.T, obj *Object) {
 	default:
 		t.Error("incorrect number of protos: expected 1, have", len(obj.Protos))
 	}
-	vm := TestVM()
+	vm := TestingVM()
 	if p := obj.Protos[0]; p != vm.BaseObject {
 		t.Errorf("wrong proto: expected %T@%p, have %T@%p", vm.BaseObject, vm.BaseObject, p, p)
 	}

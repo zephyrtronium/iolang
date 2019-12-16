@@ -8,7 +8,7 @@ import (
 // TestParseArgs tests that messages are parsed with the correct number of
 // arguments.
 func TestParseArgs(t *testing.T) {
-	vm := TestVM()
+	vm := TestingVM()
 	cases := map[string]struct {
 		text string
 		n    int
@@ -47,7 +47,7 @@ func TestParseArgs(t *testing.T) {
 
 // TestParseErrors tests that certain illegal phrasings result in errors.
 func TestParseErrors(t *testing.T) {
-	vm := TestVM()
+	vm := TestingVM()
 	cases := map[string]string{
 		"BareComma":         "a, b",
 		"UnclosedBracket":   "abc(def",
@@ -72,7 +72,7 @@ func TestParseErrors(t *testing.T) {
 
 // TestParseComments tests that the parser ignores comments.
 func TestParseComments(t *testing.T) {
-	vm := TestVM()
+	vm := TestingVM()
 	cases := map[string]struct {
 		text string
 		msgs []string

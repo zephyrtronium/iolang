@@ -8,7 +8,7 @@ import (
 // TestLazyOptable tests that a new OperatorTable is created whenever
 // one is needed but does not exist.
 func TestLazyOptable(t *testing.T) {
-	vm := TestVM()
+	vm := TestingVM()
 	cases := []string{"operators", "assignOperators"}
 	for _, c := range cases {
 		t.Run(c, func(t *testing.T) {
@@ -74,7 +74,7 @@ func (m *Message) Diff(other *Message) *Message {
 // TestOptableShuffle tests that operator precedence shuffling produces the
 // correct message chains using the default OperatorTable.
 func TestOptableShuffle(t *testing.T) {
-	vm := TestVM()
+	vm := TestingVM()
 	cases := map[string]string{
 		"x+y":      "x +(y)",
 		"x+y+z":    "x +(y) +(z)",
@@ -122,7 +122,7 @@ func TestOptableShuffle(t *testing.T) {
 // TestOptableErrors tests that invalid operator expressions produce errors when
 // shuffled.
 func TestOptableErrors(t *testing.T) {
-	vm := TestVM()
+	vm := TestingVM()
 	cases := map[string]string{
 		"AssignStart":    ":= x",
 		"AssignOnly":     ":=",
