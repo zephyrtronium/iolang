@@ -143,7 +143,7 @@ var body = template.Must(template.New("body").Parse(source))
 
 const source = `
 {{- define "mkslots"}}iolang.Slots{
-	{{range $k, $v := .Functions}}		{{printf "%q" $k}}: vm.NewCFunction({{$v.Fn}}, {{or $v.Tag .Tag "nil"}}),
+	{{range $k, $v := .Functions}}		{{printf "%q" $k}}: vm.NewCFunction({{$v.Fn}}, {{or $v.Tag $.Tag "nil"}}),
 	{{end}}{{range $k, $v := .Strings}}
 			{{printf "%q" $k}}: vm.NewString({{printf "%q" $v}}),
 	{{end}}{{range $k, $v := .Numbers}}
