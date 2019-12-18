@@ -326,6 +326,14 @@ func TestObjectMethods(t *testing.T) {
 			"continue":      {`Lobby ancestorWithSlot(continue); Lobby`, PassControl(vm.Nil, ContinueStop)},
 			"exception":     {`Lobby ancestorWithSlot(Exception raise); Lobby`, PassFailure()},
 		},
+		"ancestors": {
+			"ancestors": {`testValues anc := Object clone ancestors; testValues anc containsIdenticalTo(Object) and testValues anc containsIdenticalTo(Core)`, PassIdentical(vm.True)},
+		},
+		"and": {
+			"true":  {`and(Object)`, PassIdentical(testVM.True)},
+			"false": {`and(Object clone do(isTrue := false))`, PassIdentical(testVM.False)},
+		},
+		// TODO: apropos needs special tests, since it prints
 		"appendProto": {
 			"appendProto": {`Object clone do(appendProto(Lobby)) protos containsIdenticalTo(Lobby)`, PassIdentical(vm.True)},
 			"continue":    {`Object clone appendProto(continue); Lobby`, PassControl(vm.Nil, ContinueStop)},
