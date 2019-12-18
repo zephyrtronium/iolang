@@ -134,7 +134,7 @@ func (vm *VM) Install(name string, proto *Object) {
 	vm.Addons.SetSlot(name, proto)
 	l := vm.Lobby
 	l.Lock()
-	l.Protos = append(l.Protos, proto)
+	l.Protos = append(l.Protos, vm.NewObject(Slots{name: proto}))
 	l.Unlock()
 }
 
