@@ -552,9 +552,9 @@ func TestObjectMethods(t *testing.T) {
 			"exception": {`ifNonNil(Exception raise)`, PassFailure()},
 		},
 		"ifNonNilEval": {
-			"evalArg":   {`evalArg(Lobby)`, PassEqual(vm.Lobby)},
-			"continue":  {`evalArg(continue; Lobby)`, PassControl(vm.Nil, ContinueStop)},
-			"exception": {`evalArg(Exception raise; Lobby)`, PassFailure()},
+			"evalArg":   {`ifNonNilEval(Lobby)`, PassEqual(vm.Lobby)},
+			"continue":  {`ifNonNilEval(continue; Lobby)`, PassControl(vm.Nil, ContinueStop)},
+			"exception": {`ifNonNilEval(Exception raise; Lobby)`, PassFailure()},
 		},
 		"in": {
 			"contains": {`testValues contains := method(self inResult := true); Object in(testValues); testValues inResult`, PassIdentical(vm.True)},
@@ -567,6 +567,12 @@ func TestObjectMethods(t *testing.T) {
 			"text": {`inlineMethod(nil) name`, PassEqual(vm.NewString("nil"))},
 			"next": {`inlineMethod(true nil) next name`, PassEqual(vm.NewString("nil"))},
 			"prev": {`inlineMethod(true) previous`, PassIdentical(vm.Nil)},
+		},
+		"isActivatable": {
+			"false": {`Object isActivatable`, PassIdentical(vm.False)},
+		},
+		"isError": {
+			"false": {`Object isError`, PassIdentical(vm.False)},
 		},
 	}
 	// If this test runs before TestLobbySlots, any new slots that tests create
