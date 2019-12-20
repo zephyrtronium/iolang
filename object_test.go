@@ -339,7 +339,13 @@ func TestObjectMethods(t *testing.T) {
 			"continue":    {`Object clone appendProto(continue); Lobby`, PassControl(vm.Nil, ContinueStop)},
 			"exception":   {`Object clone appendProto(Exception raise); Lobby`, PassFailure()},
 		},
+		"asBoolean": {
+			"asBoolean": {`Object asBoolean`, PassIdentical(vm.True)},
+		},
 		// asGoRepr gets no tests //
+		"asSimpleString": {
+			"isSequence": {`Object asSimpleString`, PassTag(SequenceTag)},
+		},
 		"asString": {
 			"isSequence": {`Object asString`, PassTag(SequenceTag)},
 		},
@@ -387,6 +393,39 @@ func TestObjectMethods(t *testing.T) {
 			"value":     {`continue(Lobby)`, PassControl(vm.Lobby, ContinueStop)},
 			"exception": {`continue(Exception raise)`, PassFailure()},
 		},
+		"coroDo": {
+			"spawns":      {`yield; yield; yield; testValues coroDoCoros := Scheduler coroCount; coroDo(wait(1)); wait(testValues coroWaitTime); Scheduler coroCount - testValues coroDoCoros`, PassEqual(vm.NewNumber(1))},
+			"sideEffects": {`testValues coroDoSideEffect := 0; coroDo(testValues coroDoSideEffect := 1); wait(testValues coroWaitTime); testValues coroDoSideEffect`, PassEqual(vm.NewNumber(1))},
+			// TODO: test that this has the right target
+		},
+		"coroDoLater": {
+			"spawns":      {`yield; yield; yield; testValues coroDoLaterCoros := Scheduler coroCount; coroDoLater(wait(1)); wait(testValues coroWaitTime); Scheduler coroCount - testValues coroDoLaterCoros`, PassEqual(vm.NewNumber(1))},
+			"sideEffects": {`testValues coroDoLaterSideEffect := 0; coroDoLater(testValues coroDoLaterSideEffect := 1); wait(testValues coroWaitTime); testValues coroDoLaterSideEffect`, PassEqual(vm.NewNumber(1))},
+			// TODO: test that this has the right target
+		},
+		"coroFor": {
+			"noSpawns":      {`yield; yield; yield; testValues coroForCoros := Scheduler coroCount; coroFor(wait(1)); wait(testValues coroWaitTime); Scheduler coroCount - testValues coroForCoros`, PassEqual(vm.NewNumber(0))},
+			"noSideEffects": {`testValues coroForSideEffect := 0; coroFor(testValues coroForSideEffect := 1); wait(testValues coroWaitTime); testValues coroForSideEffect`, PassEqual(vm.NewNumber(0))},
+			"type":          {`coroFor(nil)`, PassTag(CoroutineTag)},
+			"message":       {`coroFor(nil) runMessage name`, PassEqual(vm.NewString("nil"))},
+			"target":        {`0 coroFor(nil) runTarget`, PassIdentical(vm.Lobby)},
+			"locals":        {`0 coroFor(nil) runLocals`, PassIdentical(vm.Lobby)},
+		},
+		"coroWith": {
+			"noSpawns":      {`yield; yield; yield; testValues coroWithCoros := Scheduler coroCount; coroWith(wait(1)); wait(testValues coroWaitTime); Scheduler coroCount - testValues coroWithCoros`, PassEqual(vm.NewNumber(0))},
+			"noSideEffects": {`testValues coroWithSideEffect := 0; coroWith(testValues coroWithSideEffect := 1); wait(testValues coroWaitTime); testValues coroWithSideEffect`, PassEqual(vm.NewNumber(0))},
+			"type":          {`coroWith(nil)`, PassTag(CoroutineTag)},
+			"message":       {`coroWith(nil) runMessage name`, PassEqual(vm.NewString("nil"))},
+			"target":        {`0 coroWith(nil) runTarget`, PassEqual(vm.NewNumber(0))},
+			"locals":        {`0 coroWith(nil) runLocals`, PassIdentical(vm.Lobby)},
+		},
+		"currentCoro": {
+			"isCurrent": {`currentCoro`, PassIdentical(vm.Coro)},
+		},
+		"deprecatedWarning": {
+			"context": {`deprecatedWarning`, PassFailure()},
+			// TODO: deprecatedWarning needs special tests, since it prints
+		},
 		"do": {
 			"result":    {`Object do(Lobby)`, PassIdentical(vm.BaseObject)},
 			"context":   {`testValues doValue := 0; testValues do(doValue := 1); testValues doValue`, PassEqual(vm.NewNumber(1))},
@@ -399,6 +438,7 @@ func TestObjectMethods(t *testing.T) {
 			"context":   {`testValues doMessageValue := 2; doMessage(message(testValues doMessageValue = doMessageValue + 1), testValues); testValues doMessageValue`, PassEqual(vm.NewNumber(3))},
 			"bad":       {`testValues doMessage("doMessageValue := 4")`, PassFailure()},
 		},
+		// TODO: doRelativeFile needs special testing
 		"doString": {
 			"doString": {`testValues doStringValue := 0; testValues doString("doStringValue = 1"); testValues doStringValue`, PassEqual(vm.NewNumber(1))},
 			"label":    {`testValues doStringLabel := "foo"; testValues doString("doStringLabel = thisMessage label", "bar"); testValues doStringLabel`, PassEqual(vm.NewString("bar"))},
@@ -476,6 +516,57 @@ func TestObjectMethods(t *testing.T) {
 			"ancestor": {`Lobby clone hasSlot("Lobby")`, PassIdentical(vm.True)},
 			"never":    {`hasSlot("this slot does not exist")`, PassIdentical(vm.False)},
 			"bad":      {`hasSlot(Lobby)`, PassFailure()},
+		},
+		"if": {
+			"evalTrue":           {`testValues ifResult := nil; if(true, testValues ifResult := true, testValues ifResult := false); testValues ifResult`, PassIdentical(vm.True)},
+			"evalFalse":          {`testValues ifResult := nil; if(false, testValues ifResult := true, testValues ifResult := false); testValues ifResult`, PassIdentical(vm.False)},
+			"resultTrue":         {`if(true, 1, 0)`, PassEqual(vm.NewNumber(1))},
+			"resultFalse":        {`if(false, 1, 0)`, PassEqual(vm.NewNumber(0))},
+			"resultTrueDiadic":   {`if(true, 1)`, PassEqual(vm.NewNumber(1))},
+			"resultFalseDiadic":  {`if(false, 1)`, PassIdentical(vm.False)},
+			"resultTrueMonadic":  {`if(true)`, PassIdentical(vm.True)},
+			"resultFalseMonadic": {`if(false)`, PassIdentical(vm.False)},
+			"continue1":          {`if(continue, nil, nil)`, PassControl(vm.Nil, ContinueStop)},
+			"continue2":          {`if(true, continue, nil)`, PassControl(vm.Nil, ContinueStop)},
+			"continue3":          {`if(false, nil, continue)`, PassControl(vm.Nil, ContinueStop)},
+			"exception1":         {`if(Exception raise, nil, nil)`, PassFailure()},
+			"exception2":         {`if(true, Exception raise, nil)`, PassFailure()},
+			"exception3":         {`if(false, nil, Exception raise)`, PassFailure()},
+		},
+		"ifError": {
+			"noEval": {`testValues ifErrorResult := nil; ifError(testValues ifErrorResult := true); testValues ifErrorResult`, PassIdentical(vm.Nil)},
+			"self":   {`ifError(nil)`, PassIdentical(vm.Lobby)},
+		},
+		"ifNil": {
+			"noEval": {`testValues ifNilResult := false; ifNil(testValues ifNilResult := true); testValues ifNilResult`, PassIdentical(vm.False)},
+			"self":   {`ifNil(nil)`, PassIdentical(vm.Lobby)},
+		},
+		"ifNilEval": {
+			"noEval": {`testValues ifNilEvalResult := false; ifNilEval(testValues ifNilEvalResult := true); testValues ifNilEvalResult`, PassIdentical(vm.False)},
+			"self":   {`ifNilEval(nil)`, PassIdentical(vm.Lobby)},
+		},
+		"ifNonNil": {
+			"result":    {`ifNonNil(nil)`, PassIdentical(vm.Lobby)},
+			"eval":      {`testValues ifNonNilResult := 0; ifNonNil(testValues ifNonNilResult := 1); testValues ifNonNilResult`, PassEqual(vm.NewNumber(1))},
+			"continue":  {`ifNonNil(continue)`, PassControl(vm.Nil, ContinueStop)},
+			"exception": {`ifNonNil(Exception raise)`, PassFailure()},
+		},
+		"ifNonNilEval": {
+			"evalArg":   {`evalArg(Lobby)`, PassEqual(vm.Lobby)},
+			"continue":  {`evalArg(continue; Lobby)`, PassControl(vm.Nil, ContinueStop)},
+			"exception": {`evalArg(Exception raise; Lobby)`, PassFailure()},
+		},
+		"in": {
+			"contains": {`testValues contains := method(self inResult := true); Object in(testValues); testValues inResult`, PassIdentical(vm.True)},
+		},
+		"init": {
+			"self": {`init`, PassIdentical(vm.Lobby)},
+		},
+		"inlineMethod": {
+			"type": {`inlineMethod(nil)`, PassTag(MessageTag)},
+			"text": {`inlineMethod(nil) name`, PassEqual(vm.NewString("nil"))},
+			"next": {`inlineMethod(true nil) next name`, PassEqual(vm.NewString("nil"))},
+			"prev": {`inlineMethod(true) previous`, PassIdentical(vm.Nil)},
 		},
 	}
 	// If this test runs before TestLobbySlots, any new slots that tests create
