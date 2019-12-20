@@ -163,7 +163,11 @@ Object do(
 		self doFile(path)
 	)
 
-	inlineMethod := method(call message argAt(0) clone setIsActivatable(true))
+	inlineMethod := method(
+		m := call message argAt(0) clone
+		m setIsActivatable(true)
+		getSlot("m")
+	)
 	
 	yield := method(Coroutine currentCoroutine yield)
 	pause := method(Coroutine currentCoroutine pause)
