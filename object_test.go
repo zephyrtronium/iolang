@@ -235,6 +235,20 @@ func TestObjectMethods(t *testing.T) {
 	vm := TestingVM()
 	list012 := vm.NewList(vm.NewNumber(0), vm.NewNumber(1), vm.NewNumber(2))
 	listxyz := vm.NewList(vm.NewString("x"), vm.NewString("y"), vm.NewString("z"))
+	// If this test runs before TestLobbySlots, any new slots that tests create
+	// will cause that to fail. To circumvent this, we provide an object to
+	// carry test values, then remove it once all tests have run. This object
+	// initially carries default test configuration values.
+	config := Slots{
+		// coroWaitTime is the time in seconds that coros should wait while
+		// testing methods that spawn new coroutines. The new coroutines may
+		// take any amount of time to execute, as the VM does not wait for them
+		// to finish.
+		"coroWaitTime": vm.NewNumber(0.02),
+		// obj is a generic object with some slots to simplify some tests.
+		"obj": vm.NewObject(Slots{"x": vm.NewNumber(1), "y": vm.NewNumber(2), "z": vm.NewNumber(0)}),
+	}
+	vm.Lobby.SetSlot("testValues", vm.NewObject(config))
 	cases := map[string]map[string]SourceTestCase{
 		"evalArg": {
 			"evalArg":   {`evalArg(Lobby)`, PassEqual(vm.Lobby)},
@@ -574,21 +588,33 @@ func TestObjectMethods(t *testing.T) {
 		"isError": {
 			"false": {`Object isError`, PassIdentical(vm.False)},
 		},
+		"isIdenticalTo": {
+			"0===0":       {`123456789 isIdenticalTo(123456789)`, PassIdentical(vm.False)},
+			"unidentical": {`Lobby isIdenticalTo(Core)`, PassIdentical(vm.False)},
+			"identical":   {`Lobby isIdenticalTo(Lobby)`, PassIdentical(vm.True)},
+			"continue":    {`Lobby isIdenticalTo(continue); Lobby`, PassControl(vm.Nil, ContinueStop)},
+			"exception":   {`Lobby isIdenticalTo(Exception raise); Lobby`, PassFailure()},
+		},
+		"isKindOf": {
+			"self":      {`Object isKindOf(Object)`, PassIdentical(vm.True)},
+			"proto":     {`Object clone isKindOf(Object)`, PassIdentical(vm.True)},
+			"ancestor":  {`0 isKindOf(Lobby)`, PassIdentical(vm.True)},
+			"not":       {`Object isKindOf(Exception)`, PassIdentical(vm.False)},
+			"continue":  {`isKindOf(continue; Lobby)`, PassControl(vm.Nil, ContinueStop)},
+			"exception": {`isKindOf(Exception raise; Lobby)`, PassFailure()},
+		},
+		// isLaunchScript needs special testing
+		"isNil": {
+			"false": {`Object isNil`, PassIdentical(vm.False)},
+		},
+		"isTrue": {
+			"true": {`Object isTrue`, PassIdentical(vm.True)},
+		},
+		"justSerialized": {
+			"same": {`testValues justSerializedStream := SerializationStream clone; testValues obj justSerialized(testValues justSerializedStream); doString(testValues justSerializedStream output)`, PassEqualSlots(config["obj"].Slots)},
+		},
+		// launchFile needs special testing
 	}
-	// If this test runs before TestLobbySlots, any new slots that tests create
-	// will cause that to fail. To circumvent this, we provide an object to
-	// carry test values, then remove it once all tests have run. This object
-	// initially carries default test configuration values.
-	config := Slots{
-		// coroWaitTime is the time in seconds that coros should wait while
-		// testing methods that spawn new coroutines. The new coroutines may
-		// take any amount of time to execute, as the VM does not wait for them
-		// to finish.
-		"coroWaitTime": vm.NewNumber(0.02),
-		// obj is a generic object with some slots to simplify some tests.
-		"obj": vm.NewObject(Slots{"x": vm.NewNumber(1), "y": vm.NewNumber(2), "z": vm.NewNumber(0)}),
-	}
-	vm.Lobby.SetSlot("testValues", vm.NewObject(config))
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
 			for name, s := range c {
