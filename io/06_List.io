@@ -238,7 +238,7 @@ List do(
 		self
 	)
 	map := method(
-		List clone copy(self) doMessage(call message clone setName("mapInPlace"), call sender)
+		call delegateToMethod(self clone, "mapInPlace")
 	)
 
 	groupBy := method(
