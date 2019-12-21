@@ -141,13 +141,13 @@ func (vm *VM) IoBool(c bool) *Object {
 	return vm.False
 }
 
-// AsBool attempts to convert an Io object to a bool by activating its isTrue
-// slot. If the object has no such slot, it is true.
+// AsBool attempts to convert an Io object to a bool by activating its
+// asBoolean slot. If the object has no such slot, it is true.
 func (vm *VM) AsBool(obj *Object) bool {
 	if obj == nil {
 		obj = vm.Nil
 	}
-	isTrue, _ := vm.Perform(obj, obj, vm.IdentMessage("isTrue"))
+	isTrue, _ := vm.Perform(obj, obj, vm.IdentMessage("asBoolean"))
 	if isTrue == vm.False || isTrue == vm.Nil {
 		return false
 	}

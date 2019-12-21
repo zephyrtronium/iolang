@@ -65,9 +65,9 @@ func (o *Object) Activate(vm *VM, target, locals, context *Object, msg *Message)
 		// Basic object. Check the isActivatable slot.
 		ok, proto := o.GetSlot("isActivatable")
 		// We can't use vm.AsBool even though it's one of the few situations
-		// where we'd want to, because it will attempt to activate the isTrue
-		// slot, which is typically a plain object, which will activate this
-		// method and recurse infinitely.
+		// where we'd want to, because it will attempt to activate the
+		// asBoolean slot, which is typically a plain object, which will
+		// activate this method and recurse infinitely.
 		if proto == nil || ok == vm.False || ok == vm.Nil {
 			return o
 		}

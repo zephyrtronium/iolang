@@ -115,7 +115,7 @@ arguments:
 	if(condition) then(message when true) else(message when false)
 
 All three of these forms are essentially equivalent. if evaluates the
-condition, then if it is true (controlled by the result's isTrue slot), it
+condition, then if it is true (controlled by the result's asBoolean slot), it
 evaluates the second, otherwise it evaluates the third. If the branch to
 evaluate doesn't exist, if instead returns the boolean to enable the other
 forms, as well as to support the elseif method. Note that because message
