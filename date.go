@@ -5,6 +5,7 @@ import (
 	"math"
 	"time"
 
+	"github.com/darkerbit/datesaurus"
 	"gitlab.com/variadico/lctime"
 )
 
@@ -232,8 +233,12 @@ func DateFromString(vm *VM, target, locals *Object, msg *Message) *Object {
 		return vm.Stop(err, stop)
 	}
 
-	// TODO: Get from locale! -DarkerBit
-	const longForm = "Jan 2, 2006 at 3:04pm (MST)"
+	format, err, stop := msg.StringArgAt(vm, locals, 1)
+	if stop != NoStop {
+		return vm.Stop(err, stop)
+	}
+
+	var longForm = datesaurus.Get(format)
 
 	v, r := time.Parse(longForm, str)
 	if r != nil {
