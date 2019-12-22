@@ -115,23 +115,23 @@ func (f *Future) Wait(vm *VM) (*Object, Stop) {
 			switch stop.Control {
 			case NoStop, ResumeStop:
 				runtime.Gosched()
-			case ContinueStop, BreakStop, ReturnStop, ExceptionStop:
+			case ContinueStop, BreakStop, ReturnStop, ExceptionStop, ExitStop:
 				return stop.Result, stop.Control
 			case PauseStop:
 				vm.Sched.pause <- vm
 				for stop.Control != ResumeStop {
 					switch stop = <-vm.Control; stop.Control {
 					case NoStop, PauseStop: // do nothing
-					case ContinueStop, BreakStop, ReturnStop, ExceptionStop:
+					case ContinueStop, BreakStop, ReturnStop, ExceptionStop, ExitStop:
 						return stop.Result, stop.Control
 					case ResumeStop:
 						vm.Sched.Await(vm, f.Coro)
 					default:
-						panic(fmt.Sprintf("invalid status in received stop %#v", stop))
+						panic(fmt.Errorf("iolang: invalid Stop: %w, value: %v", stop.Control.Err(), stop.Result))
 					}
 				}
 			default:
-				panic(fmt.Sprintf("invalid status in received stop %#v", stop))
+				panic(fmt.Errorf("iolang: invalid Stop: %w, value: %v", stop.Control.Err(), stop.Result))
 			}
 		default: // do nothing
 		}

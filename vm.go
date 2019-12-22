@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"compress/zlib"
 	"fmt"
+	"runtime"
 	"time"
 )
 
@@ -46,6 +47,10 @@ type VM struct {
 	// Debug is an atomic flag controlling whether debugging is enabled for
 	// this coroutine.
 	Debug uint32
+
+	// ExitStatus is the (first) value passed to System exit. Only the
+	// scheduler's main VM receives this value.
+	ExitStatus int
 }
 
 // NewVM prepares a new VM to interpret Io code. String arguments may be passed
@@ -81,7 +86,6 @@ func NewVM(args ...string) *VM {
 	vm.initNumber()
 	vm.initException()
 	vm.initBlock()
-	// vm.initCall()
 	vm.initMap()
 	vm.initOpTable()
 	vm.initObject()
@@ -200,5 +204,18 @@ func (vm *VM) finalInit() {
 		if result, stop := msg.Eval(vm, vm.Core); stop != NoStop {
 			panic(fmt.Errorf("iolang: error executing initialization code from %s: %s (%v)", name, vm.AsString(result), stop))
 		}
+	}
+}
+
+// IsAlive returns true if the VM is alive. If this returns false, then the
+// VM's scheduler has exited, and attempting to perform messages will panic.
+func (vm *VM) IsAlive() bool {
+	// Yield to make sure the scheduler has time to die if it's doing so.
+	runtime.Gosched()
+	select {
+	case <-vm.Sched.Alive:
+		return false
+	default:
+		return true
 	}
 }

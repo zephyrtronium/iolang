@@ -26,4 +26,5 @@ const (
 	BreakStop     = iolang.BreakStop
 	ReturnStop    = iolang.ReturnStop
 	ExceptionStop = iolang.ExceptionStop
+	ExitStop      = iolang.ExitStop
 )

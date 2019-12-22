@@ -252,7 +252,7 @@ func (vm *VM) Perform(target, locals *Object, msg *Message) (result *Object, con
 		case NoStop, ResumeStop:
 			// Yield.
 			runtime.Gosched()
-		case ContinueStop, BreakStop, ReturnStop, ExceptionStop:
+		case ContinueStop, BreakStop, ReturnStop, ExceptionStop, ExitStop:
 			// Return the stop.
 			return stop.Result, stop.Control
 		case PauseStop:
@@ -275,6 +275,8 @@ func (vm *VM) doPause(result *Object) (*Object, Stop) {
 		case ContinueStop, BreakStop, ReturnStop, ExceptionStop:
 			vm.Sched.Start(vm)
 			return stop.Result, stop.Control
+		case ExitStop:
+			return nil, ExitStop
 		case ResumeStop:
 			// Add ourselves back into the scheduler, then check whether we
 			// have any real control flow waiting. We get one chance, otherwise
@@ -285,7 +287,7 @@ func (vm *VM) doPause(result *Object) (*Object, Stop) {
 			case stop = <-vm.Control:
 				switch stop.Control {
 				case NoStop, ResumeStop: // do nothing
-				case ContinueStop, BreakStop, ReturnStop, ExceptionStop:
+				case ContinueStop, BreakStop, ReturnStop, ExceptionStop, ExitStop:
 					// Return the stop.
 					return stop.Result, stop.Control
 				case PauseStop:

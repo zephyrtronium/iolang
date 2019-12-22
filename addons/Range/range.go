@@ -157,7 +157,7 @@ func Foreach(vm *VM, target, locals *Object, msg *Message) (result *Object) {
 		case NoStop, ContinueStop: // do nothing
 		case BreakStop:
 			return result
-		case ReturnStop, ExceptionStop:
+		case ReturnStop, ExceptionStop, ExitStop:
 			return vm.Stop(result, control)
 		default:
 			panic(fmt.Sprintf("iolang/range: invalid Stop: %v", control))

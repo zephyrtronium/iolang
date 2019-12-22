@@ -54,7 +54,7 @@ func main() {
 			}
 		}
 		fmt.Println(vm.AsString(x))
-		if !ok {
+		if !ok || !vm.IsAlive() {
 			break
 		}
 	}

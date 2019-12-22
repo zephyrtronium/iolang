@@ -22,6 +22,10 @@ const (
 	// a signal to exit.
 	ExceptionStop
 
+	// ExitStop indicates that the VM has been force-closed and all coroutines
+	// must exit.
+	ExitStop
+
 	// PauseStop tells a coroutine to stop execution until receiving a
 	// ResumeStop. While paused, a coroutine is considered dead (the scheduler
 	// will stop if all coroutines are paused), but it will still accept other
@@ -32,7 +36,7 @@ const (
 	ResumeStop
 )
 
-var stopNames = [...]string{"normal", "continue", "break", "return", "exception", "pause", "resume"}
+var stopNames = [...]string{"normal", "continue", "break", "return", "exception", "exit", "pause", "resume"}
 
 // String returns a string representation of the Stop.
 func (s Stop) String() string {
@@ -43,12 +47,12 @@ func (s Stop) String() string {
 }
 
 // Err returns nil if s is NoStop or an error value if s is ContinueStop,
-// BreakStop, ReturnStop, or ExceptionStop. Panics otherwise.
+// BreakStop, ReturnStop, ExceptionStop, or ExitStop. Panics otherwise.
 func (s Stop) Err() error {
 	switch s {
 	case NoStop:
 		return nil
-	case ContinueStop, BreakStop, ReturnStop, ExceptionStop:
+	case ContinueStop, BreakStop, ReturnStop, ExceptionStop, ExitStop:
 		return stopError(s)
 	default:
 		panic(fmt.Sprintf("iolang: invalid Stop: %v", s))
@@ -69,10 +73,10 @@ type RemoteStop struct {
 
 // Stop sends a Stop to the VM, causing the innermost message evaluation loop
 // to exit with the given value and Stop. Stop does nothing if stop is NoStop,
-// and it panics if stop is not ContinueStop, BreakStop, ReturnStop, or
-// ExceptionStop. Returns result. If stop is not ExceptionStop and a Stop is
-// already pending, e.g. from another coroutine, then this method instead does
-// nothing and returns nil.
+// and it panics if stop is not ContinueStop, BreakStop, ReturnStop,
+// ExceptionStop, or ExitStop. Returns result. If stop is not ExceptionStop or
+// ExitStop and a Stop is already pending, e.g. from another coroutine, then
+// this method instead does nothing and returns nil.
 func (vm *VM) Stop(result *Object, stop Stop) *Object {
 	switch stop {
 	case NoStop:
@@ -84,17 +88,17 @@ func (vm *VM) Stop(result *Object, stop Stop) *Object {
 		default:
 			return nil
 		}
-	case ExceptionStop:
-		// Always raise exceptions. If there is already a value in vm.Control,
-		// then simply sending the exception will block; then, if the exception
-		// is being raised from within the currently executing VM (which is the
-		// usual case), then the existing signal won't be drained, so the
-		// goroutine is deadlocked against itself. Launching a new goroutine to
-		// send the exception may cause the exception to actually be registered
-		// at any random time if the number of existing goroutines exceeds
-		// GOMAXPROCS, which would make debugging exceedingly difficult.
-		// To ensure consistently valid behavior, we have to remove any
-		// existing value from vm.Control and then send the exception.
+	case ExceptionStop, ExitStop:
+		// Always exit or raise exceptions. If there is already a value in
+		// vm.Control, then simply sending the stop will block; then, if the
+		// stop is being raised from within the currently executing VM (which
+		// is the usual case), then the existing signal won't be drained, so
+		// the goroutine is deadlocked against itself. Launching a new
+		// goroutine to send the stop may cause the stop to actually be
+		// registered at any random time if the number of existing goroutines
+		// exceeds GOMAXPROCS, which would make debugging exceedingly
+		// difficult. To ensure consistently valid behavior, we have to remove
+		// any existing value from vm.Control and then send the stop.
 		select {
 		case <-vm.Control:
 			vm.Control <- RemoteStop{result, stop}
@@ -171,7 +175,7 @@ func ObjectFor(vm *VM, target, locals *Object, msg *Message) (result *Object) {
 			case NoStop, ContinueStop: // do nothing
 			case BreakStop:
 				return result
-			case ReturnStop, ExceptionStop:
+			case ReturnStop, ExceptionStop, ExitStop:
 				return vm.Stop(result, stop)
 			default:
 				panic(fmt.Sprintf("iolang: invalid Stop: %v", stop))
@@ -208,8 +212,10 @@ func ObjectWhile(vm *VM, target, locals *Object, msg *Message) *Object {
 		case NoStop, ContinueStop: // do nothing
 		case BreakStop:
 			return result
-		case ReturnStop, ExceptionStop:
+		case ReturnStop, ExceptionStop, ExitStop:
 			return vm.Stop(result, stop)
+		default:
+			panic(fmt.Errorf("iolang: invalid Stop: %w", stop.Err()))
 		}
 	}
 }
@@ -228,7 +234,7 @@ func ObjectLoop(vm *VM, target, locals *Object, msg *Message) *Object {
 		case NoStop, ContinueStop: // do nothing
 		case BreakStop:
 			return result
-		case ReturnStop, ExceptionStop:
+		case ReturnStop, ExceptionStop, ExitStop:
 			return vm.Stop(result, control)
 		default:
 			panic(fmt.Sprintf("iolang: invalid Stop: %v", control))

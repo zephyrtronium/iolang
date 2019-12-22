@@ -114,8 +114,10 @@ func SystemExit(vm *VM, target, locals *Object, msg *Message) *Object {
 		}
 		code = int(n)
 	}
-	os.Exit(code)
-	panic("unreachable")
+	vm.Sched.Exit(code)
+	// Wait for the scheduler to die.
+	<-vm.Sched.Alive
+	return nil
 }
 
 // SystemGetEnvironmentVariable is a System method.

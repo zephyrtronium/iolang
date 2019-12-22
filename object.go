@@ -800,12 +800,12 @@ func ObjectTry(vm *VM, target, locals *Object, msg *Message) *Object {
 	r, stop := msg.EvalArgAt(vm, locals, 0)
 	switch stop {
 	case NoStop: // do nothing
-	case ContinueStop, BreakStop, ReturnStop:
+	case ContinueStop, BreakStop, ReturnStop, ExitStop:
 		return vm.Stop(r, stop)
 	case ExceptionStop:
 		return r
 	default:
-		panic(fmt.Sprintf("try: invalid stop status %v", stop))
+		panic(fmt.Errorf("iolang: invalid Stop: %w", stop.Err()))
 	}
 	return vm.Nil
 }
@@ -946,7 +946,7 @@ func ObjectForeachSlot(vm *VM, target, locals *Object, msg *Message) (result *Ob
 		case NoStop, ContinueStop: // do nothing
 		case BreakStop:
 			return result
-		case ReturnStop, ExceptionStop:
+		case ReturnStop, ExceptionStop, ExitStop:
 			return vm.Stop(result, control)
 		default:
 			panic(fmt.Sprintf("iolang: invalid Stop: %v", control))

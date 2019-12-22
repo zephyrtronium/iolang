@@ -86,7 +86,7 @@ func DebuggerStart(vm *VM, target, locals *Object, msg *Message) *Object {
 			case NoStop, ContinueStop: // do nothing
 			case BreakStop:
 				return r
-			case ExceptionStop:
+			case ExceptionStop, ExitStop:
 				return vm.Stop(r, stop)
 			default:
 				panic(fmt.Errorf("iolang: invalid Stop: %v", stop))

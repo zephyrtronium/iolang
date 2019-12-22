@@ -44,6 +44,7 @@ Additionally, the Stop constants for serial control flow are copied:
 - BreakStop
 - ReturnStop
 - ExceptionStop
+- ExitStop
 
 See the Range addon at `iolang/addons/range` for an example of how and why to
 use this.

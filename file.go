@@ -368,7 +368,7 @@ func FileForeach(vm *VM, target, locals *Object, msg *Message) (result *Object) 
 				case NoStop, ContinueStop: // do nothing
 				case BreakStop:
 					return result
-				case ReturnStop, ExceptionStop:
+				case ReturnStop, ExceptionStop, ExitStop:
 					return vm.Stop(result, control)
 				default:
 					panic(fmt.Sprintf("iolang: invalid Stop: %v", control))
@@ -409,7 +409,7 @@ func FileForeach(vm *VM, target, locals *Object, msg *Message) (result *Object) 
 			case NoStop, ContinueStop: // do nothing
 			case BreakStop:
 				return result
-			case ReturnStop, ExceptionStop:
+			case ReturnStop, ExceptionStop, ExitStop:
 				return vm.Stop(result, control)
 			default:
 				panic(fmt.Sprintf("iolang: invalid Stop: %v", control))
@@ -454,7 +454,7 @@ func FileForeachLine(vm *VM, target, locals *Object, msg *Message) (result *Obje
 			case NoStop, ContinueStop: // do nothing
 			case BreakStop:
 				return result
-			case ReturnStop, ExceptionStop:
+			case ReturnStop, ExceptionStop, ExitStop:
 				return vm.Stop(result, control)
 			default:
 				panic(fmt.Sprintf("iolang: invalid Stop: %v", control))

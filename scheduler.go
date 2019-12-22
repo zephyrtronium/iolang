@@ -1,6 +1,11 @@
 package iolang
 
-import "sync"
+import (
+	"fmt"
+	"os"
+	"os/signal"
+	"sync"
+)
 
 // Scheduler helps manage a group of Io coroutines.
 type Scheduler struct {
@@ -11,6 +16,12 @@ type Scheduler struct {
 	Main *VM
 	// Alive is a channel that closes once all coroutines stop.
 	Alive <-chan bool
+	// exit is a channel to force the scheduler to quit, stopping all its
+	// coroutines.
+	exit chan int
+
+	// interrupt is a channel for OS interrupt signals.
+	interrupt chan os.Signal
 
 	// coros is the map of all active coroutines this scheduler manages, which
 	// may include Main, to the VMs on which they are waiting, if any.
@@ -45,15 +56,17 @@ func (vm *VM) initScheduler() {
 		"yieldingCoros": vm.NewCFunction(SchedulerYieldingCoros, nil),
 	}
 	sched := &Scheduler{
-		Main:   vm,
-		coros:  map[*VM]*VM{vm: nil},
-		start:  make(chan waitpair), // TODO: buffer?
-		pause:  make(chan *VM),
-		finish: make(chan *VM),
+		Main:      vm,
+		interrupt: make(chan os.Signal, 1),
+		coros:     map[*VM]*VM{vm: nil},
+		start:     make(chan waitpair), // TODO: buffer?
+		pause:     make(chan *VM),
+		finish:    make(chan *VM),
 	}
 	vm.Sched = sched
 	vm.coreInstall("Scheduler", slots, sched, SchedulerTag)
 	go sched.schedule()
+	signal.Notify(sched.interrupt, os.Interrupt)
 }
 
 // Start asks the scheduler to start a coroutine.
@@ -71,11 +84,28 @@ func (s *Scheduler) Finish(coro *VM) {
 	s.finish <- coro
 }
 
+// Exit tells the scheduler to exit, stopping all its coroutines as soon as
+// possible. Main's ExitStatus will be updated to code if this is the first
+// call to Exit.
+func (s *Scheduler) Exit(code int) {
+	s.exit <- code
+}
+
+// reallyExit sends ExitStop to every active coroutine.
+func (s *Scheduler) reallyExit() {
+	s.m.Lock()
+	for a := range s.coros {
+		a.Stop(nil, ExitStop)
+	}
+	s.m.Unlock()
+}
+
 // schedule manages the start, pause, and finish channels and detects deadlocks.
 func (s *Scheduler) schedule() {
 	alive := make(chan bool)
 	defer close(alive)
 	s.Alive = alive
+	s.exit = make(chan int)
 	for len(s.coros) > 0 {
 		select {
 		case w := <-s.start:
@@ -105,6 +135,21 @@ func (s *Scheduler) schedule() {
 				}
 			}
 			s.m.Unlock()
+		case <-s.interrupt:
+			// Spin up a new coroutine to call System userInterruptHandler.
+			sys, ok := s.Main.Core.GetLocalSlot("System")
+			if !ok {
+				// No System means no userInterruptHandler. The safest thing to
+				// do is just exit.
+				fmt.Fprintln(os.Stderr, "iolang: Received interrupt, but System does not exist. Exiting.")
+				s.reallyExit()
+				return
+			}
+			s.Main.NewFuture(sys, s.Main.IdentMessage("userInterruptHandler"))
+		case r := <-s.exit:
+			s.reallyExit()
+			s.Main.ExitStatus = r
+			return
 		}
 	}
 }
