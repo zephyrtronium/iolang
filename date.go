@@ -52,6 +52,7 @@ func (vm *VM) initDate() {
 		"cpuSecondsToRun":   vm.NewCFunction(DateCPUSecondsToRun, nil),
 		"day":               vm.NewCFunction(DateDay, DateTag),
 		"fromNumber":        vm.NewCFunction(DateFromNumber, DateTag),
+		"fromString":        vm.NewCFunction(DateFromString, DateTag),
 		"gmtOffset":         vm.NewCFunction(DateGmtOffset, DateTag),
 		"gmtOffsetSeconds":  vm.NewCFunction(DateGmtOffsetSeconds, DateTag),
 		"hour":              vm.NewCFunction(DateHour, DateTag),
@@ -222,15 +223,29 @@ func DateFromNumber(vm *VM, target, locals *Object, msg *Message) *Object {
 	return target
 }
 
-/* TODO: this. Would like to be locale-aware since our strftime is, but not
-** mandatory because Io isn't.
 // DateFromString is a Date method.
 //
-// fromString creates a date from the given string representation
+// fromString creates a date from the given string representation.
 func DateFromString(vm *VM, target, locals *Object, msg *Message) *Object {
+	str, err, stop := msg.StringArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return vm.Stop(err, stop)
+	}
 
+	// TODO: Get from locale! -DarkerBit
+	const longForm = "Jan 2, 2006 at 3:04pm (MST)"
+
+	v, r := time.Parse(longForm, str)
+	if r != nil {
+		return vm.RaiseExceptionf("argument 0 to - must be a valid date string")
+	}
+
+	target.Lock()
+	target.Value = v
+	target.Unlock()
+
+	return target
 }
-*/
 
 // DateGmtOffset is a Date method.
 //
