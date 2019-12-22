@@ -237,7 +237,7 @@ func DateFromString(vm *VM, target, locals *Object, msg *Message) *Object {
 
 	v, r := time.Parse(longForm, str)
 	if r != nil {
-		return vm.RaiseExceptionf("argument 0 to - must be a valid date string")
+		return vm.RaiseExceptionf("argument 0 to - must be a valid date string (%s)", longForm)
 	}
 
 	target.Lock()
