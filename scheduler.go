@@ -65,8 +65,10 @@ func (vm *VM) initScheduler() {
 	}
 	vm.Sched = sched
 	vm.coreInstall("Scheduler", slots, sched, SchedulerTag)
-	go sched.schedule()
+	ready := make(chan struct{})
+	go sched.schedule(ready)
 	signal.Notify(sched.interrupt, os.Interrupt)
+	<-ready
 }
 
 // Start asks the scheduler to start a coroutine.
@@ -100,12 +102,15 @@ func (s *Scheduler) reallyExit() {
 	s.m.Unlock()
 }
 
-// schedule manages the start, pause, and finish channels and detects deadlocks.
-func (s *Scheduler) schedule() {
+// schedule manages the start, pause, and finish channels and detects
+// deadlocks. The function closes ready immediately before entering its loop to
+// synchronize the Alive and exit channels.
+func (s *Scheduler) schedule(ready chan struct{}) {
 	alive := make(chan bool)
 	defer close(alive)
 	s.Alive = alive
 	s.exit = make(chan int)
+	close(ready)
 	for len(s.coros) > 0 {
 		select {
 		case w := <-s.start:
