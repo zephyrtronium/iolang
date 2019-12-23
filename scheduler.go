@@ -67,30 +67,41 @@ func (vm *VM) initScheduler() {
 	vm.coreInstall("Scheduler", slots, sched, SchedulerTag)
 	ready := make(chan struct{})
 	go sched.schedule(ready)
-	signal.Notify(sched.interrupt, os.Interrupt)
 	<-ready
 }
 
 // Start asks the scheduler to start a coroutine.
 func (s *Scheduler) Start(coro *VM) {
-	s.start <- waitpair{coro, nil}
+	select {
+	case s.start <- waitpair{coro, nil}: // do nothing
+	case <-s.Alive: // do nothing
+	}
 }
 
 // Await tells the scheduler that one coroutine is waiting on another.
 func (s *Scheduler) Await(a, b *VM) {
-	s.start <- waitpair{a, b}
+	select {
+	case s.start <- waitpair{a, b}: // do nothing
+	case <-s.Alive: // do nothing
+	}
 }
 
 // Finish tells the scheduler that a coroutine has finished execution.
 func (s *Scheduler) Finish(coro *VM) {
-	s.finish <- coro
+	select {
+	case s.finish <- coro: // do nothing
+	case <-s.Alive: // do nothing
+	}
 }
 
 // Exit tells the scheduler to exit, stopping all its coroutines as soon as
 // possible. Main's ExitStatus will be updated to code if this is the first
 // call to Exit.
 func (s *Scheduler) Exit(code int) {
-	s.exit <- code
+	select {
+	case s.exit <- code: // do nothing
+	case <-s.Alive: // do nothing
+	}
 }
 
 // reallyExit sends ExitStop to every active coroutine.
@@ -110,6 +121,8 @@ func (s *Scheduler) schedule(ready chan struct{}) {
 	defer close(alive)
 	s.Alive = alive
 	s.exit = make(chan int)
+	signal.Notify(s.interrupt, os.Interrupt)
+	defer signal.Stop(s.interrupt)
 	close(ready)
 	for len(s.coros) > 0 {
 		select {
