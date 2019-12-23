@@ -23,7 +23,7 @@ func main() {
 	vm.MustDoString(`Lobby setSlot("exit", method(Lobby setSlot("isRunning", false)))`)
 
 	stdin := bufio.NewScanner(os.Stdin)
-	for isRunning, _ := vm.Lobby.GetSlot("isRunning"); vm.AsBool(isRunning); isRunning, _ = vm.Lobby.GetSlot("isRunning") {
+	for isRunning, _ := vm.Lobby.GetSlot("isRunning"); vm.IsAlive() && vm.AsBool(isRunning); isRunning, _ = vm.Lobby.GetSlot("isRunning") {
 		p := "io> "
 		ps1, _ := vm.Lobby.GetSlot("ps1")
 		if ps1 != nil {
@@ -53,10 +53,10 @@ func main() {
 				fmt.Println("\t", vm.AsString(x))
 			}
 		}
-		fmt.Println(vm.AsString(x))
 		if !ok || !vm.IsAlive() {
 			break
 		}
+		fmt.Println(vm.AsString(x))
 	}
 	fmt.Println(stdin.Err())
 }
