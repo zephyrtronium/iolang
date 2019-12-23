@@ -1,5 +1,3 @@
-github.com/darkerbit/datesaurus v0.1.0 h1:a6pMdUcJPBxPZ40R2tvxkDRZYZU4ogTEbCc3vtT7lIE=
-github.com/darkerbit/datesaurus v0.1.0/go.mod h1:0GdnR5gE0cFARfpQM85K50FHyeOBfnb1B7nt3anqqXo=
 github.com/zephyrtronium/contains v0.0.0-20190813150354-f7df53f08000 h1:rsL4vYsl1EVDklYnVDq2etRQv7jZtFu2gkv4OzKKFbo=
 github.com/zephyrtronium/contains v0.0.0-20190813150354-f7df53f08000/go.mod h1:9VfULMvEEtBLQ93TyMwEFa2rMZj232ZMs7HA/dx31Eg=
 gitlab.com/variadico/lctime v0.0.0-20190211022338-49aae8a53d11 h1:Ly1b+G8N/HhmtygI9E+LkVZ3LitOpHHyVKbBORfOd7o=
