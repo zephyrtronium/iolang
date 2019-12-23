@@ -237,7 +237,6 @@ func DateFromString(vm *VM, target, locals *Object, msg *Message) *Object {
 		return vm.Stop(err, stop)
 	}
 
-	// I have no idea why the year doesn't work -DarkerBit
 	longDate := time.Date(2006, time.January, 2, 15, 4, 5, 0, time.FixedZone("MST", -7*60*60))
 	longForm := lctime.Strftime(format, longDate)
 
