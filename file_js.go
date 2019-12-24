@@ -8,6 +8,14 @@ import (
 	"time"
 )
 
+// FileGroupID is a File method.
+//
+// groupId returns the group ID owning the file.
+func FileGroupID(vm *VM, target, locals *Object, msg *Message) *Object {
+	// No such thing on Wasm, or at least not readily available.
+	return vm.NewNumber(-1)
+}
+
 // FileLastAccessDate is a File method.
 //
 // lastAccessDate returns the date at which the file was last accessed.
@@ -36,4 +44,12 @@ func FileLastInfoChangeDate(vm *VM, target, locals *Object, msg *Message) *Objec
 	}
 	si := fi.Sys().(*syscall.Stat_t)
 	return vm.NewDate(time.Unix(si.Ctime, si.CtimeNsec))
+}
+
+// FileUserID is a File method.
+//
+// userId returns the user ID owning the file.
+func FileUserID(vm *VM, target, locals *Object, msg *Message) *Object {
+	// No such thing on Wasm, or at least not readily available.
+	return vm.NewNumber(-1)
 }

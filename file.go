@@ -176,8 +176,10 @@ func (vm *VM) initFile() {
 		"write":              vm.NewCFunction(FileWrite, FileTag),
 
 		// Methods with platform-dependent implementations:
+		"groupId":            vm.NewCFunction(FileGroupID, FileTag),
 		"lastAccessDate":     vm.NewCFunction(FileLastAccessDate, FileTag),
 		"lastInfoChangeDate": vm.NewCFunction(FileLastInfoChangeDate, FileTag),
+		"userId":             vm.NewCFunction(FileUserID, FileTag),
 	}
 	slots["descriptorId"] = slots["descriptor"]
 	vm.coreInstall("File", slots, File{}, FileTag)
