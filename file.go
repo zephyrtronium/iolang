@@ -131,7 +131,6 @@ func (f File) ReadLine() (line []byte, eof bool, err error) {
 
 func (vm *VM) initFile() {
 	slots := Slots{
-		"asBuffer":           vm.NewCFunction(FileAsBuffer, FileTag),
 		"at":                 vm.NewCFunction(FileAt, FileTag),
 		"atPut":              vm.NewCFunction(FileAtPut, FileTag),
 		"close":              vm.NewCFunction(FileClose, FileTag),
@@ -182,6 +181,7 @@ func (vm *VM) initFile() {
 		"lastInfoChangeDate": vm.NewCFunction(FileLastInfoChangeDate, FileTag),
 		"userId":             vm.NewCFunction(FileUserID, FileTag),
 	}
+	slots["asBuffer"] = slots["contents"]
 	slots["descriptorId"] = slots["descriptor"]
 	vm.coreInstall("File", slots, File{}, FileTag)
 
@@ -193,20 +193,6 @@ func (vm *VM) initFile() {
 	slots["standardInput"] = stdin
 	slots["standardOutput"] = stdout
 	slots["standardError"] = stderr
-}
-
-// FileAsBuffer is a File method.
-//
-// asBuffer reads the contents of the file into a Sequence.
-func FileAsBuffer(vm *VM, target, locals *Object, msg *Message) *Object {
-	target.Lock()
-	f := target.Value.(File)
-	target.Unlock()
-	b, err := ioutil.ReadFile(f.Path)
-	if err != nil {
-		return vm.IoError(err)
-	}
-	return vm.NewSequence(b, true, "utf8")
 }
 
 // FileAt is a File method.
@@ -268,6 +254,9 @@ func FileClose(vm *VM, target, locals *Object, msg *Message) *Object {
 			return vm.IoError(err)
 		}
 		f.File = nil
+		target.Lock()
+		target.Value = f.File
+		target.Unlock()
 	}
 	return target
 }
@@ -381,6 +370,9 @@ func FileForeach(vm *VM, target, locals *Object, msg *Message) (result *Object) 
 			}
 			if err == io.EOF {
 				f.EOF = true
+				target.Lock()
+				target.Value = f
+				target.Unlock()
 				break
 			}
 			if err != nil {
@@ -396,6 +388,9 @@ func FileForeach(vm *VM, target, locals *Object, msg *Message) (result *Object) 
 			if err != nil {
 				if err == io.EOF {
 					f.EOF = true
+					target.Lock()
+					target.Value = f
+					target.Unlock()
 					break
 				}
 				return vm.IoError(err)
@@ -902,6 +897,9 @@ func FileReadToBufferLength(vm *VM, target, locals *Object, msg *Message) *Objec
 			return vm.IoError(err)
 		}
 		f.EOF = true
+		target.Lock()
+		target.Value = f
+		target.Unlock()
 	}
 	b = b[:(k+is-1)/is*is]
 	x := vm.SequenceFromBytes(b, kind)
