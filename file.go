@@ -166,6 +166,7 @@ func (vm *VM) initFile() {
 		"readStringOfLength": vm.NewCFunction(FileReadStringOfLength, FileTag),
 		"readToBufferLength": vm.NewCFunction(FileReadToBufferLength, FileTag),
 		"readToEnd":          vm.NewCFunction(FileReadToEnd, FileTag),
+		"remove":             vm.NewCFunction(FileRemove, FileTag),
 		"rewind":             vm.NewCFunction(FileRewind, FileTag),
 		"setPath":            vm.NewCFunction(FileSetPath, FileTag),
 		"setPosition":        vm.NewCFunction(FileSetPosition, FileTag),
