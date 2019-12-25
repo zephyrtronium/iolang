@@ -334,6 +334,7 @@ func (vm *VM) initObject() {
 		"shallowCopy":          vm.NewCFunction(ObjectShallowCopy, nil),
 		"slotNames":            vm.NewCFunction(ObjectSlotNames, nil),
 		"slotValues":           vm.NewCFunction(ObjectSlotValues, nil),
+		"stopStatus":           vm.NewCFunction(ObjectStopStatus, nil),
 		"thisContext":          vm.NewCFunction(ObjectThisContext, nil),
 		"thisLocalContext":     vm.NewCFunction(ObjectThisLocalContext, nil),
 		"thisMessage":          vm.NewCFunction(ObjectThisMessage, nil),
@@ -1157,6 +1158,30 @@ func ObjectShallowCopy(vm *VM, target, locals *Object, msg *Message) *Object {
 		slots[slot] = value
 	}
 	return vm.ObjectWith(slots, protos, nil, nil)
+}
+
+// ObjectStopStatus is an Object method.
+//
+// stopStatus returns the object associated with the control flow status
+// returned when evaluating the argument message. Exceptions continue
+// propagating.
+func ObjectStopStatus(vm *VM, target, locals *Object, msg *Message) *Object {
+	r, stop := msg.EvalArgAt(vm, locals, 0)
+	switch stop {
+	case NoStop:
+		r, _ = vm.Core.GetLocalSlot("Normal")
+	case ContinueStop:
+		r, _ = vm.Core.GetLocalSlot("Continue")
+	case BreakStop:
+		r, _ = vm.Core.GetLocalSlot("Break")
+	case ReturnStop:
+		r, _ = vm.Core.GetLocalSlot("Return")
+	case ExceptionStop, ExitStop:
+		return vm.Stop(r, stop)
+	default:
+		panic(fmt.Errorf("iolang: invalid Stop: %w", stop.Err()))
+	}
+	return r
 }
 
 // ObjectThisContext is an Object method.

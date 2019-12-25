@@ -211,6 +211,7 @@ func TestObjectSlots(t *testing.T) {
 		"slotNames",
 		"slotSummary",
 		"slotValues",
+		"stopStatus",
 		"super",
 		"switch",
 		"thisContext",
