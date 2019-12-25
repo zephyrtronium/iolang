@@ -1,7 +1,9 @@
 File do(
 	with := method(p, self clone setPath(p))
 
+	streamDestination ::= nil
 	streamReadSize := 65536
+	startStreaming := method(streamTo(streamDestination))
 	streamTo := method(dst,
 		b := Sequence clone
 		open
@@ -42,13 +44,17 @@ File do(
 		close
 	)
 
+	stat := method(self size; self)
+
 	create := method(if(open, close, nil))
 
-	// This won't work until Sequence split exists.
 	baseName := method(name split(".") slice(0, -1) join("."))
 
 	thisSourceFile := method(File with(call message label))
 
-	// This won't work until Sequence pathComponent exists.
-	parentDirectory := method(Directory with(path pathComponent))
+	containingDirectory := parentDirectory := method(Directory with(path pathComponent))
+
+	// These are meaningless without popen.
+	exitStatus := nil
+	termSignal := nil
 )
