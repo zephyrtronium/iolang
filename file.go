@@ -165,6 +165,7 @@ func (vm *VM) initFile() {
 		"readLine":           vm.NewCFunction(FileReadLine, FileTag),
 		"readLines":          vm.NewCFunction(FileReadLines, FileTag),
 		"readStringOfLength": vm.NewCFunction(FileReadStringOfLength, FileTag),
+		"readToBufferLength": vm.NewCFunction(FileReadToBufferLength, FileTag),
 		"readToEnd":          vm.NewCFunction(FileReadToEnd, FileTag),
 		"rewind":             vm.NewCFunction(FileRewind, FileTag),
 		"setPath":            vm.NewCFunction(FileSetPath, FileTag),
@@ -865,6 +866,47 @@ func FileReadStringOfLength(vm *VM, target, locals *Object, msg *Message) *Objec
 		target.Unlock()
 	}
 	return vm.Nil
+}
+
+// FileReadToBufferLength is a File method.
+//
+// readToBufferLength reads the number of items given in the second argument
+// and appends them to the sequence given in the first. Returns the number of
+// elements actually read.
+func FileReadToBufferLength(vm *VM, target, locals *Object, msg *Message) *Object {
+	seq, obj, stop := msg.SequenceArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return vm.Stop(obj, stop)
+	}
+	n, exc, stop := msg.NumberArgAt(vm, locals, 1)
+	if stop != NoStop {
+		return vm.Stop(exc, stop)
+	}
+	if n < 0 {
+		return vm.RaiseExceptionf("cannot read negative elements")
+	}
+	target.Lock()
+	defer target.Unlock()
+	f := target.Value.(File)
+	obj.Lock()
+	defer obj.Unlock()
+	if err := seq.CheckMutable("File readToBufferLength"); err != nil {
+		return vm.IoError(err)
+	}
+	kind := seq.Kind()
+	is := kind.ItemSize()
+	b := make([]byte, int(n)*is)
+	k, err := f.File.Read(b)
+	if err != nil {
+		if err != io.EOF {
+			return vm.IoError(err)
+		}
+		f.EOF = true
+	}
+	b = b[:(k+is-1)/is*is]
+	x := vm.SequenceFromBytes(b, kind)
+	obj.Value = seq.Append(x)
+	return vm.NewNumber(float64(len(b) / is))
 }
 
 // FileReadToEnd is a File method.
