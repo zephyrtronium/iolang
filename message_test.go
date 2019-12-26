@@ -85,6 +85,7 @@ func BenchmarkPerform(b *testing.B) {
 	p := vm.BaseObject.Clone()
 	nm := vm.IdentMessage("type")
 	cm := vm.IdentMessage("thisContext")
+	am := vm.IdentMessage("clone")
 	cases := map[string]*Object{
 		"Local":    vm.BaseObject,
 		"Proto":    p,
@@ -106,8 +107,52 @@ func BenchmarkPerform(b *testing.B) {
 					BenchDummy, _ = vm.Perform(o, o, cm)
 				}
 			})
+			b.Run("Clone", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					BenchDummy, _ = vm.Perform(o, o, am)
+				}
+			})
 		})
 	}
+}
+
+func BenchmarkPerformParallel(b *testing.B) {
+	vm := TestingVM()
+	o := vm.BaseObject.Clone().Clone().Clone().Clone().Clone().Clone().Clone().Clone().Clone().Clone().Clone()
+	p := vm.BaseObject.Clone()
+	m := vm.IdentMessage("type")
+	cases := map[string]*Object{
+		"Local":    vm.BaseObject,
+		"Proto":    p,
+		"Ancestor": o,
+	}
+	for name, o := range cases {
+		b.Run(name, func(b *testing.B) {
+			b.RunParallel(func(pb *testing.PB) {
+				// Make a new coroutine to execute messages.
+				coro := vm.VMFor(vm.Coro.Clone())
+				for pb.Next() {
+					BenchDummy, _ = coro.Perform(o, o, m)
+				}
+			})
+		})
+	}
+}
+
+func BenchmarkEvalParallel(b *testing.B) {
+	vm := TestingVM()
+	m, err := vm.Parse(strings.NewReader(`benchmarkValue := benchmarkValue + 1`), "BenchmarkPerformParallel")
+	if err != nil {
+		panic(err)
+	}
+	vm.Lobby.SetSlot("benchmarkValue", vm.NewNumber(0))
+	defer vm.Lobby.RemoveSlot("benchmarkValue")
+	b.RunParallel(func(pb *testing.PB) {
+		coro := vm.VMFor(vm.Coro.Clone())
+		for pb.Next() {
+			BenchDummy, _ = m.Eval(coro, coro.Lobby)
+		}
+	})
 }
 
 // TestPerformNilResult tests that VM.Perform always converts nil to VM.Nil.
