@@ -248,15 +248,15 @@ func (m *Message) SeqOrNumArgAt(vm *VM, locals *Object, n int) (Sequence, float6
 // **= sets each element of the receiver to its value raised to the power of the
 // respective element of the argument.
 func SequenceStarStarEq(vm *VM, target, locals *Object, msg *Message) *Object {
-	s := lockSeq(target)
-	if err := s.CheckNumeric("**=", true); err != nil {
-		unholdSeq(true, target)
-		return vm.IoError(err)
-	}
 	t, n, obj, stop := msg.SeqOrNumArgAt(vm, locals, 0)
 	if stop != NoStop {
 		unholdSeq(true, target)
 		return vm.Stop(obj, stop)
+	}
+	s := lockSeq(target)
+	if err := s.CheckNumeric("**=", true); err != nil {
+		unholdSeq(true, target)
+		return vm.IoError(err)
 	}
 	if t.Value != nil {
 		if t.IsMutable() {
@@ -278,15 +278,15 @@ func SequenceStarStarEq(vm *VM, target, locals *Object, msg *Message) *Object {
 // *= sets each element of the receiver to its value times the respective
 // element of the argument.
 func SequenceStarEq(vm *VM, target, locals *Object, msg *Message) *Object {
-	s := lockSeq(target)
-	if err := s.CheckNumeric("*=", true); err != nil {
-		unholdSeq(true, target)
-		return vm.IoError(err)
-	}
 	t, n, obj, stop := msg.SeqOrNumArgAt(vm, locals, 0)
 	if stop != NoStop {
 		unholdSeq(true, target)
 		return vm.Stop(obj, stop)
+	}
+	s := lockSeq(target)
+	if err := s.CheckNumeric("*=", true); err != nil {
+		unholdSeq(true, target)
+		return vm.IoError(err)
 	}
 	if t.Value != nil {
 		if t.IsMutable() {
@@ -308,15 +308,15 @@ func SequenceStarEq(vm *VM, target, locals *Object, msg *Message) *Object {
 // += sets each element of the receiver to its value plus the respective
 // element of the argument.
 func SequencePlusEq(vm *VM, target, locals *Object, msg *Message) *Object {
-	s := lockSeq(target)
-	if err := s.CheckNumeric("+=", true); err != nil {
-		unholdSeq(true, target)
-		return vm.IoError(err)
-	}
 	t, n, obj, stop := msg.SeqOrNumArgAt(vm, locals, 0)
 	if stop != NoStop {
 		unholdSeq(true, target)
 		return vm.Stop(obj, stop)
+	}
+	s := lockSeq(target)
+	if err := s.CheckNumeric("+=", true); err != nil {
+		unholdSeq(true, target)
+		return vm.IoError(err)
 	}
 	if t.Value != nil {
 		if t.IsMutable() {
@@ -338,15 +338,15 @@ func SequencePlusEq(vm *VM, target, locals *Object, msg *Message) *Object {
 // -= sets each element of the receiver to its value minus the respective
 // element of the argument.
 func SequenceMinusEq(vm *VM, target, locals *Object, msg *Message) *Object {
-	s := lockSeq(target)
-	if err := s.CheckNumeric("-=", true); err != nil {
-		unholdSeq(true, target)
-		return vm.IoError(err)
-	}
 	t, n, obj, stop := msg.SeqOrNumArgAt(vm, locals, 0)
 	if stop != NoStop {
 		unholdSeq(true, target)
 		return vm.Stop(obj, stop)
+	}
+	s := lockSeq(target)
+	if err := s.CheckNumeric("-=", true); err != nil {
+		unholdSeq(true, target)
+		return vm.IoError(err)
 	}
 	if t.Value != nil {
 		if t.IsMutable() {
@@ -368,15 +368,15 @@ func SequenceMinusEq(vm *VM, target, locals *Object, msg *Message) *Object {
 // /= sets each element of the receiver to its value divided by the respective
 // element of the argument.
 func SequenceSlashEq(vm *VM, target, locals *Object, msg *Message) *Object {
-	s := lockSeq(target)
-	if err := s.CheckNumeric("/=", true); err != nil {
-		unholdSeq(true, target)
-		return vm.IoError(err)
-	}
 	t, n, obj, stop := msg.SeqOrNumArgAt(vm, locals, 0)
 	if stop != NoStop {
 		unholdSeq(true, target)
 		return vm.Stop(obj, stop)
+	}
+	s := lockSeq(target)
+	if err := s.CheckNumeric("/=", true); err != nil {
+		unholdSeq(true, target)
+		return vm.IoError(err)
 	}
 	if t.Value != nil {
 		if t.IsMutable() {
@@ -398,15 +398,15 @@ func SequenceSlashEq(vm *VM, target, locals *Object, msg *Message) *Object {
 // Max sets each element of the receiver to the greater of the receiver element
 // and the respective argument element.
 func SequencePairwiseMax(vm *VM, target, locals *Object, msg *Message) *Object {
-	s := lockSeq(target)
-	if err := s.CheckNumeric("Max", true); err != nil {
-		unholdSeq(true, target)
-		return vm.IoError(err)
-	}
 	t, obj, stop := msg.SequenceArgAt(vm, locals, 0)
 	if stop != NoStop {
 		unholdSeq(true, target)
 		return vm.Stop(obj, stop)
+	}
+	s := lockSeq(target)
+	if err := s.CheckNumeric("Max", true); err != nil {
+		unholdSeq(true, target)
+		return vm.IoError(err)
 	}
 	if t.IsMutable() {
 		obj.Lock()
@@ -424,15 +424,15 @@ func SequencePairwiseMax(vm *VM, target, locals *Object, msg *Message) *Object {
 // Min sets each element of the receiver to the lesser of the receiver element
 // and the respective argument element.
 func SequencePairwiseMin(vm *VM, target, locals *Object, msg *Message) *Object {
-	s := lockSeq(target)
-	if err := s.CheckNumeric("Min", true); err != nil {
-		unholdSeq(true, target)
-		return vm.IoError(err)
-	}
 	t, obj, stop := msg.SequenceArgAt(vm, locals, 0)
 	if stop != NoStop {
 		unholdSeq(true, target)
 		return vm.Stop(obj, stop)
+	}
+	s := lockSeq(target)
+	if err := s.CheckNumeric("Min", true); err != nil {
+		unholdSeq(true, target)
+		return vm.IoError(err)
 	}
 	if t.IsMutable() {
 		obj.Lock()
@@ -616,15 +616,15 @@ func SequenceBitCount(vm *VM, target, locals *Object, msg *Message) *Object {
 // bitwiseAnd sets the receiver to the bitwise AND of its binary representation
 // and that of the argument sequence.
 func SequenceBitwiseAnd(vm *VM, target, locals *Object, msg *Message) *Object {
-	s := lockSeq(target)
-	if err := s.CheckMutable("bitwiseAnd"); err != nil {
-		unholdSeq(true, target)
-		return vm.IoError(err)
-	}
 	other, obj, stop := msg.SequenceArgAt(vm, locals, 0)
 	if stop != NoStop {
 		unholdSeq(true, target)
 		return vm.Stop(obj, stop)
+	}
+	s := lockSeq(target)
+	if err := s.CheckMutable("bitwiseAnd"); err != nil {
+		unholdSeq(true, target)
+		return vm.IoError(err)
 	}
 	v := s.Bytes()
 	if other.IsMutable() {
@@ -678,15 +678,15 @@ func SequenceBitwiseNot(vm *VM, target, locals *Object, msg *Message) *Object {
 // bitwiseOr sets the receiver to the bitwise OR of its binary representation
 // and that of the argument sequence.
 func SequenceBitwiseOr(vm *VM, target, locals *Object, msg *Message) *Object {
-	s := lockSeq(target)
-	if err := s.CheckMutable("bitwiseOr"); err != nil {
-		unholdSeq(true, target)
-		return vm.IoError(err)
-	}
 	other, obj, stop := msg.SequenceArgAt(vm, locals, 0)
 	if stop != NoStop {
 		unholdSeq(true, target)
 		return vm.Stop(obj, stop)
+	}
+	s := lockSeq(target)
+	if err := s.CheckMutable("bitwiseOr"); err != nil {
+		unholdSeq(true, target)
+		return vm.IoError(err)
 	}
 	v := s.Bytes()
 	if other.IsMutable() {
@@ -716,15 +716,15 @@ func SequenceBitwiseOr(vm *VM, target, locals *Object, msg *Message) *Object {
 // bitwiseXor sets the receiver to the bitwise XOR of its binary representation
 // and that of the argument sequence.
 func SequenceBitwiseXor(vm *VM, target, locals *Object, msg *Message) *Object {
-	s := lockSeq(target)
-	if err := s.CheckMutable("bitwiseXor"); err != nil {
-		unholdSeq(true, target)
-		return vm.IoError(err)
-	}
 	other, obj, stop := msg.SequenceArgAt(vm, locals, 0)
 	if stop != NoStop {
 		unholdSeq(true, target)
 		return vm.Stop(obj, stop)
+	}
+	s := lockSeq(target)
+	if err := s.CheckMutable("bitwiseXor"); err != nil {
+		unholdSeq(true, target)
+		return vm.IoError(err)
 	}
 	v := s.Bytes()
 	if other.IsMutable() {
@@ -800,12 +800,12 @@ func SequenceCosh(vm *VM, target, locals *Object, msg *Message) *Object {
 // and the argument sequence. Both sequences must be of the same floating-point
 // type and of equal size; otherwise, the result will be 0.
 func SequenceDistanceTo(vm *VM, target, locals *Object, msg *Message) *Object {
-	x := holdSeq(target)
-	defer unholdSeq(x.Mutable, target)
 	y, obj, stop := msg.SequenceArgAt(vm, locals, 0)
 	if stop != NoStop {
 		return vm.Stop(obj, stop)
 	}
+	x := holdSeq(target)
+	defer unholdSeq(x.Mutable, target)
 	if y.IsMutable() {
 		obj.Lock()
 		defer obj.Unlock()
@@ -845,12 +845,12 @@ func SequenceDistanceTo(vm *VM, target, locals *Object, msg *Message) *Object {
 // dotProduct computes the sum of pairwise products between the receiver and
 // argument sequence, up to the length of the shorter of the two.
 func SequenceDotProduct(vm *VM, target, locals *Object, msg *Message) *Object {
-	s := holdSeq(target)
 	other, obj, stop := msg.SequenceArgAt(vm, locals, 0)
 	if stop != NoStop {
 		unholdSeq(true, target)
 		return vm.Stop(obj, stop)
 	}
+	s := holdSeq(target)
 	// The original required the receiver to be mutable for no reason, but we
 	// don't. It /would/ be reasonable to require number encoding, but the
 	// original doesn't, and I'm sufficiently comfortable with that.
