@@ -199,22 +199,31 @@ Object do(
 	)
 )
 
+true do(
+	ifTrue := Object getSlot("evalArgAndReturnSelf")
+	then := Object getSlot("evalArgAndReturnNil")
+	justSerialized := method(stream, stream write("true"))
+)
+
 false do(
+	ifFalse := Object getSlot("evalArgAndReturnSelf")
+	else := Object getSlot("evalArgAndReturnNil")
+	elseif := Object getSlot("if")
 	setSlot("or",  method(v, v isTrue))
 	asBoolean := false
 	justSerialized := method(stream, stream write("false"))
 )
 
 nil do(
+	ifNil := Object getSlot("evalArgAndReturnSelf")
+	ifNilEval := Object getSlot("evalArg")
+	ifNonNil := nil
+	ifNonNilEval := nil
 	setSlot("or",  method(v, v isTrue))
 	catch := nil
 	pass := nil
 	asBoolean := nil
 	justSerialized := method(stream, stream write("nil"))
-)
-
-true do(
-	justSerialized := method(stream, stream write("true"))
 )
 
 SerializationStream := Object clone do(

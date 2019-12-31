@@ -155,7 +155,7 @@ func (s *Scheduler) schedule(ready chan struct{}) {
 			s.m.Unlock()
 		case <-s.interrupt:
 			// Spin up a new coroutine to call System userInterruptHandler.
-			sys, ok := s.Main.Core.GetLocalSlot("System")
+			sys, ok := s.Main.GetLocalSlot(s.Main.Core, "System")
 			if !ok {
 				// No System means no userInterruptHandler. The safest thing to
 				// do is just exit.

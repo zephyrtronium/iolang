@@ -13,9 +13,9 @@ func TestLazyOptable(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c, func(t *testing.T) {
 			t.Run("Remove", func(t *testing.T) {
-				vm.Operators.RemoveSlot(c)
+				vm.RemoveSlot(vm.Operators, c)
 				vm.Parse(strings.NewReader("Lobby"), "TestLazyOptable")
-				r, proto := vm.Operators.GetSlot(c)
+				r, proto := vm.GetSlot(vm.Operators, c)
 				if proto == nil {
 					t.Fatalf("OperatorTable missing %s after parsing", c)
 				}
@@ -24,9 +24,9 @@ func TestLazyOptable(t *testing.T) {
 				}
 			})
 			t.Run("Change", func(t *testing.T) {
-				vm.Operators.SetSlot(c, vm.Nil)
+				vm.SetSlot(vm.Operators, c, vm.Nil)
 				vm.Parse(strings.NewReader("Lobby"), "TestLazyOptable")
-				r, proto := vm.Operators.GetSlot(c)
+				r, proto := vm.GetSlot(vm.Operators, c)
 				if proto == nil {
 					t.Fatalf("OperatorTable missing %s after parsing", c)
 				}
@@ -132,8 +132,8 @@ func TestOptableErrors(t *testing.T) {
 		"BadAssignOp":    "x <>< y",
 		"BadOp":          "x $ y",
 	}
-	ops, _ := vm.Operators.GetSlot("operators")
-	asgn, _ := vm.Operators.GetSlot("assignOperators")
+	ops, _ := vm.GetSlot(vm.Operators, "operators")
+	asgn, _ := vm.GetSlot(vm.Operators, "assignOperators")
 	ops.Value.(map[string]*Object)["$"] = vm.Nil
 	asgn.Value.(map[string]*Object)["<><"] = vm.Nil
 	for name, c := range cases {

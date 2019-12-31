@@ -14,7 +14,7 @@ import (
 func main() {
 	vm := iolang.NewVM(os.Args[1:]...)
 	setupStaticAddons(vm)
-	vm.Lobby.SetSlots(iolang.Slots{
+	vm.SetSlots(vm.Lobby, iolang.Slots{
 		"ps1":       vm.NewString("io> "),
 		"ps2":       vm.NewString("... "),
 		"isRunning": vm.True,
@@ -23,9 +23,9 @@ func main() {
 	vm.MustDoString(`Lobby setSlot("exit", method(Lobby setSlot("isRunning", false)))`)
 
 	stdin := bufio.NewScanner(os.Stdin)
-	for isRunning, _ := vm.Lobby.GetSlot("isRunning"); vm.IsAlive() && vm.AsBool(isRunning); isRunning, _ = vm.Lobby.GetSlot("isRunning") {
+	for isRunning, _ := vm.GetSlot(vm.Lobby, "isRunning"); vm.IsAlive() && vm.AsBool(isRunning); isRunning, _ = vm.GetSlot(vm.Lobby, "isRunning") {
 		p := "io> "
-		ps1, _ := vm.Lobby.GetSlot("ps1")
+		ps1, _ := vm.GetSlot(vm.Lobby, "ps1")
 		if ps1 != nil {
 			s, ok := ps1.Value.(iolang.Sequence)
 			if ok {

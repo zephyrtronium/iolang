@@ -189,8 +189,8 @@ func (vm *VM) initFile() {
 	stdin := vm.NewFile(os.Stdin, "read")
 	stdout := vm.NewFile(os.Stdout, "")
 	stderr := vm.NewFile(os.Stderr, "")
-	stdout.SetSlot("mode", vm.Nil)
-	stderr.SetSlot("mode", vm.Nil)
+	vm.SetSlot(stdout, "mode", vm.Nil)
+	vm.SetSlot(stderr, "mode", vm.Nil)
 	slots["standardInput"] = stdin
 	slots["standardOutput"] = stdout
 	slots["standardError"] = stderr
@@ -351,9 +351,9 @@ func FileForeach(vm *VM, target, locals *Object, msg *Message) (result *Object) 
 			for _, c := range b[:n] {
 				v := vm.NewNumber(float64(c))
 				if hvn {
-					locals.SetSlot(vn, v)
+					vm.SetSlot(locals, vn, v)
 					if hkn {
-						locals.SetSlot(kn, vm.NewNumber(float64(k)))
+						vm.SetSlot(locals, kn, vm.NewNumber(float64(k)))
 					}
 				}
 				result, control = ev.Send(vm, v, locals)
@@ -398,9 +398,9 @@ func FileForeach(vm *VM, target, locals *Object, msg *Message) (result *Object) 
 			}
 			v := vm.NewNumber(float64(b[0]))
 			if hvn {
-				locals.SetSlot(vn, v)
+				vm.SetSlot(locals, vn, v)
 				if hkn {
-					locals.SetSlot(kn, vm.NewNumber(float64(k)))
+					vm.SetSlot(locals, kn, vm.NewNumber(float64(k)))
 				}
 			}
 			result, control = ev.Send(vm, v, locals)
@@ -443,9 +443,9 @@ func FileForeachLine(vm *VM, target, locals *Object, msg *Message) (result *Obje
 		if line != nil {
 			v := vm.NewSequence(line, true, "latin1")
 			if hvn {
-				locals.SetSlot(vn, v)
+				vm.SetSlot(locals, vn, v)
 				if hkn {
-					locals.SetSlot(kn, vm.NewNumber(float64(k)))
+					vm.SetSlot(locals, kn, vm.NewNumber(float64(k)))
 				}
 			}
 			result, control = ev.Send(vm, v, locals)

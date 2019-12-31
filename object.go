@@ -11,9 +11,6 @@ import (
 	"github.com/zephyrtronium/contains"
 )
 
-// Slots holds the set of messages to which an object responds.
-type Slots = map[string]*Object
-
 // Object is the basic type of Io. Everything is an Object.
 //
 // Always use NewObject, ObjectWith, or a type-specific constructor to obtain
@@ -23,8 +20,8 @@ type Object struct {
 	// the object, or the value of the object if it is or may be mutable.
 	sync.Mutex
 
-	// Slots is the set of messages to which this object responds.
-	Slots Slots
+	// slots is the set of messages to which this object responds.
+	slots actualSlots
 	// Protos are the set of objects to which messages are forwarded, in
 	// depth-first order without duplicates, when this object cannot respond.
 	Protos []*Object
@@ -33,11 +30,6 @@ type Object struct {
 	Value interface{}
 	// tag is the type indicator of the object.
 	tag Tag
-
-	// protoSet is the set of protos checked during GetSlot.
-	protoSet contains.Set
-	// protoStack is the stack of protos to check during GetSlot.
-	protoStack []*Object
 
 	// id is the object's unique ID.
 	id uintptr
@@ -63,7 +55,7 @@ type Tag interface {
 func (o *Object) Activate(vm *VM, target, locals, context *Object, msg *Message) *Object {
 	if o.Tag() == nil {
 		// Basic object. Check the isActivatable slot.
-		ok, proto := o.GetSlot("isActivatable")
+		ok, proto := vm.GetSlot(o, "isActivatable")
 		// We can't use vm.AsBool even though it's one of the few situations
 		// where we'd want to, because it will attempt to activate the
 		// asBoolean slot, which is typically a plain object, which will
@@ -71,7 +63,7 @@ func (o *Object) Activate(vm *VM, target, locals, context *Object, msg *Message)
 		if proto == nil || ok == vm.False || ok == vm.Nil {
 			return o
 		}
-		act, proto := o.GetSlot("activate")
+		act, proto := vm.GetSlot(o, "activate")
 		if proto != nil {
 			return act.Activate(vm, target, locals, context, msg)
 		}
@@ -97,108 +89,6 @@ func (o *Object) Clone() *Object {
 		tag:    o.Tag(),
 		id:     nextObject(),
 	}
-}
-
-// GetSlot checks the object and its ancestors in depth-first order without
-// cycles for a slot, returning the slot value and the proto which had it.
-// proto is nil if and only if the slot was not found. This method acquires the
-// object's lock, as well as the lock of each ancestor in turn.
-func (o *Object) GetSlot(slot string) (value, proto *Object) {
-	if o == nil {
-		return nil, nil
-	}
-	// An object can have slots checked from multiple coroutines, so we need to
-	// hold the lock the entire time we might be modifying its protoStack and
-	// protoSet. This means we need to check its local slots outside the main
-	// loop, which might make some programs faster anyway.
-	o.Lock()
-	if o.Slots != nil {
-		if r, ok := o.Slots[slot]; ok {
-			o.Unlock()
-			return r, o
-		}
-	}
-	o.protoSet.Add(o.UniqueID())
-	for i := len(o.Protos) - 1; i >= 0; i-- {
-		if p := o.Protos[i]; o.protoSet.Add(p.UniqueID()) {
-			o.protoStack = append(o.protoStack, p)
-		}
-	}
-	// Recursion is easy, but it can cause deadlocks, since we need to hold
-	// each proto's lock to check its respective protos. This stack-based
-	// approach is a bit messy, but it allows us to hold each ancestor's lock
-	// only while grabbing its (current) protos.
-	for len(o.protoStack) > 0 {
-		rp := o.protoStack[len(o.protoStack)-1] // grab the top
-		rp.Lock()
-		if rp.Slots != nil {
-			if r, ok := rp.Slots[slot]; ok {
-				rp.Unlock()
-				o.protoSet.Reset()
-				o.protoStack = o.protoStack[:0]
-				o.Unlock()
-				return r, rp
-			}
-		}
-		o.protoStack = o.protoStack[:len(o.protoStack)-1] // actually pop
-		for i := len(rp.Protos) - 1; i >= 0; i-- {
-			if p := rp.Protos[i]; o.protoSet.Add(p.UniqueID()) {
-				o.protoStack = append(o.protoStack, p)
-			}
-		}
-		rp.Unlock()
-	}
-	o.protoSet.Reset()
-	o.Unlock()
-	return nil, nil
-}
-
-// GetLocalSlot checks only the object's own slots for a slot.
-func (o *Object) GetLocalSlot(slot string) (value *Object, ok bool) {
-	if o == nil {
-		return nil, false
-	}
-	o.Lock()
-	if o.Slots == nil {
-		o.Unlock()
-		return nil, false
-	}
-	value, ok = o.Slots[slot]
-	o.Unlock()
-	return value, ok
-}
-
-// SetSlot sets a local slot's value.
-func (o *Object) SetSlot(slot string, value *Object) {
-	o.Lock()
-	if o.Slots == nil {
-		o.Slots = Slots{}
-	}
-	o.Slots[slot] = value
-	o.Unlock()
-}
-
-// SetSlots sets multiple slots more efficiently than using SetSlot for each.
-func (o *Object) SetSlots(slots Slots) {
-	o.Lock()
-	if o.Slots == nil {
-		o.Slots = Slots{}
-	}
-	for slot, value := range slots {
-		o.Slots[slot] = value
-	}
-	o.Unlock()
-}
-
-// RemoveSlot removes slots from the object's local slots, if they are present.
-func (o *Object) RemoveSlot(slots ...string) {
-	o.Lock()
-	if o.Slots != nil {
-		for _, slot := range slots {
-			delete(o.Slots, slot)
-		}
-	}
-	o.Unlock()
 }
 
 // IsKindOf evaluates whether the object has kind as any of its ancestors, or
@@ -355,8 +245,8 @@ func (vm *VM) initObject() {
 	slots["returnIfError"] = slots["thisContext"]
 	slots["returnIfNonNil"] = slots["return"]
 	slots["uniqueHexId"] = slots["uniqueId"]
-	vm.BaseObject.Slots = slots
-	vm.Core.SetSlot("Object", vm.BaseObject)
+	vm.SetSlots(vm.BaseObject, slots)
+	vm.SetSlot(vm.Core, "Object", vm.BaseObject)
 }
 
 // ObjectWith creates a new object with the given slots, protos, value, and
@@ -365,30 +255,32 @@ func (vm *VM) ObjectWith(slots Slots, protos []*Object, value interface{}, tag T
 	if protos == nil {
 		protos = []*Object{}
 	}
-	return &Object{
-		Slots:  slots,
+	r := &Object{
 		Protos: protos,
 		Value:  value,
 		tag:    tag,
 		id:     nextObject(),
 	}
+	vm.definitelyNewSlots(r, slots)
+	return r
 }
 
 // NewObject creates a new object with the given slots and with the VM's
 // Core Object as its proto.
 func (vm *VM) NewObject(slots Slots) *Object {
-	return &Object{
-		Slots:  slots,
+	r := &Object{
 		Protos: []*Object{vm.BaseObject},
 		id:     nextObject(),
 	}
+	vm.definitelyNewSlots(r, slots)
+	return r
 }
 
 // TypeName gets the name of the type of an object by activating its type slot.
 // If there is no such slot, then its tag's name will be returned; if its tag
 // is nil, then its name is Object.
 func (vm *VM) TypeName(o *Object) string {
-	if typ, proto := o.GetSlot("type"); proto != nil {
+	if typ, proto := vm.GetSlot(o, "type"); proto != nil {
 		return vm.AsString(typ)
 	}
 	if o.Tag() != nil {
@@ -397,32 +289,13 @@ func (vm *VM) TypeName(o *Object) string {
 	return "Object"
 }
 
-// SimpleActivate activates an object using the identifier message named with
-// text and with the given arguments. Any control flow signals sent while
-// activating the object are consumed and ignored. (Normally, the value paired
-// with a stop is the returned result from any CFunction; this behavior should
-// only make a difference if an Exception value is the result, or if the
-// control flow is sent from a different coroutine.)
-func (vm *VM) SimpleActivate(o, self, locals *Object, text string, args ...*Object) *Object {
-	a := make([]*Message, len(args))
-	for i, arg := range args {
-		a[i] = vm.CachedMessage(arg)
-	}
-	result := o.Activate(vm, self, locals, self, vm.IdentMessage(text, a...))
-	select {
-	case <-vm.Control: // do nothing
-	default: // do nothing
-	}
-	return result
-}
-
 // ObjectClone is an Object method.
 //
 // clone creates a new object with empty slots and the cloned object as its
 // proto.
 func ObjectClone(vm *VM, target, locals *Object, msg *Message) *Object {
 	clone := target.Clone()
-	if init, proto := target.GetSlot("init"); proto != nil {
+	if init, proto := vm.GetSlot(target, "init"); proto != nil {
 		init.Activate(vm, clone, locals, proto, vm.IdentMessage("init"))
 	}
 	return clone
@@ -445,9 +318,12 @@ func ObjectSetSlot(vm *VM, target, locals *Object, msg *Message) *Object {
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
 	}
+	set := vm.SetSlotSync(target, slot)
 	v, stop := msg.EvalArgAt(vm, locals, 1)
 	if stop == NoStop {
-		target.SetSlot(slot, v)
+		set(v)
+	} else {
+		set(nil)
 	}
 	return vm.Stop(v, stop)
 }
@@ -462,13 +338,16 @@ func ObjectUpdateSlot(vm *VM, target, locals *Object, msg *Message) *Object {
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
 	}
+	_, proto := vm.GetSlot(target, slot)
+	if proto == nil {
+		return vm.RaiseExceptionf("slot %s not found", slot)
+	}
+	set := vm.SetSlotSync(target, slot)
 	v, stop := msg.EvalArgAt(vm, locals, 1)
 	if stop == NoStop {
-		_, proto := target.GetSlot(slot)
-		if proto == nil {
-			return vm.RaiseExceptionf("slot %s not found", slot)
-		}
-		target.SetSlot(slot, v)
+		set(v)
+	} else {
+		set(nil)
 	}
 	return vm.Stop(v, stop)
 }
@@ -481,7 +360,7 @@ func ObjectGetSlot(vm *VM, target, locals *Object, msg *Message) *Object {
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
 	}
-	v, _ := target.GetSlot(slot)
+	v, _ := vm.GetSlot(target, slot)
 	return v
 }
 
@@ -494,7 +373,7 @@ func ObjectGetLocalSlot(vm *VM, target, locals *Object, msg *Message) *Object {
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
 	}
-	v, _ := target.GetLocalSlot(slot)
+	v, _ := vm.GetLocalSlot(target, slot)
 	return v
 }
 
@@ -507,7 +386,7 @@ func ObjectHasLocalSlot(vm *VM, target, locals *Object, msg *Message) *Object {
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
 	}
-	_, ok := target.GetLocalSlot(slot)
+	_, ok := vm.GetLocalSlot(target, slot)
 	return vm.IoBool(ok)
 }
 
@@ -515,18 +394,11 @@ func ObjectHasLocalSlot(vm *VM, target, locals *Object, msg *Message) *Object {
 //
 // slotNames returns a list of the names of the slots on this object.
 func ObjectSlotNames(vm *VM, target, locals *Object, msg *Message) *Object {
-	target.Lock()
-	// We can't allocate Io strings during this, because doing so deadlocks if
-	// the receiver is Core.
-	names := make([]string, 0, len(target.Slots))
-	for name := range target.Slots {
-		names = append(names, name)
-	}
-	target.Unlock()
-	v := make([]*Object, len(names))
-	for i, name := range names {
-		v[i] = vm.NewString(name)
-	}
+	v := []*Object{}
+	target.slots.Range(func(key interface{}, value interface{}) bool {
+		v = append(v, vm.NewString(key.(string)))
+		return true
+	})
 	return vm.NewList(v...)
 }
 
@@ -534,13 +406,12 @@ func ObjectSlotNames(vm *VM, target, locals *Object, msg *Message) *Object {
 //
 // slotValues returns a list of the values of the slots on this obect.
 func ObjectSlotValues(vm *VM, target, locals *Object, msg *Message) *Object {
-	target.Lock()
-	vals := make([]*Object, 0, len(target.Slots))
-	for _, val := range target.Slots {
-		vals = append(vals, val)
-	}
-	target.Unlock()
-	return vm.NewList(vals...)
+	v := []*Object{}
+	target.slots.Range(func(key interface{}, value interface{}) bool {
+		v = append(v, value.(*syncSlot).snap(vm))
+		return true
+	})
+	return vm.NewList(v...)
 }
 
 // ObjectProtos is an Object method.
@@ -650,7 +521,7 @@ func ObjectAsGoRepr(vm *VM, target, locals *Object, msg *Message) *Object {
 // *Number holding -1, 0, or 1, if the compare method is proper and no
 // exception occurs. Any Stop will be returned.
 func (vm *VM) Compare(x, y *Object) (*Object, Stop) {
-	cmp, proto := x.GetSlot("compare")
+	cmp, proto := vm.GetSlot(x, "compare")
 	if proto == nil {
 		// No compare method.
 		return vm.NewNumber(float64(PtrCompare(x, y))), NoStop
@@ -824,7 +695,7 @@ func ObjectAncestorWithSlot(vm *VM, target, locals *Object, msg *Message) *Objec
 	copy(protos, target.Protos)
 	target.Unlock()
 	for _, p := range protos {
-		_, proto := p.GetSlot(slot)
+		_, proto := vm.GetSlot(p, slot)
 		if proto != nil {
 			return proto
 		}
@@ -855,7 +726,7 @@ func ObjectContextWithSlot(vm *VM, target, locals *Object, msg *Message) *Object
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
 	}
-	_, proto := target.GetSlot(slot)
+	_, proto := vm.GetSlot(target, slot)
 	return proto
 }
 
@@ -928,31 +799,26 @@ func ObjectForeachSlot(vm *VM, target, locals *Object, msg *Message) (result *Ob
 	if !hvn {
 		return vm.RaiseExceptionf("foreachSlot requires 2 or 3 args")
 	}
-	// To be safe in a parallel world, we need to make a copy of the target's
-	// slots while holding its lock.
-	target.Lock()
-	slots := make(Slots, len(target.Slots))
-	for k, v := range target.Slots {
-		slots[k] = v
-	}
-	target.Unlock()
 	var control Stop
-	for k, v := range slots {
-		locals.SetSlot(vn, v)
+	target.slots.Range(func(key interface{}, value interface{}) bool {
+		v := value.(*syncSlot).snap(vm)
+		vm.SetSlot(locals, vn, v)
 		if hkn {
-			locals.SetSlot(kn, vm.NewString(k))
+			vm.SetSlot(locals, kn, vm.NewString(key.(string)))
 		}
 		result, control = ev.Eval(vm, locals)
 		switch control {
 		case NoStop, ContinueStop: // do nothing
 		case BreakStop:
-			return result
+			return false
 		case ReturnStop, ExceptionStop, ExitStop:
-			return vm.Stop(result, control)
+			vm.Stop(result, control)
+			return false
 		default:
 			panic(fmt.Sprintf("iolang: invalid Stop: %v", control))
 		}
-	}
+		return true
+	})
 	return result
 }
 
@@ -1073,9 +939,12 @@ func ObjectRemoveAllProtos(vm *VM, target, locals *Object, msg *Message) *Object
 //
 // removeAllSlots removes all slots from the object.
 func ObjectRemoveAllSlots(vm *VM, target, locals *Object, msg *Message) *Object {
-	target.Lock()
-	target.Slots = Slots{}
-	target.Unlock()
+	keys := []string{}
+	target.slots.Range(func(key interface{}, value interface{}) bool {
+		keys = append(keys, key.(string))
+		return true
+	})
+	vm.RemoveSlot(target, keys...)
 	return target
 }
 
@@ -1107,7 +976,7 @@ func ObjectRemoveSlot(vm *VM, target, locals *Object, msg *Message) *Object {
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
 	}
-	target.RemoveSlot(slot)
+	vm.RemoveSlot(target, slot)
 	return target
 }
 
@@ -1149,15 +1018,16 @@ func ObjectShallowCopy(vm *VM, target, locals *Object, msg *Message) *Object {
 		return vm.RaiseExceptionf("shallowCopy cannot be used on primitives")
 	}
 	target.Lock()
-	defer target.Unlock()
 	protos := make([]*Object, len(target.Protos))
-	slots := make(Slots, len(target.Slots))
 	// The shallow copy in Io doesn't actually copy the protos...
 	copy(protos, target.Protos)
-	for slot, value := range target.Slots {
-		slots[slot] = value
-	}
-	return vm.ObjectWith(slots, protos, nil, nil)
+	target.Unlock()
+	r := vm.ObjectWith(nil, protos, nil, nil)
+	target.slots.Range(func(key interface{}, value interface{}) bool {
+		r.slots.Store(key, value)
+		return true
+	})
+	return r
 }
 
 // ObjectStopStatus is an Object method.
@@ -1169,13 +1039,13 @@ func ObjectStopStatus(vm *VM, target, locals *Object, msg *Message) *Object {
 	r, stop := msg.EvalArgAt(vm, locals, 0)
 	switch stop {
 	case NoStop:
-		r, _ = vm.Core.GetLocalSlot("Normal")
+		r, _ = vm.GetLocalSlot(vm.Core, "Normal")
 	case ContinueStop:
-		r, _ = vm.Core.GetLocalSlot("Continue")
+		r, _ = vm.GetLocalSlot(vm.Core, "Continue")
 	case BreakStop:
-		r, _ = vm.Core.GetLocalSlot("Break")
+		r, _ = vm.GetLocalSlot(vm.Core, "Break")
 	case ReturnStop:
-		r, _ = vm.Core.GetLocalSlot("Return")
+		r, _ = vm.GetLocalSlot(vm.Core, "Return")
 	case ExceptionStop, ExitStop:
 		return vm.Stop(r, stop)
 	default:

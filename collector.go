@@ -16,7 +16,7 @@ func (vm *VM) initCollector() {
 		"timeUsed":  vm.NewCFunction(CollectorTimeUsed, nil),
 		"type":      vm.NewString("Collector"),
 	}
-	vm.Core.SetSlot("Collector", vm.NewObject(slots))
+	vm.SetSlot(vm.Core, "Collector", vm.NewObject(slots))
 }
 
 // CollectorCollect is a Collector method.

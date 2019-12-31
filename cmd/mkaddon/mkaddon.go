@@ -197,10 +197,10 @@ func (addon{{.Addon}}) Init(vm *iolang.VM) {
 	vm.Install({{printf "%q" .Proto}}, vm.ObjectWith(slots{{.Proto}}, []*iolang.Object{vm.BaseObject}, {{or .Value "nil"}}, {{or .Tag "nil"}}))
 {{end}}
 {{range .Install}}	merge{{.Proto}} := {{template "mkslots" .}}
-	if obj, ok := vm.Core.GetLocalSlot({{printf "%q" .Proto}}); ok {
-		obj.SetSlots(merge{{.Proto}})
-	} else if obj, ok = vm.Addons.GetLocalSlot({{printf "%q" .Proto}}); ok {
-		obj.SetSlots(merge{{.Proto}})
+	if obj, ok := vm.GetLocalSlot(vm.Core, {{printf "%q" .Proto}}); ok {
+		vm.SetSlots(obj, merge{{.Proto}})
+	} else if obj, ok = vm.GetLocalSlot(vm.Addons, {{printf "%q" .Proto}}); ok {
+		vm.SetSlots(obj, merge{{.Proto}})
 	} else {
 		panic("cannot merge new slots onto {{.Proto}}")
 	}

@@ -94,7 +94,7 @@ func (vm *VM) initList() {
 	slots["exSlice"] = slots["slice"]
 	slots["push"] = slots["append"]
 	vm.coreInstall("List", slots, []*Object{}, ListTag)
-	vm.BaseObject.SetSlot("list", slots["with"])
+	vm.SetSlot(vm.BaseObject, "list", slots["with"])
 }
 
 // ListAppend is a List method.
@@ -482,9 +482,9 @@ func ListForeach(vm *VM, target, locals *Object, msg *Message) (result *Object) 
 		v := l[k]
 		target.Unlock()
 		if hvn {
-			locals.SetSlot(vn, v)
+			vm.SetSlot(locals, vn, v)
 			if hkn {
-				locals.SetSlot(kn, vm.NewNumber(float64(k)))
+				vm.SetSlot(locals, kn, vm.NewNumber(float64(k)))
 			}
 			result, control = ev.Eval(vm, locals)
 		} else {
@@ -681,9 +681,9 @@ func ListReverseForeach(vm *VM, target, locals *Object, msg *Message) (result *O
 	for k := len(l) - 1; k >= 0; k-- {
 		v := l[k]
 		target.Unlock()
-		locals.SetSlot(vn, v)
+		vm.SetSlot(locals, vn, v)
 		if hkn {
-			locals.SetSlot(kn, vm.NewNumber(float64(k)))
+			vm.SetSlot(locals, kn, vm.NewNumber(float64(k)))
 		}
 		result, control = ev.Eval(vm, locals)
 		switch control {

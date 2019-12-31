@@ -83,7 +83,7 @@ func (vm *VM) ActivateBlock(blk, target, locals, context *Object, msg *Message) 
 		if stop != NoStop {
 			return vm.Stop(x, stop)
 		}
-		blkLocals.SetSlot(arg, x)
+		vm.SetSlot(blkLocals, arg, x)
 	}
 	result, stop := m.Eval(vm, blkLocals)
 	if pass || stop == ExceptionStop {
@@ -155,14 +155,15 @@ func (vm *VM) initBlock() {
 func (vm *VM) initLocals() {
 	// Locals have no protos, so that messages forward to self. Instead, they
 	// have copies of each built-in Object slot.
-	slots := make(Slots, len(vm.BaseObject.Slots)+2)
-	for k, v := range vm.BaseObject.Slots {
-		slots[k] = v
-	}
+	slots := Slots{}
+	vm.BaseObject.slots.Range(func(key interface{}, value interface{}) bool {
+		slots[key.(string)] = value.(*syncSlot).snap(vm)
+		return true
+	})
 	slots["forward"] = vm.NewCFunction(LocalsForward, nil)
 	slots["updateSlot"] = vm.NewCFunction(LocalsUpdateSlot, nil)
 	// Don't use coreInstall because Locals have no protos.
-	vm.Core.SetSlot("Locals", vm.ObjectWith(slots, nil, nil, nil))
+	vm.SetSlot(vm.Core, "Locals", vm.ObjectWith(slots, nil, nil, nil))
 }
 
 // ObjectBlock is an Object method.
@@ -376,7 +377,7 @@ func BlockSetScope(vm *VM, target, locals *Object, msg *Message) *Object {
 //
 // forward handles messages to which the object does not respond.
 func LocalsForward(vm *VM, target, locals *Object, msg *Message) *Object {
-	self, ok := target.GetLocalSlot("self")
+	self, ok := vm.GetLocalSlot(target, "self")
 	if ok && self != target {
 		return vm.Stop(vm.Perform(self, locals, msg))
 	}
@@ -391,19 +392,19 @@ func LocalsUpdateSlot(vm *VM, target, locals *Object, msg *Message) *Object {
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
 	}
-	_, proto := target.GetSlot(slot)
+	_, proto := vm.GetSlot(target, slot)
 	if proto != nil {
 		// The slot exists on the locals object.
 		v, stop := msg.EvalArgAt(vm, locals, 1)
 		if stop != NoStop {
 			return vm.Stop(v, stop)
 		}
-		target.SetSlot(slot, v)
+		vm.SetSlot(target, slot, v)
 		return v
 	}
 	// If the slot doesn't exist on the locals, forward to self, which is the
 	// block scope or method receiver.
-	self, proto := target.GetSlot("self")
+	self, proto := vm.GetSlot(target, "self")
 	if proto != nil {
 		return vm.Stop(vm.Perform(self, locals, msg))
 	}

@@ -38,7 +38,7 @@ type Message struct {
 type tagMessage struct{}
 
 func (tagMessage) Activate(vm *VM, self, target, locals, context *Object, msg *Message) *Object {
-	ok, proto := self.GetSlot("isActivatable")
+	ok, proto := vm.GetSlot(self, "isActivatable")
 	if proto == nil || !vm.AsBool(ok) {
 		return self
 	}
@@ -232,9 +232,9 @@ func (m *Message) Send(vm *VM, target, locals *Object) (result *Object, control 
 func (vm *VM) Perform(target, locals *Object, msg *Message) (result *Object, control Stop) {
 	vm.DebugMessage(target, locals, msg)
 	var v, proto *Object
-	if v, proto = target.GetSlot(msg.Text); proto == nil {
+	if v, proto = vm.GetSlot(target, msg.Text); proto == nil {
 		var forward, fp *Object
-		if forward, fp = target.GetSlot("forward"); fp == nil {
+		if forward, fp = vm.GetSlot(target, "forward"); fp == nil {
 			return vm.NewExceptionf("%v does not respond to %s", vm.TypeName(target), msg.Name()), ExceptionStop
 		}
 		v, proto = forward, fp

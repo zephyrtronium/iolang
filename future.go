@@ -47,7 +47,7 @@ func (vm *VM) initFuture() {
 	}
 	// Don't use coreInstall because we want no protos so we forward where
 	// possible.
-	vm.Core.SetSlot("Future", vm.ObjectWith(slots, nil, &Future{}, FutureTag))
+	vm.SetSlot(vm.Core, "Future", vm.ObjectWith(slots, nil, &Future{}, FutureTag))
 }
 
 // NewFuture creates a new Future object with its own coroutine and runs it.
@@ -56,7 +56,7 @@ func (vm *VM) NewFuture(target *Object, msg *Message) *Object {
 	m := vm.MessageObject(msg)
 	f := &Future{Coro: vm.VMFor(coro)}
 	o := vm.ObjectWith(Slots{"runTarget": target, "runMessage": m}, vm.CoreProto("Future"), f, FutureTag)
-	coro.SetSlots(Slots{
+	vm.SetSlots(coro, Slots{
 		"runTarget":       target,
 		"runMessage":      m,
 		"runLocals":       target,
@@ -72,8 +72,8 @@ func (f *Future) run() {
 	vm := f.Coro
 	vm.Sched.Start(f.Coro)
 	defer vm.Sched.Finish(f.Coro)
-	target, _ := vm.Coro.GetSlot("runTarget")
-	msg, _ := vm.Coro.GetSlot("runMessage")
+	target, _ := vm.GetSlot(vm.Coro, "runTarget")
+	msg, _ := vm.GetSlot(vm.Coro, "runMessage")
 	m, ok := msg.Value.(*Message)
 	if !ok {
 		panic("Future started without a message to run")
@@ -89,7 +89,7 @@ func (f *Future) run() {
 			// pointless, but there isn't anything else to do.
 			// TODO: indicate that this new exception resulted while handling
 			// the old one
-			vm.Coro.SetSlot("exception", r)
+			vm.SetSlot(vm.Coro, "exception", r)
 			vm.Raise(r)
 		}
 	}
@@ -150,7 +150,7 @@ func FutureForward(vm *VM, target, locals *Object, msg *Message) *Object {
 			// This should apply only to Core Future, most likely due to
 			// Core slotSummary or Future slotSummary. Grabbing the slot from
 			// BaseObject is probably reasonable.
-			t, proto := vm.BaseObject.GetSlot(msg.Name())
+			t, proto := vm.GetSlot(vm.BaseObject, msg.Name())
 			if proto == nil {
 				return vm.RaiseExceptionf("cannot use unstarted Future")
 			}

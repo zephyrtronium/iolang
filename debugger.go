@@ -50,7 +50,7 @@ func (vm *VM) initDebugger() {
 // sends the execution context to the debugger and waits for it to be handled.
 func (vm *VM) DebugMessage(target, locals *Object, msg *Message) {
 	if atomic.LoadUint32(&vm.Debug) != 0 {
-		debug, ok := vm.Core.GetLocalSlot("Debugger")
+		debug, ok := vm.GetLocalSlot(vm.Core, "Debugger")
 		if !ok {
 			return
 		}
@@ -74,7 +74,7 @@ func DebuggerStart(vm *VM, target, locals *Object, msg *Message) *Object {
 	for {
 		select {
 		case work := <-dbg.msgs:
-			target.SetSlots(Slots{
+			vm.SetSlots(target, Slots{
 				"messageCoroutine": vm.Coro,
 				"messageSelf":      work.target,
 				"messageLocals":    work.locals,

@@ -71,7 +71,7 @@ func (vm *VM) initCoroutine() {
 	slots["resumeLater"] = slots["resume"]
 	value := Coroutine{Control: vm.Control, Debug: &vm.Debug}
 	vm.Coro = vm.ObjectWith(slots, []*Object{vm.BaseObject}, value, CoroutineTag)
-	vm.Core.SetSlot("Coroutine", vm.Coro)
+	vm.SetSlot(vm.Core, "Coroutine", vm.Coro)
 }
 
 // run starts this inactive coroutine by activating its main slot. It should be

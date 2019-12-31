@@ -125,13 +125,13 @@ func (vm *VM) initAddon() {
 		"scanForNewAddons": vm.NewCFunction(AddonScanForNewAddons, nil),
 		"type":             vm.NewString("Addon"),
 	}
-	vm.Core.SetSlot("Addon", vm.NewObject(slots))
+	vm.SetSlot(vm.Core, "Addon", vm.NewObject(slots))
 }
 
 // Install installs an addon proto by appending it to Lobby's protos and
 // setting the corresponding slot in Addons.
 func (vm *VM) Install(name string, proto *Object) {
-	vm.Addons.SetSlot(name, proto)
+	vm.SetSlot(vm.Addons, name, proto)
 	l := vm.Lobby
 	l.Lock()
 	l.Protos = append(l.Protos, vm.NewObject(Slots{name: proto}))
@@ -202,7 +202,7 @@ func findAddons(file *os.File) <-chan addonplugin {
 //
 // open loads the addon at the receiver's path and returns the addon's object.
 func AddonOpen(vm *VM, target, locals *Object, msg *Message) *Object {
-	p, proto := target.GetSlot("path")
+	p, proto := vm.GetSlot(target, "path")
 	if proto == nil {
 		return vm.RaiseExceptionf("addon path unset")
 	}

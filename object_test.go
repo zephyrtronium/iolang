@@ -18,7 +18,7 @@ func TestGetSlot(t *testing.T) {
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
-			v, p := c.o.GetSlot(c.slot)
+			v, p := vm.GetSlot(c.o, c.slot)
 			if v != c.v {
 				t.Errorf("slot %s found wrong object: have %T@%p, want %T@%p", c.slot, v, v, c.v, c.v)
 			}
@@ -44,7 +44,7 @@ func BenchmarkGetSlot(b *testing.B) {
 	for name, c := range cases {
 		b.Run(name, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				BenchDummy, _ = c.o.GetSlot(c.slot)
+				BenchDummy, _ = vm.GetSlot(c.o, c.slot)
 			}
 		})
 	}
@@ -65,7 +65,7 @@ func TestGetLocalSlot(t *testing.T) {
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
-			v, ok := c.o.GetLocalSlot(c.slot)
+			v, ok := vm.GetLocalSlot(c.o, c.slot)
 			if ok != c.ok {
 				t.Errorf("slot %s has wrong presence: have %v, want %v", c.slot, ok, c.ok)
 			}
@@ -81,7 +81,7 @@ func TestGetLocalSlot(t *testing.T) {
 func TestObjectGoActivate(t *testing.T) {
 	vm := TestingVM()
 	o := vm.NewObject(Slots{})
-	vm.Lobby.SetSlot("TestObjectActivate", o)
+	vm.SetSlot(vm.Lobby, "TestObjectActivate", o)
 	cases := map[string]SourceTestCase{
 		"InactiveNoActivate": {`getSlot("TestObjectActivate") removeSlot("activate") setIsActivatable(false)`, PassEqual(o)},
 		"InactiveActivate":   {`getSlot("TestObjectActivate") do(activate := Lobby) setIsActivatable(false)`, PassEqual(o)},
@@ -91,7 +91,7 @@ func TestObjectGoActivate(t *testing.T) {
 	for name, c := range cases {
 		t.Run(name, c.TestFunc("TestObjectActivate/"+name))
 	}
-	vm.Lobby.RemoveSlot("TestObjectActivate")
+	vm.RemoveSlot(vm.Lobby, "TestObjectActivate")
 }
 
 // TestObjectSlots tests that a new VM Object has the slots we expect.
@@ -249,7 +249,7 @@ func TestObjectMethods(t *testing.T) {
 		// obj is a generic object with some slots to simplify some tests.
 		"obj": vm.NewObject(Slots{"x": vm.NewNumber(1), "y": vm.NewNumber(2), "z": vm.NewNumber(0)}),
 	}
-	vm.Lobby.SetSlot("testValues", vm.NewObject(config))
+	vm.SetSlot(vm.Lobby, "testValues", vm.NewObject(config))
 	cases := map[string]map[string]SourceTestCase{
 		"evalArg": {
 			"evalArg":   {`evalArg(Lobby)`, PassEqual(vm.Lobby)},
@@ -612,7 +612,7 @@ func TestObjectMethods(t *testing.T) {
 			"true": {`Object isTrue`, PassIdentical(vm.True)},
 		},
 		"justSerialized": {
-			"same": {`testValues justSerializedStream := SerializationStream clone; testValues obj justSerialized(testValues justSerializedStream); doString(testValues justSerializedStream output)`, PassEqualSlots(config["obj"].Slots)},
+			"same": {`testValues justSerializedStream := SerializationStream clone; testValues obj justSerialized(testValues justSerializedStream); doString(testValues justSerializedStream output)`, PassEqualSlots(vm.GetAllSlots(config["obj"]))},
 		},
 		// launchFile needs special testing
 	}
@@ -623,5 +623,5 @@ func TestObjectMethods(t *testing.T) {
 			}
 		})
 	}
-	vm.Lobby.RemoveSlot("testValues")
+	vm.RemoveSlot(vm.Lobby, "testValues")
 }

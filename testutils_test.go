@@ -161,16 +161,17 @@ func PassSuccess() func(*Object, Stop) bool {
 // slots in exclude.
 func PassLocalSlots(want, exclude []string) func(*Object, Stop) bool {
 	return func(result *Object, control Stop) bool {
+		vm := TestingVM()
 		if control != NoStop {
 			return false
 		}
 		for _, slot := range want {
-			if _, ok := result.GetLocalSlot(slot); !ok {
+			if _, ok := vm.GetLocalSlot(result, slot); !ok {
 				return false
 			}
 		}
 		for _, slot := range exclude {
-			if _, ok := result.GetLocalSlot(slot); ok {
+			if _, ok := vm.GetLocalSlot(result, slot); ok {
 				return false
 			}
 		}
@@ -187,15 +188,14 @@ func PassEqualSlots(want Slots) func(*Object, Stop) bool {
 		if control != NoStop {
 			return false
 		}
-		result.Lock()
-		defer result.Unlock()
-		for slot := range result.Slots {
+		slots := vm.GetAllSlots(result)
+		for slot := range slots {
 			if _, ok := want[slot]; !ok {
 				return false
 			}
 		}
 		for slot, value := range want {
-			x, ok := result.Slots[slot]
+			x, ok := slots[slot]
 			if !ok {
 				return false
 			}
@@ -216,13 +216,12 @@ func PassEqualSlots(want Slots) func(*Object, Stop) bool {
 // slots we expect.
 func CheckSlots(t *testing.T, obj *Object, slots []string) {
 	t.Helper()
-	obj.Lock()
-	defer obj.Unlock()
 	checked := make(map[string]bool, len(slots))
+	on := TestingVM().GetAllSlots(obj)
 	for _, name := range slots {
 		checked[name] = true
 		t.Run("Have_"+name, func(t *testing.T) {
-			slot, ok := obj.Slots[name]
+			slot, ok := on[name]
 			if !ok {
 				t.Fatal("no slot", name)
 			}
@@ -231,7 +230,7 @@ func CheckSlots(t *testing.T, obj *Object, slots []string) {
 			}
 		})
 	}
-	for name := range obj.Slots {
+	for name := range on {
 		t.Run("Want_"+name, func(t *testing.T) {
 			if !checked[name] {
 				t.Fatal("unexpected slot", name)

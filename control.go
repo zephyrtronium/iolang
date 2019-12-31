@@ -169,7 +169,7 @@ func ObjectFor(vm *VM, target, locals *Object, msg *Message) (result *Object) {
 					break
 				}
 			}
-			locals.SetSlot(ctrname, vm.NewNumber(i))
+			vm.SetSlot(locals, ctrname, vm.NewNumber(i))
 			result, stop = m.Eval(vm, locals)
 			switch stop {
 			case NoStop, ContinueStop: // do nothing

@@ -159,9 +159,9 @@ func MapForeach(vm *VM, target, locals *Object, msg *Message) (result *Object) {
 		if v == nil {
 			v = vm.Nil
 		}
-		locals.SetSlot(vn, v)
+		vm.SetSlot(locals, vn, v)
 		if hkn {
-			locals.SetSlot(kn, vm.NewString(k))
+			vm.SetSlot(locals, kn, vm.NewString(k))
 		}
 		result, control = ev.Eval(vm, locals)
 		switch control {

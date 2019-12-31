@@ -72,7 +72,7 @@ func (vm *VM) initCFunction() {
 	// want Core CFunction to be a CFunction, but one that won't panic if it's
 	// used.
 	proto := vm.ObjectWith(nil, []*Object{vm.BaseObject}, CFunction{Function: ObjectThisContext, Name: "ObjectThisContext"}, CFunctionTag)
-	vm.Core.SetSlot("CFunction", proto)
+	vm.SetSlot(vm.Core, "CFunction", proto)
 	// Now we can create CFunctions.
 	slots := Slots{
 		"==":         vm.NewCFunction(CFunctionEqual, CFunctionTag),
@@ -84,7 +84,7 @@ func (vm *VM) initCFunction() {
 	}
 	slots["asSimpleString"] = slots["asString"]
 	slots["name"] = slots["asString"]
-	proto.SetSlots(slots)
+	vm.SetSlots(proto, slots)
 }
 
 // CFunctionAsString is a CFunction method.

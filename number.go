@@ -107,8 +107,6 @@ func (vm *VM) initNumber() {
 		"toggle":             vm.NewCFunction(NumberToggle, NumberTag),
 		"type":               vm.NewString("Number"),
 	}
-	vm.coreInstall("Number", slots, float64(0), NumberTag)
-
 	slots["%"] = slots["mod"]
 	slots["&"] = slots["bitwiseAnd"]
 	slots["|"] = slots["bitwiseOr"]
@@ -119,32 +117,40 @@ func (vm *VM) initNumber() {
 	slots["asJson"] = slots["asString"]
 	slots["asSimpleString"] = slots["asString"]
 	slots["minMax"] = slots["clip"]
-	slots["floatMin"] = vm.NewNumber(math.SmallestNonzeroFloat64)
-	slots["floatMax"] = vm.NewNumber(math.MaxFloat64)
-	slots["integerMin"] = vm.NewNumber(math.MinInt64)
-	slots["integerMax"] = vm.NewNumber(math.MaxInt64)
-	slots["longMin"] = vm.NewNumber(math.MinInt64)
-	slots["longMax"] = vm.NewNumber(math.MaxInt64)
-	slots["shortMin"] = vm.NewNumber(-32768)
-	slots["shortMax"] = vm.NewNumber(32767)
-	slots["unsignedIntMax"] = vm.NewNumber(math.MaxUint64)
-	slots["unsignedLongMax"] = slots["unsignedIntMax"]
-	slots["constants"] = vm.NewObject(Slots{
-		// Io originally had only e, inf, nan, and pi.
-		"e":       vm.NewNumber(math.E),
-		"pi":      vm.NewNumber(math.Pi),
-		"phi":     vm.NewNumber(math.Phi),
-		"sqrt2":   vm.NewNumber(math.Sqrt2),
-		"sqrtE":   vm.NewNumber(math.SqrtE),
-		"sqrtPi":  vm.NewNumber(math.SqrtPi),
-		"sqrtPhi": vm.NewNumber(math.SqrtPhi),
-		"ln2":     vm.NewNumber(math.Ln2),
-		"log2E":   vm.NewNumber(math.Log2E),
-		"ln10":    vm.NewNumber(math.Ln10),
-		"log10E":  vm.NewNumber(math.Log10E),
-		"inf":     vm.NewNumber(math.Inf(1)),
-		"nan":     vm.NewNumber(math.NaN()),
-	})
+	vm.coreInstall("Number", slots, float64(0), NumberTag)
+
+	// Now that Core Number exists, we can use NewNumber. Grab the proto and
+	// set these new slots on it.
+	slots = Slots{
+		"floatMax":        vm.NewNumber(math.MaxFloat64),
+		"floatMin":        vm.NewNumber(math.SmallestNonzeroFloat64),
+		"integerMin":      vm.NewNumber(math.MinInt64),
+		"integerMax":      vm.NewNumber(math.MaxInt64),
+		"longMin":         vm.NewNumber(math.MinInt64),
+		"longMax":         vm.NewNumber(math.MaxInt64),
+		"shortMin":        vm.NewNumber(-32768),
+		"shortMax":        vm.NewNumber(32767),
+		"unsignedIntMax":  vm.NewNumber(math.MaxUint64),
+		"unsignedLongMax": vm.NewNumber(math.MaxUint64),
+		"constants": vm.NewObject(Slots{
+			// Io originally had only e, inf, nan, and pi.
+			"e":       vm.NewNumber(math.E),
+			"pi":      vm.NewNumber(math.Pi),
+			"phi":     vm.NewNumber(math.Phi),
+			"sqrt2":   vm.NewNumber(math.Sqrt2),
+			"sqrtE":   vm.NewNumber(math.SqrtE),
+			"sqrtPi":  vm.NewNumber(math.SqrtPi),
+			"sqrtPhi": vm.NewNumber(math.SqrtPhi),
+			"ln2":     vm.NewNumber(math.Ln2),
+			"log2E":   vm.NewNumber(math.Log2E),
+			"ln10":    vm.NewNumber(math.Ln10),
+			"log10E":  vm.NewNumber(math.Log10E),
+			"inf":     vm.NewNumber(math.Inf(1)),
+			"nan":     vm.NewNumber(math.NaN()),
+		}),
+	}
+	number, _ := vm.GetLocalSlot(vm.Core, "Number")
+	vm.SetSlots(number, slots)
 }
 
 // NumberAbs is a Number method.
@@ -685,7 +691,7 @@ func NumberRepeat(vm *VM, target, locals *Object, msg *Message) (result *Object)
 	var control Stop
 	for i := 0; i < max; i++ {
 		if counter != nil {
-			locals.SetSlot(c, vm.NewNumber(float64(i)))
+			vm.SetSlot(locals, c, vm.NewNumber(float64(i)))
 		}
 		result, control = eval.Eval(vm, locals)
 		switch control {

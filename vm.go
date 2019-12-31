@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"compress/zlib"
 	"fmt"
+	"github.com/zephyrtronium/contains"
 	"runtime"
 	"time"
 )
@@ -26,6 +27,11 @@ type VM struct {
 	False      *Object
 	Nil        *Object
 	Operators  *Object
+
+	// protoSet is the set of protos checked during GetSlot.
+	protoSet contains.Set
+	// protoStack is the stack of protos to check during GetSlot.
+	protoStack []*Object
 
 	// Sched is the scheduler for this VM and all related coroutines.
 	Sched *Scheduler
@@ -57,7 +63,7 @@ type VM struct {
 // to occupy the System args slot, typically os.Args[1:].
 func NewVM(args ...string) *VM {
 	vm := VM{
-		Lobby: &Object{Slots: Slots{}, id: nextObject()},
+		Lobby: &Object{id: nextObject()},
 
 		Core:   &Object{id: nextObject()},
 		Addons: &Object{id: nextObject()},
@@ -116,13 +122,13 @@ func NewVM(args ...string) *VM {
 // coreInstall is a convenience method to install a new Core proto that has
 // BaseObject as its proto.
 func (vm *VM) coreInstall(proto string, slots Slots, value interface{}, tag Tag) {
-	vm.Core.SetSlot(proto, vm.ObjectWith(slots, []*Object{vm.BaseObject}, value, tag))
+	vm.SetSlot(vm.Core, proto, vm.ObjectWith(slots, []*Object{vm.BaseObject}, value, tag))
 }
 
 // CoreProto returns a new Protos list for a type in vm.Core. Panics if there
 // is no such type!
 func (vm *VM) CoreProto(name string) []*Object {
-	if p, ok := vm.Core.GetLocalSlot(name); ok {
+	if p, ok := vm.GetLocalSlot(vm.Core, name); ok {
 		return []*Object{p}
 	}
 	panic("iolang: no Core proto named " + name)
@@ -131,7 +137,7 @@ func (vm *VM) CoreProto(name string) []*Object {
 // AddonProto returns a new Protos list for a type in vm.Addons. Panics if
 // there is no such type!
 func (vm *VM) AddonProto(name string) []*Object {
-	if p, ok := vm.Addons.GetLocalSlot(name); ok {
+	if p, ok := vm.GetLocalSlot(vm.Addons, name); ok {
 		return []*Object{p}
 	}
 	panic("iolang: no Addons proto named " + name)
@@ -177,16 +183,13 @@ func (vm *VM) AsString(obj *Object) string {
 // initCore initializes Lobby, Core, and Addons for this VM. This only creates
 // room for other init functions to work with.
 func (vm *VM) initCore() {
-	// Other init* functions will set up Core slots, but it is courteous to
-	// make room for them.
-	vm.Core.Slots = make(Slots, 46)
 	vm.Core.Protos = []*Object{vm.BaseObject}
 	vm.Addons.Protos = []*Object{vm.BaseObject}
 	slots := Slots{"Core": vm.Core, "Addons": vm.Addons}
 	protos := []*Object{vm.Core, vm.Addons}
 	lp := vm.ObjectWith(slots, protos, nil, nil)
 	vm.Lobby.Protos = []*Object{lp}
-	vm.Lobby.Slots = Slots{"Protos": lp, "Lobby": vm.Lobby}
+	vm.SetSlots(vm.Lobby, Slots{"Protos": lp, "Lobby": vm.Lobby})
 }
 
 // finalInit runs Core initialization scripts once the VM can execute code.

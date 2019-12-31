@@ -14,7 +14,7 @@ func TestPerform(t *testing.T) {
 	res := vm.ObjectWith(nil, []*Object{vm.BaseObject}, pt, performTesterTag{})
 	anc := vm.NewObject(Slots{"t": res})
 	target := anc.Clone()
-	target.SetSlot("forward", vm.NewCFunction(performTestForward, nil))
+	vm.SetSlot(target, "forward", vm.NewCFunction(performTestForward, nil))
 	tm := vm.IdentMessage("t")
 	cases := map[string]struct {
 		o       *Object
@@ -73,7 +73,7 @@ func (performTesterTag) String() string {
 
 func performTestForward(vm *VM, target, locals *Object, msg *Message) *Object {
 	nn := strings.ToLower(msg.Name())
-	if v, proto := target.GetSlot(nn); proto != nil {
+	if v, proto := vm.GetSlot(target, nn); proto != nil {
 		return v.Activate(vm, target, locals, proto, vm.IdentMessage(nn))
 	}
 	return vm.RaiseExceptionf("%s does not respond to %s", vm.TypeName(target), msg.Name())
@@ -145,8 +145,8 @@ func BenchmarkEvalParallel(b *testing.B) {
 	if err != nil {
 		panic(err)
 	}
-	vm.Lobby.SetSlot("benchmarkValue", vm.NewNumber(0))
-	defer vm.Lobby.RemoveSlot("benchmarkValue")
+	vm.SetSlot(vm.Lobby, "benchmarkValue", vm.NewNumber(0))
+	defer vm.RemoveSlot(vm.Lobby, "benchmarkValue")
 	b.RunParallel(func(pb *testing.PB) {
 		coro := vm.VMFor(vm.Coro.Clone())
 		for pb.Next() {

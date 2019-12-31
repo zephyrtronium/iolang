@@ -133,7 +133,7 @@ func ExceptionRaise(vm *VM, target, locals *Object, msg *Message) *Object {
 		vm.Stop(nested, stop)
 	}
 	e := vm.NewExceptionf("%v", s)
-	e.SetSlot("nestedException", nested)
+	vm.SetSlot(e, "nestedException", nested)
 	return vm.Raise(e)
 }
 
@@ -154,7 +154,7 @@ func ExceptionRaiseFrom(vm *VM, target, locals *Object, msg *Message) *Object {
 		return vm.Stop(nested, stop)
 	}
 	e := vm.NewExceptionf("%v", s)
-	e.SetSlots(Slots{"nestedException": nested, "originalCall": call})
+	vm.SetSlots(e, Slots{"nestedException": nested, "originalCall": call})
 	return vm.Raise(e)
 }
 
