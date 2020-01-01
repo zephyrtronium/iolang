@@ -100,7 +100,11 @@ func (vm *VM) Stop(result *Object, stop Stop) *Object {
 		// difficult. To ensure consistently valid behavior, we have to remove
 		// any existing value from vm.Control and then send the stop.
 		select {
-		case <-vm.Control:
+		case s := <-vm.Control:
+			if s.Control == ExitStop {
+				// Never replace an ExitStop. Re-send it.
+				result, stop = s.Result, s.Control
+			}
 			vm.Control <- RemoteStop{result, stop}
 		case vm.Control <- RemoteStop{result, stop}: // do nothing
 		}
