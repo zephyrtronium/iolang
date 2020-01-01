@@ -296,6 +296,8 @@ func (vm *VM) TypeName(o *Object) string {
 func ObjectClone(vm *VM, target, locals *Object, msg *Message) *Object {
 	clone := target.Clone()
 	if init, proto := vm.GetSlot(target, "init"); proto != nil {
+		// By calling Activate directly, any control flow it sends remains on
+		// vm.Control. We don't have to call vm.Stop.
 		init.Activate(vm, clone, locals, proto, vm.IdentMessage("init"))
 	}
 	return clone
