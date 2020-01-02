@@ -183,12 +183,12 @@ func (vm *VM) AsString(obj *Object) string {
 // initCore initializes Lobby, Core, and Addons for this VM. This only creates
 // room for other init functions to work with.
 func (vm *VM) initCore() {
-	vm.Core.Protos = []*Object{vm.BaseObject}
-	vm.Addons.Protos = []*Object{vm.BaseObject}
+	vm.Core.proto = vm.BaseObject
+	vm.Addons.proto = vm.BaseObject
 	slots := Slots{"Core": vm.Core, "Addons": vm.Addons}
 	protos := []*Object{vm.Core, vm.Addons}
 	lp := vm.ObjectWith(slots, protos, nil, nil)
-	vm.Lobby.Protos = []*Object{lp}
+	vm.Lobby.proto = lp
 	vm.SetSlots(vm.Lobby, Slots{"Protos": lp, "Lobby": vm.Lobby})
 }
 

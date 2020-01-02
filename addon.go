@@ -134,7 +134,12 @@ func (vm *VM) Install(name string, proto *Object) {
 	vm.SetSlot(vm.Addons, name, proto)
 	l := vm.Lobby
 	l.Lock()
-	l.Protos = append(l.Protos, vm.NewObject(Slots{name: proto}))
+	// We aren't guaranteed that Lobby keeps its protos, so check every time.
+	if l.proto == nil {
+		l.proto = vm.NewObject(Slots{name: proto})
+	} else {
+		l.plusproto = append(l.plusproto, vm.NewObject(Slots{name: proto}))
+	}
 	l.Unlock()
 }
 

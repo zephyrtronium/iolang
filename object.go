@@ -16,15 +16,16 @@ import (
 // Always use NewObject, ObjectWith, or a type-specific constructor to obtain
 // new objects. Creating objects directly will result in arbitrary failures.
 type Object struct {
-	// Mutex is a lock which must be held when accessing the slots or protos of
+	// Mutex is a lock which must be held when accessing the protos of
 	// the object, or the value of the object if it is or may be mutable.
 	sync.Mutex
 
 	// slots is the set of messages to which this object responds.
 	slots actualSlots
-	// Protos are the set of objects to which messages are forwarded, in
-	// depth-first order without duplicates, when this object cannot respond.
-	Protos []*Object
+	// proto is this object's first proto, or nil if there is none.
+	proto *Object
+	// plusproto is the list of this object's additional protos.
+	plusproto []*Object
 
 	// Value is the object's type-specific primitive value.
 	Value interface{}
@@ -84,10 +85,10 @@ func (o *Object) Clone() *Object {
 		o.Unlock()
 	}
 	return &Object{
-		Protos: []*Object{o},
-		Value:  v,
-		tag:    o.Tag(),
-		id:     nextObject(),
+		proto: o,
+		Value: v,
+		tag:   o.Tag(),
+		id:    nextObject(),
 	}
 }
 
@@ -111,7 +112,7 @@ func (o *Object) IsKindOf(kind *Object) bool {
 			return true
 		}
 		proto.Lock()
-		for _, p := range proto.Protos {
+		for _, p := range proto.Protos() {
 			if set.Add(p.UniqueID()) {
 				protos = append(protos, p)
 			}
@@ -124,6 +125,40 @@ func (o *Object) IsKindOf(kind *Object) bool {
 // Tag returns the object's type indicator.
 func (o *Object) Tag() Tag {
 	return o.tag
+}
+
+// Protos returns a snapshot of this object's protos. The result is nil if the
+// object has no protos. o's mutex must be held when calling this method.
+func (o *Object) Protos() []*Object {
+	if o.proto == nil {
+		return nil
+	}
+	p := make([]*Object, 1, 1+len(o.plusproto))
+	p[0] = o.proto
+	return append(p, o.plusproto...)
+}
+
+// NumProtos returns the number of protos this object has. o's mutex must be
+// held when calling this method.
+func (o *Object) NumProtos() int {
+	if o.proto == nil {
+		return 0
+	}
+	return 1 + len(o.plusproto)
+}
+
+// SetProtos sets this object's protos. o's mutex must be held when calling
+// this method.
+func (o *Object) SetProtos(protos ...*Object) {
+	if len(protos) == 0 {
+		o.proto = nil
+		o.plusproto = nil
+	} else {
+		o.proto = protos[0]
+		if len(protos) > 1 {
+			o.plusproto = append(o.plusproto[:0], protos[1:]...)
+		}
+	}
 }
 
 // UniqueID returns the object's unique ID.
@@ -164,7 +199,7 @@ func nextObject() uintptr {
 // initObject sets up the "base" object that is the first proto of all other
 // built-in types.
 func (vm *VM) initObject() {
-	vm.BaseObject.Protos = []*Object{vm.Lobby}
+	vm.BaseObject.proto = vm.Lobby
 	slots := Slots{
 		"":                     vm.NewCFunction(ObjectEvalArg, nil),
 		"!=":                   vm.NewCFunction(ObjectNotEqual, nil),
@@ -256,11 +291,11 @@ func (vm *VM) ObjectWith(slots Slots, protos []*Object, value interface{}, tag T
 		protos = []*Object{}
 	}
 	r := &Object{
-		Protos: protos,
-		Value:  value,
-		tag:    tag,
-		id:     nextObject(),
+		Value: value,
+		tag:   tag,
+		id:    nextObject(),
 	}
+	r.SetProtos(protos...)
 	vm.definitelyNewSlots(r, slots)
 	return r
 }
@@ -269,8 +304,8 @@ func (vm *VM) ObjectWith(slots Slots, protos []*Object, value interface{}, tag T
 // Core Object as its proto.
 func (vm *VM) NewObject(slots Slots) *Object {
 	r := &Object{
-		Protos: []*Object{vm.BaseObject},
-		id:     nextObject(),
+		proto: vm.BaseObject,
+		id:    nextObject(),
 	}
 	vm.definitelyNewSlots(r, slots)
 	return r
@@ -421,8 +456,7 @@ func ObjectSlotValues(vm *VM, target, locals *Object, msg *Message) *Object {
 // protos returns a list of the receiver's protos.
 func ObjectProtos(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
-	v := make([]*Object, len(target.Protos))
-	copy(v, target.Protos)
+	v := target.Protos()
 	target.Unlock()
 	return vm.NewList(v...)
 }
@@ -477,13 +511,18 @@ func ObjectDo(vm *VM, target, locals *Object, msg *Message) *Object {
 // the message in the context of the receiver, then removes the added proto.
 func ObjectLexicalDo(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
-	n := len(target.Protos)
-	target.Protos = append(target.Protos, locals)
+	protos := target.Protos()
+	n := len(protos)
+	protos = append(protos, locals)
+	target.SetProtos(protos...)
 	target.Unlock()
 	result, stop := msg.EvalArgAt(vm, target, 0)
 	target.Lock()
-	copy(target.Protos[n:], target.Protos[n+1:])
-	target.Protos = target.Protos[:len(target.Protos)-1]
+	protos = target.Protos()
+	copy(protos[n:], protos[n+1:])
+	protos[len(protos)-1] = nil
+	protos = protos[:len(protos)-1]
+	target.SetProtos(protos...)
 	target.Unlock()
 	if stop != NoStop {
 		return vm.Stop(result, stop)
@@ -693,8 +732,7 @@ func ObjectAncestorWithSlot(vm *VM, target, locals *Object, msg *Message) *Objec
 		return vm.Stop(exc, stop)
 	}
 	target.Lock()
-	protos := make([]*Object, len(target.Protos))
-	copy(protos, target.Protos)
+	protos := target.Protos()
 	target.Unlock()
 	for _, p := range protos {
 		_, proto := vm.GetSlot(p, slot)
@@ -714,7 +752,11 @@ func ObjectAppendProto(vm *VM, target, locals *Object, msg *Message) *Object {
 		return vm.Stop(v, stop)
 	}
 	target.Lock()
-	target.Protos = append(target.Protos, v)
+	if target.proto == nil {
+		target.proto = v
+	} else {
+		target.plusproto = append(target.plusproto, v)
+	}
 	target.Unlock()
 	return target
 }
@@ -919,10 +961,15 @@ func ObjectPrependProto(vm *VM, target, locals *Object, msg *Message) *Object {
 		return vm.Stop(p, stop)
 	}
 	target.Lock()
-	protos := append(target.Protos, p)
-	copy(protos[1:], protos)
-	protos[0] = p
-	target.Protos = protos
+	if target.proto == nil {
+		target.proto = p
+	} else {
+		o := target.proto
+		target.proto = p
+		target.plusproto = append(target.plusproto, o)
+		copy(target.plusproto[1:], target.plusproto)
+		target.plusproto[0] = o
+	}
 	target.Unlock()
 	return target
 }
@@ -932,7 +979,7 @@ func ObjectPrependProto(vm *VM, target, locals *Object, msg *Message) *Object {
 // removeAllProtos removes all protos from the object.
 func ObjectRemoveAllProtos(vm *VM, target, locals *Object, msg *Message) *Object {
 	target.Lock()
-	target.Protos = []*Object{}
+	target.SetProtos()
 	target.Unlock()
 	return target
 }
@@ -959,13 +1006,14 @@ func ObjectRemoveProto(vm *VM, target, locals *Object, msg *Message) *Object {
 		return vm.Stop(p, stop)
 	}
 	target.Lock()
-	n := make([]*Object, 0, len(target.Protos))
-	for _, proto := range target.Protos {
+	protos := target.Protos()
+	n := make([]*Object, 0, len(protos))
+	for _, proto := range protos {
 		if proto != p {
 			n = append(n, proto)
 		}
 	}
-	target.Protos = n
+	target.SetProtos(n...)
 	target.Unlock()
 	return target
 }
@@ -991,7 +1039,8 @@ func ObjectSetProto(vm *VM, target, locals *Object, msg *Message) *Object {
 		return vm.Stop(p, stop)
 	}
 	target.Lock()
-	target.Protos = append(target.Protos[:0], p)
+	target.proto = p
+	target.plusproto = nil
 	target.Unlock()
 	return target
 }
@@ -1006,7 +1055,7 @@ func ObjectSetProtos(vm *VM, target, locals *Object, msg *Message) *Object {
 	}
 	target.Lock()
 	obj.Lock()
-	target.Protos = append(target.Protos[:0], l...)
+	target.SetProtos(l...)
 	target.Unlock()
 	obj.Unlock()
 	return target
@@ -1020,9 +1069,8 @@ func ObjectShallowCopy(vm *VM, target, locals *Object, msg *Message) *Object {
 		return vm.RaiseExceptionf("shallowCopy cannot be used on primitives")
 	}
 	target.Lock()
-	protos := make([]*Object, len(target.Protos))
 	// The shallow copy in Io doesn't actually copy the protos...
-	copy(protos, target.Protos)
+	protos := target.Protos()
 	target.Unlock()
 	r := vm.ObjectWith(nil, protos, nil, nil)
 	target.slots.Range(func(key interface{}, value interface{}) bool {

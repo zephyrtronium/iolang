@@ -252,16 +252,17 @@ func CheckSlots(t *testing.T, obj *iolang.Object, slots []string) {
 func CheckObjectIsProto(t *testing.T, obj *iolang.Object) {
 	t.Helper()
 	obj.Lock()
-	defer obj.Unlock()
-	switch len(obj.Protos) {
+	protos := obj.Protos()
+	obj.Unlock()
+	switch len(protos) {
 	case 0:
 		t.Fatal("no protos")
 	case 1: // do nothing
 	default:
-		t.Error("incorrect number of protos: expected 1, have", len(obj.Protos))
+		t.Error("incorrect number of protos: expected 1, have", len(protos))
 	}
 	vm := TestingVM()
-	if p := obj.Protos[0]; p != vm.BaseObject {
+	if p := protos[0]; p != vm.BaseObject {
 		t.Errorf("wrong proto: expected %T@%p, have %T@%p", vm.BaseObject, vm.BaseObject, p, p)
 	}
 }

@@ -16,6 +16,8 @@ func TestGetSlot(t *testing.T) {
 		"Ancestor": {vm.Lobby, vm.BaseObject, vm.Core, "Object"},
 		"Never":    {vm.Lobby, nil, nil, "fail to find"},
 	}
+	// TODO: test case where the lookup chain expands into the general case,
+	// then returns to the single-proto case
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
 			v, p := vm.GetSlot(c.o, c.slot)

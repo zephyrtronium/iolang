@@ -245,15 +245,15 @@ func CheckObjectIsProto(t *testing.T, obj *Object) {
 	t.Helper()
 	obj.Lock()
 	defer obj.Unlock()
-	switch len(obj.Protos) {
+	switch obj.NumProtos() {
 	case 0:
 		t.Fatal("no protos")
 	case 1: // do nothing
 	default:
-		t.Error("incorrect number of protos: expected 1, have", len(obj.Protos))
+		t.Error("incorrect number of protos: expected 1, have", obj.NumProtos())
 	}
 	vm := TestingVM()
-	if p := obj.Protos[0]; p != vm.BaseObject {
+	if p := obj.proto; p != vm.BaseObject {
 		t.Errorf("wrong proto: expected %T@%p, have %T@%p", vm.BaseObject, vm.BaseObject, p, p)
 	}
 }

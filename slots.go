@@ -130,38 +130,75 @@ func (vm *VM) GetSlotSync(obj *Object, slot string) (value, proto *Object, relea
 
 // getSlotAncestor finds a slot on obj's ancestors.
 func (vm *VM) getSlotAncestor(obj *Object, slot string) (sy *syncSlot, proto *Object) {
-	vm.protoSet.Add(obj.UniqueID())
-	// TODO: optimize for having only one proto
-	obj.Lock()
-	for i := len(obj.Protos) - 1; i >= 0; i-- {
-		if p := obj.Protos[i]; vm.protoSet.Add(p.UniqueID()) {
-			vm.protoStack = append(vm.protoStack, p)
-		}
-	}
-	obj.Unlock()
-	// Using a custom stack-based approach instead of actually recursing makes
-	// this more efficient.
-	for len(vm.protoStack) > 0 {
-		rp := vm.protoStack[len(vm.protoStack)-1] // grab the top
-		if sy := vm.localSyncSlot(rp, slot); sy != nil {
-			if sy.value != nil {
-				vm.protoSet.Reset()
-				vm.protoStack = vm.protoStack[:0]
-				return sy, rp
-			}
-			sy.release()
-		}
-		vm.protoStack = vm.protoStack[:len(vm.protoStack)-1] // actually pop
-		rp.Lock()
-		for i := len(rp.Protos) - 1; i >= 0; i-- {
-			if p := rp.Protos[i]; vm.protoSet.Add(p.UniqueID()) {
-				vm.protoStack = append(vm.protoStack, p)
-			}
-		}
-		rp.Unlock()
-	}
 	vm.protoSet.Reset()
-	return nil, nil
+	vm.protoSet.Add(obj.UniqueID())
+	for {
+		obj.Lock()
+		switch {
+		case obj.proto == nil:
+			// The slot does not exist.
+			obj.Unlock()
+			return nil, nil
+		case len(obj.plusproto) == 0:
+			// One proto. We don't need to use vm.protoStack.
+			rp := obj.proto
+			obj.Unlock()
+			obj = rp
+			if sy := vm.localSyncSlot(obj, slot); sy != nil {
+				return sy, obj
+			}
+			// Try again with the proto.
+			if !vm.protoSet.Add(obj.UniqueID()) {
+				return nil, nil
+			}
+		default:
+			// Several protos. Using vm.protoStack is more efficient than using
+			// the goroutine stack for explicit recursion.
+			for i := len(obj.plusproto) - 1; i >= 0; i-- {
+				if p := obj.plusproto[i]; vm.protoSet.Add(p.UniqueID()) {
+					vm.protoStack = append(vm.protoStack, p)
+				}
+			}
+			if vm.protoSet.Add(obj.proto.UniqueID()) {
+				vm.protoStack = append(vm.protoStack, obj.proto)
+			}
+			obj.Unlock()
+			if len(vm.protoStack) == 0 {
+				// If all this object's protos have been checked already, stop.
+				return nil, nil
+			}
+			for len(vm.protoStack) > 1 {
+				obj = vm.protoStack[len(vm.protoStack)-1] // grab the top
+				if sy := vm.localSyncSlot(obj, slot); sy != nil {
+					if sy.value != nil {
+						vm.protoStack = vm.protoStack[:0]
+						return sy, obj
+					}
+					sy.release()
+				}
+				vm.protoStack = vm.protoStack[:len(vm.protoStack)-1] // actually pop
+				obj.Lock()
+				if obj.proto != nil {
+					for i := len(obj.plusproto) - 1; i >= 0; i-- {
+						if p := obj.plusproto[i]; vm.protoSet.Add(p.UniqueID()) {
+							vm.protoStack = append(vm.protoStack, p)
+						}
+					}
+					if vm.protoSet.Add(obj.proto.UniqueID()) {
+						vm.protoStack = append(vm.protoStack, obj.proto)
+					}
+				}
+				obj.Unlock()
+			}
+			// The stack is down to one object. Check it, then try to return to
+			// faster cases.
+			obj = vm.protoStack[0]
+			vm.protoStack = vm.protoStack[:0]
+			if sy := vm.localSyncSlot(obj, slot); sy != nil {
+				return sy, obj
+			}
+		}
+	}
 }
 
 // GetLocalSlot checks only obj's own slots for a slot.

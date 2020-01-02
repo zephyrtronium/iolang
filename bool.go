@@ -1,7 +1,7 @@
 package iolang
 
 func (vm *VM) initTrue() {
-	vm.True.Protos = []*Object{vm.BaseObject}
+	vm.True.proto = vm.BaseObject
 	s := vm.NewString("true")
 	slots := Slots{
 		"asSimpleString": s,
@@ -19,7 +19,7 @@ func (vm *VM) initTrue() {
 }
 
 func (vm *VM) initFalse() {
-	vm.False.Protos = []*Object{vm.BaseObject}
+	vm.False.proto = vm.BaseObject
 	s := vm.NewString("false")
 	slots := Slots{
 		"and":            vm.False,
@@ -37,7 +37,7 @@ func (vm *VM) initFalse() {
 }
 
 func (vm *VM) initNil() {
-	vm.Nil.Protos = []*Object{vm.BaseObject}
+	vm.Nil.proto = vm.BaseObject
 	s := vm.NewString("nil")
 	slots := Slots{
 		"and":            vm.False,
