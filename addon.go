@@ -125,7 +125,7 @@ func (vm *VM) initAddon() {
 		"scanForNewAddons": vm.NewCFunction(AddonScanForNewAddons, nil),
 		"type":             vm.NewString("Addon"),
 	}
-	vm.SetSlot(vm.Core, "Addon", vm.NewObject(slots))
+	vm.coreInstall("Addon", slots, nil, nil)
 }
 
 // Install installs an addon proto by appending it to Lobby's protos and

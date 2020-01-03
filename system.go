@@ -44,7 +44,7 @@ func (vm *VM) initSystem() {
 			// os.Getwd failed.
 			slots["launchPath"] = vm.Nil
 		}
-		vm.SetSlot(vm.Core, "System", vm.NewObject(slots))
+		vm.coreInstall("System", slots, nil, nil)
 	}()
 	// installPrefix is the directory two above the executable path, and ioPath
 	// is $installPrefix/lib/io. It is notable that paths on the System object
