@@ -81,6 +81,12 @@ type actualSlots struct {
 type slotRecord struct {
 	// leaf is the value associated with the string ending at the current node.
 	leaf *syncSlot
+	// scut is a read-only shortcut to the leaf that justified creating this
+	// branch, if there is one. It does not need to be accessed atomically.
+	scut *syncSlot
+	// scutName is the name of the shortcut slot beginning at this node's
+	// parent edge value. It does not need to be accessed atomically.
+	scutName string
 	// mask is the list of the names of this record's child nodes. The first
 	// sibling always has 00 as its first entry; otherwise, a zero byte
 	// indicates no edge.
@@ -120,6 +126,10 @@ func (s *actualSlots) load(slot string) *syncSlot {
 		for {
 			if cur == nil {
 				return nil
+			}
+			// Check the shortcut.
+			if cur.scut != nil && cur.scutName == slot[i:] {
+				return cur.scut
 			}
 			// From https://graphics.stanford.edu/~seander/bithacks.html
 			// v has a zero byte iff that byte in mask is equal to c.
@@ -366,6 +376,11 @@ func recordBranch(vm *VM, branch string) (trunk *slotRecord, slot *syncSlot) {
 		cur = cur.children[1]
 	}
 	cur.leaf = newSy(vm, nil)
+	if len(branch) > 1 {
+		// Only create shortcuts that actually skip nodes.
+		trunk.scut = cur.leaf
+		trunk.scutName = branch
+	}
 	return trunk, cur.leaf
 }
 
