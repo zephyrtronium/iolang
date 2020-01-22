@@ -42,6 +42,7 @@ func BenchmarkGetSlot(b *testing.B) {
 		"Local":    {vm.Lobby, "Lobby"},
 		"Proto":    {vm.BaseObject, "Lobby"},
 		"Ancestor": {o, "Lobby"},
+		"Missing":  {vm.Lobby, "Lobby fail to find"},
 	}
 	for name, c := range cases {
 		b.Run(name, func(b *testing.B) {
