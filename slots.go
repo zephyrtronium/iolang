@@ -73,26 +73,46 @@ func (s *syncSlot) snap(vm *VM) *Object {
 // The trie is grow-only. A leaf value of nil indicates an empty slot that has
 // not been created; a slot value of nil indicates an unset or deleted slot.
 type actualSlots struct {
-	root *slotRecord // atomic
+	root *slotBranch // atomic
+}
+
+// slotBranch holds a level of the slots trie.
+type slotBranch struct {
+	// leaf is the value associated with the string ending at the current node.
+	// Once this branch is connected into the trie, leaf must be accessed
+	// atomically.
+	leaf *syncSlot
+
+	// scut is a read-only shortcut to the leaf that justified creating this
+	// branch, if there is one.
+	scut *syncSlot
+	// scutName is the name of the shortcut slot beginning at this node's
+	// parent edge value.
+	scutName string
+
+	// rec is the first slotRecord. It is included as a value rather than as a
+	// pointer to save an indirection on each lookup.
+	rec slotRecord
+
+	// hasZero is an atomic flag indicating whether this branch has an edge
+	// corresponding to the zero byte. If this is nonzero, then readers should
+	// spin until zero is not nil.
+	//
+	// This is typed as a uintptr instead of a smaller type; no other type
+	// would save space due to alignment requirements anyway.
+	hasZero uintptr
+	// zero is the zero edge.
+	zero *slotBranch
 }
 
 // slotRecord represents one piece of the slots trie. Its fields must be
 // manipulated atomically.
 type slotRecord struct {
-	// leaf is the value associated with the string ending at the current node.
-	leaf *syncSlot
-	// scut is a read-only shortcut to the leaf that justified creating this
-	// branch, if there is one. It does not need to be accessed atomically.
-	scut *syncSlot
-	// scutName is the name of the shortcut slot beginning at this node's
-	// parent edge value. It does not need to be accessed atomically.
-	scutName string
-	// mask is the list of the names of this record's child nodes. The first
-	// sibling always has 00 as its first entry; otherwise, a zero byte
+	// mask is the list of the names of this record's child nodes. A zero byte
 	// indicates no edge.
 	mask uintptr
 	// children is this record's child nodes.
-	children [recordChildren]*slotRecord
+	children [recordChildren]*slotBranch
 	// sibling is the next record at the same level in the trie.
 	sibling *slotRecord
 }
@@ -106,31 +126,32 @@ const recordPop = ^uintptr(0) / 0xff
 
 // load finds the given slot, or returns nil if there is no such slot.
 func (s *actualSlots) load(slot string) *syncSlot {
-	cur := (*slotRecord)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&s.root))))
-	if cur == nil {
+	branch := (*slotBranch)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&s.root))))
+	if branch == nil {
 		return nil
 	}
 	// Iterate manually rather than by range; we want bytes, not runes.
 	for i := 0; i < len(slot); i++ {
+		// Check the shortcut.
+		if branch.scut != nil && branch.scutName == slot[i:] {
+			return branch.scut
+		}
 		c := slot[i]
 		if c == 0 {
-			// The nul slot is always the first child of the first record on
-			// the current level, even if it doesn't exist.
-			cur = (*slotRecord)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&cur.children[0]))))
-			if cur == nil {
+			// The nul edge is special and lives on the branch itself.
+			if atomic.LoadUintptr(&branch.hasZero) == 0 {
 				return nil
 			}
+			next := (*slotBranch)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&branch.zero))))
+			for next == nil {
+				next = (*slotBranch)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&branch.zero))))
+			}
+			branch = next
 			continue
 		}
+		cur := &branch.rec
 		m := uintptr(c) * recordPop
 		for {
-			if cur == nil {
-				return nil
-			}
-			// Check the shortcut.
-			if cur.scut != nil && cur.scutName == slot[i:] {
-				return cur.scut
-			}
 			// From https://graphics.stanford.edu/~seander/bithacks.html
 			// v has a zero byte iff that byte in mask is equal to c.
 			v := atomic.LoadUintptr(&cur.mask) ^ m
@@ -143,6 +164,9 @@ func (s *actualSlots) load(slot string) *syncSlot {
 			if v == 0 {
 				// No match in this record.
 				cur = (*slotRecord)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&cur.sibling))))
+				if cur == nil {
+					return nil
+				}
 				continue
 			}
 			// The lowest set bit is in the byte that matched c.
@@ -154,46 +178,50 @@ func (s *actualSlots) load(slot string) *syncSlot {
 			} else {
 				k = bits.TrailingZeros64(uint64(v)) / 8
 			}
-			next := (*slotRecord)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&cur.children[k]))))
+			next := (*slotBranch)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&cur.children[k]))))
 			for next == nil {
 				// The edge to this child exists, but the node hasn't been set.
 				// Another goroutine must be in the process of setting it. Spin
 				// until it's available.
-				next = (*slotRecord)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&cur.children[k]))))
+				next = (*slotBranch)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&cur.children[k]))))
 			}
-			cur = next
+			branch = next
 			break
 		}
 	}
-	return (*syncSlot)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&cur.leaf))))
+	return (*syncSlot)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&branch.leaf))))
 }
 
 // open loads the current value of the given slot if it exists or creates a new
 // slot there if it does not. The slot is claimed by vm.
 func (s *actualSlots) open(vm *VM, slot string) *syncSlot {
-	cur := (*slotRecord)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&s.root))))
-	if cur == nil {
+	branch := (*slotBranch)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&s.root))))
+	if branch == nil {
 		// Slots are empty. Try to create them, but it's possible we're not the
 		// only ones doing so; whoever gets there first wins.
-		cur = &slotRecord{}
-		if !atomic.CompareAndSwapPointer((*unsafe.Pointer)(unsafe.Pointer(&s.root)), nil, unsafe.Pointer(cur)) {
-			cur = (*slotRecord)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&s.root))))
+		branch = &slotBranch{}
+		if !atomic.CompareAndSwapPointer((*unsafe.Pointer)(unsafe.Pointer(&s.root)), nil, unsafe.Pointer(branch)) {
+			branch = (*slotBranch)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&s.root))))
 		}
 	}
 	// Iterate manually rather than by range; we want bytes, not runes.
 	for i := 0; i < len(slot); i++ {
 		c := slot[i]
 		if c == 0 {
-			// The nul slot is always the first child of the first record on
-			// the current level, even if it doesn't exist.
-			cur = &slotRecord{}
-			if !atomic.CompareAndSwapPointer((*unsafe.Pointer)(unsafe.Pointer(&cur.children[0])), nil, unsafe.Pointer(cur)) {
-				cur = (*slotRecord)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&cur.children[0]))))
+			if !atomic.CompareAndSwapUintptr(&branch.hasZero, 0, 1) {
+				next := (*slotBranch)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&branch.zero))))
+				for next == nil {
+					next = (*slotBranch)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&branch.zero))))
+				}
+				branch = next
+				continue
 			}
-			continue
+			node, leaf := recordBranch(vm, slot[i+1:])
+			atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&branch.zero)), unsafe.Pointer(node))
+			return leaf
 		}
+		cur := &branch.rec
 		m := uintptr(c) * recordPop
-		first := uintptr(1)
 		for {
 			cm := atomic.LoadUintptr(&cur.mask)
 			// From https://graphics.stanford.edu/~seander/bithacks.html
@@ -212,7 +240,7 @@ func (s *actualSlots) open(vm *VM, slot string) *syncSlot {
 					// loaded its mask. Locate it, create a new mask, and try
 					// to commit it to reserve the edge. The technique here is
 					// essentially the same as above (and below).
-					v = (cm | first - recordPop) &^ (cm | first) & (recordPop << 7)
+					v = (cm - recordPop) &^ cm & (recordPop << 7)
 					var k int
 					if uint64(^uint(0)) >= uint64(^uintptr(0)) {
 						k = bits.TrailingZeros(uint(v)) / 8
@@ -231,7 +259,6 @@ func (s *actualSlots) open(vm *VM, slot string) *syncSlot {
 					// same edge we're looking for. Try again from the start.
 					continue
 				}
-				first = 0
 				next := (*slotRecord)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&cur.sibling))))
 				if next == nil {
 					// This was the last record in this level. Try to add a new
@@ -256,27 +283,27 @@ func (s *actualSlots) open(vm *VM, slot string) *syncSlot {
 			} else {
 				k = bits.TrailingZeros64(uint64(v)) / 8
 			}
-			next := (*slotRecord)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&cur.children[k]))))
+			next := (*slotBranch)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&cur.children[k]))))
 			for next == nil {
 				// The edge to this child exists, but the node hasn't been set.
 				// Another goroutine must be in the process of setting it. Spin
 				// until it's available.
-				next = (*slotRecord)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&cur.children[k]))))
+				next = (*slotBranch)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&cur.children[k]))))
 			}
-			cur = next
+			branch = next
 			break
 		}
 	}
-	sy := (*syncSlot)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&cur.leaf))))
+	sy := (*syncSlot)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&branch.leaf))))
 	if sy == nil {
 		// The node existed, but its value was unset. This happens if the slot
 		// we're creating is a prefix of a slot that was added earlier.
 		sy = newSy(vm, nil)
-		if atomic.CompareAndSwapPointer((*unsafe.Pointer)(unsafe.Pointer(&cur.leaf)), nil, unsafe.Pointer(sy)) {
+		if atomic.CompareAndSwapPointer((*unsafe.Pointer)(unsafe.Pointer(&branch.leaf)), nil, unsafe.Pointer(sy)) {
 			return sy
 		}
 		// Someone else created the slot before us. Use theirs.
-		sy = (*syncSlot)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&cur.leaf))))
+		sy = (*syncSlot)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&branch.leaf))))
 	}
 	sy.claim(vm)
 	return sy
@@ -286,7 +313,7 @@ func (s *actualSlots) open(vm *VM, slot string) *syncSlot {
 // iteration ceases. The slots passed to exec are claimed by VM and will be
 // released afterward.
 func (s *actualSlots) foreach(vm *VM, exec func(name string, sy *syncSlot) bool) {
-	cur := (*slotRecord)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&s.root))))
+	cur := (*slotBranch)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&s.root))))
 	if cur == nil {
 		return
 	}
@@ -294,7 +321,7 @@ func (s *actualSlots) foreach(vm *VM, exec func(name string, sy *syncSlot) bool)
 }
 
 // foreachIter executes actualSlots.foreach for a single depth of the trie.
-func (r *slotRecord) foreachIter(vm *VM, exec func(name string, sy *syncSlot) bool, b []byte) []byte {
+func (r *slotBranch) foreachIter(vm *VM, exec func(name string, sy *syncSlot) bool, b []byte) []byte {
 	sy := (*syncSlot)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&r.leaf))))
 	if sy != nil {
 		r := true
@@ -307,73 +334,50 @@ func (r *slotRecord) foreachIter(vm *VM, exec func(name string, sy *syncSlot) bo
 			return nil
 		}
 	}
-	// Handle the first record specially, since it contains the zero edge.
-	cur := (*slotRecord)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&r.children[0]))))
-	if cur != nil {
+	// Handle the zero edge specially.
+	zero := (*slotBranch)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&r.zero))))
+	if zero != nil {
 		b = append(b, 0)
-		b = cur.foreachIter(vm, exec, b)
+		b = zero.foreachIter(vm, exec, b)
 		if b == nil {
 			return nil
 		}
 		b = b[:len(b)-1]
 	}
-	for k := 1; k < recordChildren; k++ {
-		cm := atomic.LoadUintptr(&r.mask)
-		c := byte(cm >> (k * 8))
-		if c == 0 {
-			// No more edges.
-			return b
-		}
-		cur = (*slotRecord)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&r.children[k]))))
-		if cur == nil {
-			// The node is being created. Even if we wait for it, it won't have
-			// a real value until later. Furthermore, if we were to try to spin
-			// for it, then trying to create a slot from within foreach would
-			// have the potential to enter an active deadlock. Just skip.
-			continue
-		}
-		b = append(b, c)
-		b = cur.foreachIter(vm, exec, b)
-		if b == nil {
-			return nil
-		}
-		b = b[:len(b)-1]
-	}
-	// Now we can loop over siblings.
-	for {
-		r = (*slotRecord)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&r.sibling))))
-		if r == nil {
-			// Last sibling. We're done.
-			return b
-		}
+	cur := &r.rec
+	for cur != nil {
 		for k := 0; k < recordChildren; k++ {
-			cm := atomic.LoadUintptr(&r.mask)
+			cm := atomic.LoadUintptr(&cur.mask)
 			c := byte(cm >> (k * 8))
 			if c == 0 {
 				return b
 			}
-			cur = (*slotRecord)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&r.children[k]))))
-			if cur == nil {
+			r = (*slotBranch)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&cur.children[k]))))
+			if r == nil {
 				continue
 			}
 			b = append(b, c)
-			b = cur.foreachIter(vm, exec, b)
+			b = r.foreachIter(vm, exec, b)
 			if b == nil {
 				return nil
 			}
 			b = b[:len(b)-1]
 		}
+		cur = (*slotRecord)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&cur.sibling))))
 	}
+	return b
 }
 
 // recordBranch allocates an entire new branch of a slots trie.
-func recordBranch(vm *VM, branch string) (trunk *slotRecord, slot *syncSlot) {
-	trunk = &slotRecord{}
+func recordBranch(vm *VM, branch string) (trunk *slotBranch, slot *syncSlot) {
+	trunk = &slotBranch{}
 	cur := trunk
 	for i := 0; i < len(branch); i++ {
-		cur.mask = uintptr(branch[i]) << 8
-		cur.children[1] = &slotRecord{}
-		cur = cur.children[1]
+		cur.rec = slotRecord{
+			mask:     uintptr(branch[i]),
+			children: [recordChildren]*slotBranch{0: &slotBranch{}},
+		}
+		cur = cur.rec.children[0]
 	}
 	cur.leaf = newSy(vm, nil)
 	if len(branch) > 1 {
