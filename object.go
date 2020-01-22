@@ -432,8 +432,8 @@ func ObjectHasLocalSlot(vm *VM, target, locals *Object, msg *Message) *Object {
 // slotNames returns a list of the names of the slots on this object.
 func ObjectSlotNames(vm *VM, target, locals *Object, msg *Message) *Object {
 	v := []*Object{}
-	target.slots.Range(func(key interface{}, value interface{}) bool {
-		v = append(v, vm.NewString(key.(string)))
+	target.slots.foreach(vm, func(key string, value *syncSlot) bool {
+		v = append(v, vm.NewString(key))
 		return true
 	})
 	return vm.NewList(v...)
@@ -444,8 +444,8 @@ func ObjectSlotNames(vm *VM, target, locals *Object, msg *Message) *Object {
 // slotValues returns a list of the values of the slots on this obect.
 func ObjectSlotValues(vm *VM, target, locals *Object, msg *Message) *Object {
 	v := []*Object{}
-	target.slots.Range(func(key interface{}, value interface{}) bool {
-		v = append(v, value.(*syncSlot).snap(vm))
+	target.slots.foreach(vm, func(key string, value *syncSlot) bool {
+		v = append(v, value.value)
 		return true
 	})
 	return vm.NewList(v...)
@@ -844,11 +844,11 @@ func ObjectForeachSlot(vm *VM, target, locals *Object, msg *Message) (result *Ob
 		return vm.RaiseExceptionf("foreachSlot requires 2 or 3 args")
 	}
 	var control Stop
-	target.slots.Range(func(key interface{}, value interface{}) bool {
-		v := value.(*syncSlot).snap(vm)
+	target.slots.foreach(vm, func(key string, value *syncSlot) bool {
+		v := value.snap(vm)
 		vm.SetSlot(locals, vn, v)
 		if hkn {
-			vm.SetSlot(locals, kn, vm.NewString(key.(string)))
+			vm.SetSlot(locals, kn, vm.NewString(key))
 		}
 		result, control = ev.Eval(vm, locals)
 		switch control {
@@ -989,8 +989,8 @@ func ObjectRemoveAllProtos(vm *VM, target, locals *Object, msg *Message) *Object
 // removeAllSlots removes all slots from the object.
 func ObjectRemoveAllSlots(vm *VM, target, locals *Object, msg *Message) *Object {
 	keys := []string{}
-	target.slots.Range(func(key interface{}, value interface{}) bool {
-		keys = append(keys, key.(string))
+	target.slots.foreach(vm, func(key string, value *syncSlot) bool {
+		keys = append(keys, key)
 		return true
 	})
 	vm.RemoveSlot(target, keys...)
@@ -1073,8 +1073,8 @@ func ObjectShallowCopy(vm *VM, target, locals *Object, msg *Message) *Object {
 	protos := target.Protos()
 	target.Unlock()
 	r := vm.ObjectWith(nil, protos, nil, nil)
-	target.slots.Range(func(key interface{}, value interface{}) bool {
-		r.slots.Store(key, value)
+	target.slots.foreach(vm, func(key string, value *syncSlot) bool {
+		vm.SetSlot(r, key, value.snap(vm))
 		return true
 	})
 	return r

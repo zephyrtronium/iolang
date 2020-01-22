@@ -1,11 +1,11 @@
 package iolang
 
 import (
+	"math/bits"
 	"sync"
+	"sync/atomic"
+	"unsafe"
 )
-
-// TODO: custom implementation of sync.Map to avoid interface conversions.
-// Making it fast enough might require hijacking runtime hash functions.
 
 // syncSlot is a synchronized slot. Once a particular VM accesses this slot,
 // it becomes the slot's owner for the duration of the access, and other coros
@@ -68,11 +68,308 @@ func (s *syncSlot) snap(vm *VM) *Object {
 	return r
 }
 
-// actualSlots is the type objects actually use for slots. Keys have type
-// string and values have type *Object.
-type actualSlots = sync.Map
+// actualSlots is a synchronized trie structure that implements slots.
+//
+// The trie is grow-only. A leaf value of nil indicates an empty slot that has
+// not been created; a slot value of nil indicates an unset or deleted slot.
+type actualSlots struct {
+	root *slotRecord // atomic
+}
 
-// Slots holds the set of messages to which an object responds.
+// slotRecord represents one piece of the slots trie. Its fields must be
+// manipulated atomically.
+type slotRecord struct {
+	// leaf is the value associated with the string ending at the current node.
+	leaf *syncSlot
+	// mask is the list of the names of this record's child nodes. The first
+	// sibling always has 00 as its first entry; otherwise, a zero byte
+	// indicates no edge.
+	mask uintptr
+	// children is this record's child nodes.
+	children [recordChildren]*slotRecord
+	// sibling is the next record at the same level in the trie.
+	sibling *slotRecord
+}
+
+// recordChildren is the number of children in a single slotRecord, i.e. the
+// size of uintptr in bytes.
+const recordChildren = 4 << (^uintptr(0) >> 32 & 1)
+
+// recordPop has the first bit in each byte set and all others clear.
+const recordPop = ^uintptr(0) / 0xff
+
+// load finds the given slot, or returns nil if there is no such slot.
+func (s *actualSlots) load(slot string) *syncSlot {
+	cur := (*slotRecord)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&s.root))))
+	if cur == nil {
+		return nil
+	}
+	// Iterate manually rather than by range; we want bytes, not runes.
+	for i := 0; i < len(slot); i++ {
+		c := slot[i]
+		if c == 0 {
+			// The nul slot is always the first child of the first record on
+			// the current level, even if it doesn't exist.
+			cur = (*slotRecord)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&cur.children[0]))))
+			if cur == nil {
+				return nil
+			}
+			continue
+		}
+		m := uintptr(c) * recordPop
+		for {
+			if cur == nil {
+				return nil
+			}
+			// From https://graphics.stanford.edu/~seander/bithacks.html
+			// v has a zero byte iff that byte in mask is equal to c.
+			v := atomic.LoadUintptr(&cur.mask) ^ m
+			// After subtracting recordPop, the high bit of each byte in v is
+			// set iff the byte either was 0 or was greater than 0x80. After
+			// clearing the bits that were set in v, the latter case is
+			// eliminated. Then, masking the high bit in each byte leaves the
+			// bits whose bytes contained c as the only ones still set.
+			v = (v - recordPop) &^ v & (recordPop << 7)
+			if v == 0 {
+				// No match in this record.
+				cur = (*slotRecord)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&cur.sibling))))
+				continue
+			}
+			// The lowest set bit is in the byte that matched c.
+			// There isn't currently any platform where uint is smaller than
+			// uintptr, but this check happens at compile-time anyway.
+			var k int
+			if uint64(^uint(0)) >= uint64(^uintptr(0)) {
+				k = bits.TrailingZeros(uint(v)) / 8
+			} else {
+				k = bits.TrailingZeros64(uint64(v)) / 8
+			}
+			next := (*slotRecord)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&cur.children[k]))))
+			for next == nil {
+				// The edge to this child exists, but the node hasn't been set.
+				// Another goroutine must be in the process of setting it. Spin
+				// until it's available.
+				next = (*slotRecord)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&cur.children[k]))))
+			}
+			cur = next
+			break
+		}
+	}
+	return (*syncSlot)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&cur.leaf))))
+}
+
+// open loads the current value of the given slot if it exists or creates a new
+// slot there if it does not. The slot is claimed by vm.
+func (s *actualSlots) open(vm *VM, slot string) *syncSlot {
+	cur := (*slotRecord)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&s.root))))
+	if cur == nil {
+		// Slots are empty. Try to create them, but it's possible we're not the
+		// only ones doing so; whoever gets there first wins.
+		cur = &slotRecord{}
+		if !atomic.CompareAndSwapPointer((*unsafe.Pointer)(unsafe.Pointer(&s.root)), nil, unsafe.Pointer(cur)) {
+			cur = (*slotRecord)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&s.root))))
+		}
+	}
+	// Iterate manually rather than by range; we want bytes, not runes.
+	for i := 0; i < len(slot); i++ {
+		c := slot[i]
+		if c == 0 {
+			// The nul slot is always the first child of the first record on
+			// the current level, even if it doesn't exist.
+			cur = &slotRecord{}
+			if !atomic.CompareAndSwapPointer((*unsafe.Pointer)(unsafe.Pointer(&cur.children[0])), nil, unsafe.Pointer(cur)) {
+				cur = (*slotRecord)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&cur.children[0]))))
+			}
+			continue
+		}
+		m := uintptr(c) * recordPop
+		first := uintptr(1)
+		for {
+			cm := atomic.LoadUintptr(&cur.mask)
+			// From https://graphics.stanford.edu/~seander/bithacks.html
+			// v has a zero byte iff that byte in mask is equal to c.
+			v := cm ^ m
+			// After subtracting recordPop, the high bit of each byte in v is
+			// set iff the byte either was 0 or was greater than 0x80. After
+			// clearing the bits that were set in v, the latter case is
+			// eliminated. Then, masking the high bit in each byte leaves the
+			// bits whose bytes contained c as the only ones still set.
+			v = (v - recordPop) &^ v & (recordPop << 7)
+			if v == 0 {
+				// No match in this record.
+				if cm < 1<<(32<<(^uintptr(0)>>32&1)-7) {
+					// This record had at least one open spot at the time we
+					// loaded its mask. Locate it, create a new mask, and try
+					// to commit it to reserve the edge. The technique here is
+					// essentially the same as above (and below).
+					v = (cm | first - recordPop) &^ (cm | first) & (recordPop << 7)
+					var k int
+					if uint64(^uint(0)) >= uint64(^uintptr(0)) {
+						k = bits.TrailingZeros(uint(v)) / 8
+					} else {
+						k = bits.TrailingZeros(uint(v)) / 8
+					}
+					n := cm | uintptr(c)<<(k*8)
+					if atomic.CompareAndSwapUintptr(&cur.mask, cm, n) {
+						// We got the edge. Now we can allocate the node, as
+						// well as the entire rest of the branch.
+						node, leaf := recordBranch(vm, slot[i+1:])
+						atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&cur.children[k])), unsafe.Pointer(node))
+						return leaf
+					}
+					// Someone else added an edge, and it might have been the
+					// same edge we're looking for. Try again from the start.
+					continue
+				}
+				first = 0
+				next := (*slotRecord)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&cur.sibling))))
+				if next == nil {
+					// This was the last record in this level. Try to add a new
+					// sibling. Another goroutine might create a new sibling
+					// while we're allocating ours, though, so we don't want to
+					// try to make the whole branch.
+					next = &slotRecord{}
+					if !atomic.CompareAndSwapPointer((*unsafe.Pointer)(unsafe.Pointer(&cur.sibling)), nil, unsafe.Pointer(next)) {
+						// Someone else added the sibling. Use theirs.
+						next = (*slotRecord)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&cur.sibling))))
+					}
+				}
+				cur = next
+				continue
+			}
+			// The lowest set bit is in the byte that matched c. There isn't
+			// currently any platform where uint is smaller than uintptr, but
+			// this check happens at compile-time anyway.
+			var k int
+			if uint64(^uint(0)) >= uint64(^uintptr(0)) {
+				k = bits.TrailingZeros(uint(v)) / 8
+			} else {
+				k = bits.TrailingZeros64(uint64(v)) / 8
+			}
+			next := (*slotRecord)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&cur.children[k]))))
+			for next == nil {
+				// The edge to this child exists, but the node hasn't been set.
+				// Another goroutine must be in the process of setting it. Spin
+				// until it's available.
+				next = (*slotRecord)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&cur.children[k]))))
+			}
+			cur = next
+			break
+		}
+	}
+	sy := (*syncSlot)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&cur.leaf))))
+	if sy == nil {
+		// The node existed, but its value was unset. This happens if the slot
+		// we're creating is a prefix of a slot that was added earlier.
+		sy = newSy(vm, nil)
+		if atomic.CompareAndSwapPointer((*unsafe.Pointer)(unsafe.Pointer(&cur.leaf)), nil, unsafe.Pointer(sy)) {
+			return sy
+		}
+		// Someone else created the slot before us. Use theirs.
+		sy = (*syncSlot)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&cur.leaf))))
+	}
+	sy.claim(vm)
+	return sy
+}
+
+// foreach executes a function for each slot. If exec returns false, then the
+// iteration ceases. The slots passed to exec are claimed by VM and will be
+// released afterward.
+func (s *actualSlots) foreach(vm *VM, exec func(name string, sy *syncSlot) bool) {
+	cur := (*slotRecord)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&s.root))))
+	if cur == nil {
+		return
+	}
+	cur.foreachIter(vm, exec, nil)
+}
+
+// foreachIter executes actualSlots.foreach for a single depth of the trie.
+func (r *slotRecord) foreachIter(vm *VM, exec func(name string, sy *syncSlot) bool, b []byte) []byte {
+	sy := (*syncSlot)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&r.leaf))))
+	if sy != nil {
+		r := true
+		sy.claim(vm)
+		if sy.value != nil {
+			r = exec(string(b), sy)
+		}
+		sy.release()
+		if !r {
+			return nil
+		}
+	}
+	// Handle the first record specially, since it contains the zero edge.
+	cur := (*slotRecord)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&r.children[0]))))
+	if cur != nil {
+		b = append(b, 0)
+		b = cur.foreachIter(vm, exec, b)
+		if b == nil {
+			return nil
+		}
+		b = b[:len(b)-1]
+	}
+	for k := 1; k < recordChildren; k++ {
+		cm := atomic.LoadUintptr(&r.mask)
+		c := byte(cm >> (k * 8))
+		if c == 0 {
+			// No more edges.
+			return b
+		}
+		cur = (*slotRecord)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&r.children[k]))))
+		if cur == nil {
+			// The node is being created. Even if we wait for it, it won't have
+			// a real value until later. Furthermore, if we were to try to spin
+			// for it, then trying to create a slot from within foreach would
+			// have the potential to enter an active deadlock. Just skip.
+			continue
+		}
+		b = append(b, c)
+		b = cur.foreachIter(vm, exec, b)
+		if b == nil {
+			return nil
+		}
+		b = b[:len(b)-1]
+	}
+	// Now we can loop over siblings.
+	for {
+		r = (*slotRecord)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&r.sibling))))
+		if r == nil {
+			// Last sibling. We're done.
+			return b
+		}
+		for k := 0; k < recordChildren; k++ {
+			cm := atomic.LoadUintptr(&r.mask)
+			c := byte(cm >> (k * 8))
+			if c == 0 {
+				return b
+			}
+			cur = (*slotRecord)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&r.children[k]))))
+			if cur == nil {
+				continue
+			}
+			b = append(b, c)
+			b = cur.foreachIter(vm, exec, b)
+			if b == nil {
+				return nil
+			}
+			b = b[:len(b)-1]
+		}
+	}
+}
+
+// recordBranch allocates an entire new branch of a slots trie.
+func recordBranch(vm *VM, branch string) (trunk *slotRecord, slot *syncSlot) {
+	trunk = &slotRecord{}
+	cur := trunk
+	for i := 0; i < len(branch); i++ {
+		cur.mask = uintptr(branch[i]) << 8
+		cur.children[1] = &slotRecord{}
+		cur = cur.children[1]
+	}
+	cur.leaf = newSy(vm, nil)
+	return trunk, cur.leaf
+}
+
+// Slots represents the set of messages to which an object responds.
 type Slots = map[string]*Object
 
 // GetSlot checks obj and its ancestors in depth-first order without
@@ -87,13 +384,7 @@ func (vm *VM) GetSlot(obj *Object, slot string) (value, proto *Object) {
 	if sy := vm.localSyncSlot(obj, slot); sy != nil {
 		value = sy.value
 		sy.release()
-		// The slot value can be nil if the value is currently being created,
-		// like in x := x, or if the slot was created but then an exception
-		// occurred while evaluating its result. In either case, the slot
-		// doesn't actually exist, so it is correct to continue into ancestors.
-		if value != nil {
-			return value, obj
-		}
+		return value, obj
 	}
 	sy, proto := vm.getSlotAncestor(obj, slot)
 	if proto != nil {
@@ -116,9 +407,7 @@ func (vm *VM) GetSlotSync(obj *Object, slot string) (value, proto *Object, relea
 		// It'd be trivial to wrap sy.release in a *sync.Once so we don't have
 		// to worry about multiple calls, but that would be slow and would mean
 		// every call to this allocates.
-		if sy.value != nil {
-			return sy.value, obj, sy.release
-		}
+		return sy.value, obj, sy.release
 	}
 	sy, proto := vm.getSlotAncestor(obj, slot)
 	if proto != nil {
@@ -144,13 +433,13 @@ func (vm *VM) getSlotAncestor(obj *Object, slot string) (sy *syncSlot, proto *Ob
 			rp := obj.proto
 			obj.Unlock()
 			obj = rp
+			if !vm.protoSet.Add(obj.UniqueID()) {
+				return nil, nil
+			}
 			if sy := vm.localSyncSlot(obj, slot); sy != nil {
 				return sy, obj
 			}
 			// Try again with the proto.
-			if !vm.protoSet.Add(obj.UniqueID()) {
-				return nil, nil
-			}
 		default:
 			// Several protos. Using vm.protoStack is more efficient than using
 			// the goroutine stack for explicit recursion.
@@ -170,11 +459,8 @@ func (vm *VM) getSlotAncestor(obj *Object, slot string) (sy *syncSlot, proto *Ob
 			for len(vm.protoStack) > 1 {
 				obj = vm.protoStack[len(vm.protoStack)-1] // grab the top
 				if sy := vm.localSyncSlot(obj, slot); sy != nil {
-					if sy.value != nil {
-						vm.protoStack = vm.protoStack[:0]
-						return sy, obj
-					}
-					sy.release()
+					vm.protoStack = vm.protoStack[:0]
+					return sy, obj
 				}
 				vm.protoStack = vm.protoStack[:len(vm.protoStack)-1] // actually pop
 				obj.Lock()
@@ -209,9 +495,6 @@ func (vm *VM) GetLocalSlot(obj *Object, slot string) (value *Object, ok bool) {
 	if sy := vm.localSyncSlot(obj, slot); sy != nil {
 		value = sy.value
 		sy.release()
-		if value == nil {
-			return nil, false
-		}
 		return value, true
 	}
 	return nil, false
@@ -227,7 +510,7 @@ func (vm *VM) GetLocalSlotSync(obj *Object, slot string) (value *Object, release
 		return nil, nil
 	}
 	sy := vm.localSyncSlot(obj, slot)
-	if sy != nil && sy.value != nil {
+	if sy != nil {
 		return sy.value, sy.release
 	}
 	return nil, nil
@@ -235,23 +518,29 @@ func (vm *VM) GetLocalSlotSync(obj *Object, slot string) (value *Object, release
 
 // localSyncSlot claims a slot if it exists on obj.
 func (vm *VM) localSyncSlot(obj *Object, slot string) *syncSlot {
-	s, ok := obj.slots.Load(slot)
-	if ok {
-		sy := s.(*syncSlot)
-		sy.claim(vm)
-		return sy
+	sy := obj.slots.load(slot)
+	if sy == nil {
+		return nil
 	}
-	return nil
+	sy.claim(vm)
+	if sy.value == nil {
+		// The slot value can be nil if the value is currently being created,
+		// like in x := x, or if the slot was created but then an exception
+		// occurred while evaluating its result, or if the slot was removed. In
+		// any case, the slot doesn't actually exist.
+		sy.release()
+		return nil
+	}
+	return sy
 }
 
 // GetAllSlots returns a copy of all slots on obj. This may block if another
 // coroutine is accessing any slot on the object.
 func (vm *VM) GetAllSlots(obj *Object) Slots {
 	slots := Slots{}
-	obj.slots.Range(func(key interface{}, value interface{}) bool {
-		v := value.(*syncSlot).snap(vm)
-		if v != nil {
-			slots[key.(string)] = v
+	obj.slots.foreach(vm, func(key string, value *syncSlot) bool {
+		if value.value != nil {
+			slots[key] = value.value
 		}
 		return true
 	})
@@ -260,16 +549,9 @@ func (vm *VM) GetAllSlots(obj *Object) Slots {
 
 // SetSlot sets the value of a slot on obj.
 func (vm *VM) SetSlot(obj *Object, slot string, value *Object) {
-	// See whether the slot already exists first so that we don't have to
-	// allocate memory on every call.
-	if s, ok := obj.slots.Load(slot); ok {
-		sy := s.(*syncSlot)
-		sy.claim(vm)
-		sy.value = value
-		sy.release()
-		return
-	}
-	vm.newSlot(obj, slot, value).release()
+	sy := obj.slots.open(vm, slot)
+	sy.value = value
+	sy.release()
 }
 
 // SetSlotSync creates a synchronized setter for a slot on obj. set must be
@@ -286,34 +568,11 @@ func (vm *VM) SetSlot(obj *Object, slot string, value *Object) {
 //
 // set must be called exactly once.
 func (vm *VM) SetSlotSync(obj *Object, slot string) (set func(*Object)) {
-	var sy *syncSlot
-	// See whether the slot already exists first so that we don't have to
-	// allocate memory on every call.
-	if s, ok := obj.slots.Load(slot); ok {
-		sy = s.(*syncSlot)
-		sy.claim(vm)
-	} else {
-		sy = vm.newSlot(obj, slot, nil)
-	}
+	sy := obj.slots.open(vm, slot)
 	return func(value *Object) {
 		sy.value = value
 		sy.release()
 	}
-}
-
-// newSlot creates a new slot on obj with the given value, or changes its value
-// if it already exists.
-func (vm *VM) newSlot(obj *Object, slot string, value *Object) *syncSlot {
-	n := newSy(vm, value)
-	if s, ok := obj.slots.LoadOrStore(slot, n); ok {
-		// The slot was created between our earlier load and our attempt to
-		// store just now.
-		sy := s.(*syncSlot)
-		sy.claim(vm)
-		sy.value = value
-		return sy
-	}
-	return n
 }
 
 // SetSlots sets the values of multiple slots on obj.
@@ -327,14 +586,16 @@ func (vm *VM) SetSlots(obj *Object, slots Slots) {
 // creating new objects; it is erroneous to use this if any slot in slots
 // already exists on obj.
 func (vm *VM) definitelyNewSlots(obj *Object, slots Slots) {
+	// TODO: create the trie directly instead of just setting each slot
 	for slot, value := range slots {
-		obj.slots.Store(slot, newSy(nil, value))
+		vm.SetSlot(obj, slot, value)
 	}
 }
 
 // RemoveSlot removes slots from obj's local slots, if they are present.
 func (vm *VM) RemoveSlot(obj *Object, slots ...string) {
 	for _, slot := range slots {
-		obj.slots.Delete(slot)
+		// TODO: only remove slots that exist
+		vm.SetSlot(obj, slot, nil)
 	}
 }

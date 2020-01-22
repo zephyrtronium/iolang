@@ -156,8 +156,8 @@ func (vm *VM) initLocals() {
 	// Locals have no protos, so that messages forward to self. Instead, they
 	// have copies of each built-in Object slot.
 	slots := Slots{}
-	vm.BaseObject.slots.Range(func(key interface{}, value interface{}) bool {
-		slots[key.(string)] = value.(*syncSlot).snap(vm)
+	vm.BaseObject.slots.foreach(vm, func(key string, value *syncSlot) bool {
+		slots[key] = value.snap(vm)
 		return true
 	})
 	slots["forward"] = vm.NewCFunction(LocalsForward, nil)
