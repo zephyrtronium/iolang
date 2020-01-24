@@ -1,5 +1,36 @@
 package iolang
 
+/*
+This file contains the implementation of slots. Executing Io code amounts to
+looking up a slot and then calling a function pointer, and it turns out that
+the latter is cheap. Slots are the expensive part of the hot path, so they are
+the primary target for optimization.
+
+If you are here to read how this works, good luck and have fun; I tried hard to
+document everything thoroughly. If you're trying to make changes, have some
+results from my debugging experiences:
+
+panic: iolang: error executing initialization code from io/98_Debugger.io: Coroutine does not respond to setRunTarget (exception)
+	This happens when getSlot("self") returns nil, which probably means that
+Locals slots aren't set up correctly, which probably means that the underlying
+implementation of foreachSlot is broken.
+	This failure might be intermittent (but still happening much more often
+than not), depending on the exact nature of the problem with foreachSlot,
+because the order in which slots are created for Core protos is generally
+random. If getSlot is among the first few slots created, it is much more likely
+for a broken foreachSlot to still copy it to Locals, so the getSlot message
+doesn't need to be forwarded and thus will look on the locals instead of on
+self.
+	The reason this happens in 98_Debugger.io is because that is the first
+place where initialization code ends up using a setter created by newSlot.
+
+panic: iolang: no Core proto named CFunction
+	The first call to vm.NewCFunction involves the first slot lookup during VM
+initialization, via vm.CoreProto, which panics with this message if
+GetLocalSlot fails to find the slot. This means that at least one of
+vm.localSyncSlot and vm.SetSlot is broken.
+*/
+
 import (
 	"math/bits"
 	"sync"
