@@ -184,16 +184,19 @@ func (vm *VM) initFile() {
 	}
 	slots["asBuffer"] = slots["contents"]
 	slots["descriptorId"] = slots["descriptor"]
-	vm.coreInstall("File", slots, File{}, FileTag)
+	proto := vm.coreInstall("File", slots, File{}, FileTag)
 
 	stdin := vm.NewFile(os.Stdin, "read")
 	stdout := vm.NewFile(os.Stdout, "")
 	stderr := vm.NewFile(os.Stderr, "")
 	vm.SetSlot(stdout, "mode", vm.Nil)
 	vm.SetSlot(stderr, "mode", vm.Nil)
-	slots["standardInput"] = stdin
-	slots["standardOutput"] = stdout
-	slots["standardError"] = stderr
+	slots = Slots{
+		"standardInput":  stdin,
+		"standardOutput": stdout,
+		"standardError":  stderr,
+	}
+	vm.SetSlots(proto, slots)
 }
 
 // FileAt is a File method.

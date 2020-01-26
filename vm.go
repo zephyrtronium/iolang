@@ -120,9 +120,11 @@ func NewVM(args ...string) *VM {
 }
 
 // coreInstall is a convenience method to install a new Core proto that has
-// BaseObject as its proto.
-func (vm *VM) coreInstall(proto string, slots Slots, value interface{}, tag Tag) {
-	vm.SetSlot(vm.Core, proto, vm.ObjectWith(slots, []*Object{vm.BaseObject}, value, tag))
+// BaseObject as its proto. Returns the new proto.
+func (vm *VM) coreInstall(proto string, slots Slots, value interface{}, tag Tag) *Object {
+	r := vm.ObjectWith(slots, []*Object{vm.BaseObject}, value, tag)
+	vm.SetSlot(vm.Core, proto, r)
+	return r
 }
 
 // CoreProto returns a new Protos list for a type in vm.Core. Panics if there
