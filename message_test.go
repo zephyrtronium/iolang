@@ -186,3 +186,25 @@ func TestPerformNilResult(t *testing.T) {
 func nilResult(vm *VM, target, locals *Object, msg *Message) *Object {
 	return nil
 }
+
+// TestPerformSynchronous tests that multiple coroutines updating the same slot
+// see each others' changes.
+func TestPerformSynchronous(t *testing.T) {
+	vm := TestingVM()
+	vm.SetSlot(vm.Lobby, "testValue", vm.NewNumber(0))
+	defer vm.RemoveSlot(vm.Lobby, "testValue")
+	r, stop := vm.DoString("100 repeat(@1000 repeat(testValue = testValue + 1)); while(Scheduler coroCount > 0, nil)", "TestPerformSynchronous")
+	if stop != NoStop {
+		t.Errorf("%s (%v)", vm.AsString(r), stop)
+	}
+	x, ok := vm.GetLocalSlot(vm.Lobby, "testValue")
+	if !ok {
+		t.Fatal("no slot testValue on Lobby")
+	}
+	if x.Tag() != NumberTag {
+		t.Fatalf("Lobby testValue has tag %#v, not %#v", x.Tag(), NumberTag)
+	}
+	if x.Value.(float64) != 100000 {
+		t.Errorf("Lobby testValue has wrong value: want 100000, got %g", x.Value.(float64))
+	}
+}
