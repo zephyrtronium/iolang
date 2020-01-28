@@ -193,7 +193,7 @@ func TestPerformSynchronous(t *testing.T) {
 	vm := TestingVM()
 	vm.SetSlot(vm.Lobby, "testValue", vm.NewNumber(0))
 	defer vm.RemoveSlot(vm.Lobby, "testValue")
-	r, stop := vm.DoString("100 repeat(@1000 repeat(testValue = testValue + 1)); while(Scheduler coroCount > 0, nil)", "TestPerformSynchronous")
+	r, stop := vm.DoString("100 repeat(@1000 repeat(testValue = testValue + 1)); wait(0.2); while(Scheduler coroCount > 0, yield)", "TestPerformSynchronous")
 	if stop != NoStop {
 		t.Errorf("%s (%v)", vm.AsString(r), stop)
 	}
