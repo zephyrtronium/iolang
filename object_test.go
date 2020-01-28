@@ -368,7 +368,7 @@ func TestObjectMethods(t *testing.T) {
 			"isSequence": {`Object asString`, PassTag(SequenceTag)},
 		},
 		"asyncSend": {
-			"spawns":      {`yield; yield; yield; testValues asyncSendCoros := Scheduler coroCount; asyncSend(wait(1)); wait(testValues coroWaitTime); Scheduler coroCount - testValues asyncSendCoros`, PassEqual(vm.NewNumber(1))},
+			"spawns":      {`while(Scheduler coroCount > 0, yield); testValues asyncSendSync := true; asyncSend(while(testValues asyncSendSync, yield)); wait(testValues coroWaitTime); testValues asyncSendCoros := Scheduler coroCount; testValues asyncSendSync = false; testValues asyncSendCoros`, PassEqual(vm.NewNumber(1))},
 			"sideEffects": {`testValues asyncSendSideEffect := 0; asyncSend(Lobby testValues asyncSendSideEffect = 1); wait(testValues coroWaitTime); testValues asyncSendSideEffect`, PassEqual(vm.NewNumber(1))},
 			"empty":       {`asyncSend`, PassFailure()},
 		},
@@ -412,17 +412,17 @@ func TestObjectMethods(t *testing.T) {
 			"exception": {`continue(Exception raise)`, PassFailure()},
 		},
 		"coroDo": {
-			"spawns":      {`yield; yield; yield; testValues coroDoCoros := Scheduler coroCount; coroDo(wait(1)); wait(testValues coroWaitTime); Scheduler coroCount - testValues coroDoCoros`, PassEqual(vm.NewNumber(1))},
+			"spawns":      {`while(Scheduler coroCount > 0, yield); testValues coroDoSync := true; coroDo(while(testValues coroDoSync, yield)); wait(testValues coroWaitTime); testValues coroDoCoros := Scheduler coroCount; testValues coroDoSync = false; testValues coroDoCoros`, PassEqual(vm.NewNumber(1))},
 			"sideEffects": {`testValues coroDoSideEffect := 0; coroDo(testValues coroDoSideEffect := 1); wait(testValues coroWaitTime); testValues coroDoSideEffect`, PassEqual(vm.NewNumber(1))},
 			// TODO: test that this has the right target
 		},
 		"coroDoLater": {
-			"spawns":      {`yield; yield; yield; testValues coroDoLaterCoros := Scheduler coroCount; coroDoLater(wait(1)); wait(testValues coroWaitTime); Scheduler coroCount - testValues coroDoLaterCoros`, PassEqual(vm.NewNumber(1))},
+			"spawns":      {`while(Scheduler coroCount > 0, yield); testValues coroDoLaterSync := true; coroDoLater(while(testValues coroDoLaterSync, yield)); wait(testValues coroWaitTime); testValues coroDoLaterCoros := Scheduler coroCount; testValues coroDoLaterSync = false; testValues coroDoLaterCoros`, PassEqual(vm.NewNumber(1))},
 			"sideEffects": {`testValues coroDoLaterSideEffect := 0; coroDoLater(testValues coroDoLaterSideEffect := 1); wait(testValues coroWaitTime); testValues coroDoLaterSideEffect`, PassEqual(vm.NewNumber(1))},
 			// TODO: test that this has the right target
 		},
 		"coroFor": {
-			"noSpawns":      {`yield; yield; yield; testValues coroForCoros := Scheduler coroCount; coroFor(wait(1)); wait(testValues coroWaitTime); Scheduler coroCount - testValues coroForCoros`, PassEqual(vm.NewNumber(0))},
+			"noSpawns":      {`while(Scheduler coroCount > 0, yield); testValues coroForSync := true; coroFor(while(testValues coroForSync, yield)); wait(testValues coroWaitTime); testValues coroForCoros := Scheduler coroCount; testValues coroForSync = false; testValues coroForCoros`, PassEqual(vm.NewNumber(0))},
 			"noSideEffects": {`testValues coroForSideEffect := 0; coroFor(testValues coroForSideEffect := 1); wait(testValues coroWaitTime); testValues coroForSideEffect`, PassEqual(vm.NewNumber(0))},
 			"type":          {`coroFor(nil)`, PassTag(CoroutineTag)},
 			"message":       {`coroFor(nil) runMessage name`, PassEqual(vm.NewString("nil"))},
@@ -430,7 +430,7 @@ func TestObjectMethods(t *testing.T) {
 			"locals":        {`0 coroFor(nil) runLocals`, PassIdentical(vm.Lobby)},
 		},
 		"coroWith": {
-			"noSpawns":      {`yield; yield; yield; testValues coroWithCoros := Scheduler coroCount; coroWith(wait(1)); wait(testValues coroWaitTime); Scheduler coroCount - testValues coroWithCoros`, PassEqual(vm.NewNumber(0))},
+			"noSpawns":      {`while(Scheduler coroCount > 0, yield); testValues coroWithSync := true; coroWith(while(testValues coroWithSync, yield)); wait(testValues coroWaitTime); testValues coroWithCoros := Scheduler coroCount; testValues coroWithSync = false; testValues coroWithCoros`, PassEqual(vm.NewNumber(0))},
 			"noSideEffects": {`testValues coroWithSideEffect := 0; coroWith(testValues coroWithSideEffect := 1); wait(testValues coroWaitTime); testValues coroWithSideEffect`, PassEqual(vm.NewNumber(0))},
 			"type":          {`coroWith(nil)`, PassTag(CoroutineTag)},
 			"message":       {`coroWith(nil) runMessage name`, PassEqual(vm.NewString("nil"))},
@@ -507,7 +507,7 @@ func TestObjectMethods(t *testing.T) {
 		"futureSend": {
 			"result":      {`futureSend(1) isNil not`, PassIdentical(vm.True)},
 			"evaluates":   {`futureSend(1) + 1`, PassEqual(vm.NewNumber(2))},
-			"spawns":      {`yield; yield; yield; testValues futureSendCoros := Scheduler coroCount; futureSend(wait(1)); wait(testValues coroWaitTime); Scheduler coroCount - testValues futureSendCoros`, PassEqual(vm.NewNumber(1))},
+			"spawns":      {`while(Scheduler coroCount > 0, yield); testValues futureSendSync := true; futureSend(while(testValues futureSendSync, yield)); wait(testValues coroWaitTime); testValues futureSendCoros := Scheduler coroCount; testValues futureSendSync = false; testValues futureSendCoros`, PassEqual(vm.NewNumber(1))},
 			"sideEffects": {`testValues futureSendSideEffect := 0; futureSend(Lobby testValues futureSendSideEffect = 1); wait(testValues coroWaitTime); testValues futureSendSideEffect`, PassEqual(vm.NewNumber(1))},
 			"empty":       {`futureSend`, PassFailure()},
 		},
