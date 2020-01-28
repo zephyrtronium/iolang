@@ -70,6 +70,10 @@ func (vm *VM) DebugMessage(target, locals *Object, msg *Message) {
 // loop(self vmWillSendMessage(nextMessageInQueue)).
 func DebuggerStart(vm *VM, target, locals *Object, msg *Message) *Object {
 	dbg := target.Value.(Debugger)
+	// This method is run in a new coroutine, but we don't want the coroutine
+	// to show up in scheduler methods. Tell the scheduler we've finished, even
+	// though we really haven't and probably won't.
+	vm.Sched.Finish(vm)
 	pf := vm.IdentMessage("vmWillSendMessage")
 	for {
 		select {
