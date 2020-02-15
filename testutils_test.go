@@ -243,8 +243,6 @@ func CheckSlots(t *testing.T, obj *Object, slots []string) {
 // one proto, which is Core Object. obj must come from the test VM.
 func CheckObjectIsProto(t *testing.T, obj *Object) {
 	t.Helper()
-	obj.Lock()
-	defer obj.Unlock()
 	switch obj.NumProtos() {
 	case 0:
 		t.Fatal("no protos")
@@ -253,7 +251,7 @@ func CheckObjectIsProto(t *testing.T, obj *Object) {
 		t.Error("incorrect number of protos: expected 1, have", obj.NumProtos())
 	}
 	vm := TestingVM()
-	if p := obj.proto; p != vm.BaseObject {
+	if p := obj.protos.p; p != vm.BaseObject {
 		t.Errorf("wrong proto: expected %T@%p, have %T@%p", vm.BaseObject, vm.BaseObject, p, p)
 	}
 }

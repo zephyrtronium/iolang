@@ -63,8 +63,6 @@ func TestLobbyProtos(t *testing.T) {
 	p := protos[0]
 	slots := []string{"Core", "Addons"}
 	CheckSlots(t, p, slots)
-	p.Lock()
-	defer p.Unlock()
 	opro := p.Protos()
 	switch len(opro) {
 	case 0, 1:

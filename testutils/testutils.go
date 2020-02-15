@@ -251,9 +251,7 @@ func CheckSlots(t *testing.T, obj *iolang.Object, slots []string) {
 // one proto, which is Core Object. obj must come from the test VM.
 func CheckObjectIsProto(t *testing.T, obj *iolang.Object) {
 	t.Helper()
-	obj.Lock()
 	protos := obj.Protos()
-	obj.Unlock()
 	switch len(protos) {
 	case 0:
 		t.Fatal("no protos")

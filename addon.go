@@ -133,14 +133,7 @@ func (vm *VM) initAddon() {
 func (vm *VM) Install(name string, proto *Object) {
 	vm.SetSlot(vm.Addons, name, proto)
 	l := vm.Lobby
-	l.Lock()
-	// We aren't guaranteed that Lobby keeps its protos, so check every time.
-	if l.proto == nil {
-		l.proto = vm.NewObject(Slots{name: proto})
-	} else {
-		l.plusproto = append(l.plusproto, vm.NewObject(Slots{name: proto}))
-	}
-	l.Unlock()
+	l.AppendProto(vm.NewObject(Slots{name: proto}))
 }
 
 // LoadAddon loads an addon. It returns a channel that closes when the addon is

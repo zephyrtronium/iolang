@@ -7,9 +7,10 @@ import (
 	"bytes"
 	"compress/zlib"
 	"fmt"
-	"github.com/zephyrtronium/contains"
 	"runtime"
 	"time"
+
+	"github.com/zephyrtronium/contains"
 )
 
 // VM is an object for processing Io programs.
@@ -185,12 +186,12 @@ func (vm *VM) AsString(obj *Object) string {
 // initCore initializes Lobby, Core, and Addons for this VM. This only creates
 // room for other init functions to work with.
 func (vm *VM) initCore() {
-	vm.Core.proto = vm.BaseObject
-	vm.Addons.proto = vm.BaseObject
+	vm.Core.SetProtos(vm.BaseObject)
+	vm.Addons.SetProtos(vm.BaseObject)
 	slots := Slots{"Core": vm.Core, "Addons": vm.Addons}
 	protos := []*Object{vm.Core, vm.Addons}
 	lp := vm.ObjectWith(slots, protos, nil, nil)
-	vm.Lobby.proto = lp
+	vm.Lobby.SetProtos(lp)
 	vm.SetSlots(vm.Lobby, Slots{"Protos": lp, "Lobby": vm.Lobby})
 }
 

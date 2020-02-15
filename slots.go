@@ -1,10 +1,10 @@
 package iolang
 
 /*
-This file contains the implementation of slots. Executing Io code amounts to
-looking up a slot and then calling a function pointer, and it turns out that
-the latter is cheap. Slots are the expensive part of the hot path, so they are
-the primary target for optimization.
+This file contains the implementation of slot lookups. Executing Io code
+amounts to looking up a slot and then calling a function pointer, and it turns
+out that the latter is cheap. Slots are the expensive part of the hot path, so
+they are the primary target for optimization.
 
 If you are here to read how this works, good luck and have fun; I tried hard to
 document everything thoroughly. If you're trying to make changes, have some
@@ -37,6 +37,196 @@ import (
 	"sync/atomic"
 	"unsafe"
 )
+
+// protoLink is a node of a concurrent linked list. Its fields
+// must be accessed atomically.
+type protoLink struct {
+	// p is the proto at this element.
+	p *Object
+
+	// n is the link to the next node.
+	n *protoLink
+	// mu is a mutex for write permission on the link (but not the node, which
+	// should always be written atomically). This prevents problems relating to
+	// concurrent insertions and deletions on the list. Even while holding the
+	// lock, the node's data and link fields must be handled atomically, as
+	// readers do not acquire the lock.
+	mu sync.Mutex
+}
+
+// logicalDeleted is a special value used to mark the head of a list as
+// logically deleted. Readers should spin while they see that the head proto is
+// equal to this value, and therefore writers should avoid using it.
+var logicalDeleted = new(Object)
+
+// protoHead returns the object's first proto.
+func (o *Object) protoHead() *Object {
+	p := (*Object)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&o.protos.p))))
+	for p == logicalDeleted {
+		p = (*Object)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&o.protos.p))))
+	}
+	return p
+}
+
+// nextR returns the next link and its data. If the link is nil, then this was
+// the last element in the list. This method is suitable only when not
+// modifying the list, as it may follow links that are being modified.
+func (l *protoLink) nextR() (*Object, *protoLink) {
+	n := (*protoLink)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&l.n))))
+	if n != nil {
+		// As a reader, whenever the link is not nil, we can use it.
+		p := (*Object)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&n.p))))
+		return p, n
+	}
+	return nil, nil
+}
+
+// Protos returns a snapshot of the object's protos. The result is nil if o has
+// no protos. This is more efficient than using ForeachProto to construct a
+// slice.
+func (o *Object) Protos() []*Object {
+	var r []*Object
+	p := o.protoHead()
+	if p == nil {
+		return nil
+	}
+	r = append(r, p)
+	for p, n := o.protos.nextR(); n != nil; p, n = n.nextR() {
+		r = append(r, p)
+	}
+	return r
+}
+
+// NumProtos returns the number of protos the object has. This is more
+// efficient than using ForeachProto to count the protos.
+func (o *Object) NumProtos() int {
+	r := 0
+	p := o.protoHead()
+	if p == nil {
+		return 0
+	}
+	r++
+	for _, n := o.protos.nextR(); n != nil; _, n = n.nextR() {
+		r++
+	}
+	return r
+}
+
+// ForeachProto calls exec on each of the object's protos. exec must not modify
+// o's protos list. If exec returns false, then the iteration ceases.
+func (o *Object) ForeachProto(exec func(p *Object) bool) {
+	p := (*Object)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&o.protos.p))))
+	for p == logicalDeleted {
+		p = (*Object)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&o.protos.p))))
+	}
+	if p == nil || !exec(p) {
+		return
+	}
+	for p, n := o.protos.nextR(); n != nil; p, n = n.nextR() {
+		if !exec(p) {
+			return
+		}
+	}
+}
+
+// SetProtos sets the object's protos to those given.
+func (o *Object) SetProtos(protos ...*Object) {
+	o.protos.mu.Lock()
+	switch len(protos) {
+	case 0:
+		atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&o.protos.p)), nil)
+		atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&o.protos.n)), nil)
+	case 1:
+		atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&o.protos.p)), unsafe.Pointer(logicalDeleted))
+		atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&o.protos.n)), nil)
+		atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&o.protos.p)), unsafe.Pointer(protos[0]))
+	default:
+		n := &protoLink{p: protos[1]}
+		m := n
+		for i := 2; i < len(protos); i++ {
+			n.n = &protoLink{p: protos[i]}
+			n = n.n
+		}
+		atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&o.protos.p)), unsafe.Pointer(logicalDeleted))
+		atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&o.protos.n)), unsafe.Pointer(m))
+		atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&o.protos.p)), unsafe.Pointer(protos[0]))
+	}
+	o.protos.mu.Unlock()
+}
+
+// AppendProto appends a proto to the end of the object's protos list.
+func (o *Object) AppendProto(proto *Object) {
+	o.protos.mu.Lock()
+	// Try swapping in a new head if there isn't one.
+	if atomic.CompareAndSwapPointer((*unsafe.Pointer)(unsafe.Pointer(&o.protos.p)), nil, unsafe.Pointer(proto)) {
+		o.protos.mu.Unlock()
+		return
+	}
+	// Since we acquired the head's lock, the head cannot be logically deleted,
+	// and since we acquire each successive node's lock, there are no
+	// concurrent writers, so we can load links without atomics.
+	cur := &o.protos
+	next := cur.n
+	for next != nil {
+		next.mu.Lock()
+		cur.mu.Unlock()
+		cur = next
+		next = cur.n
+	}
+	atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&cur.n)), unsafe.Pointer(&protoLink{p: proto}))
+	cur.mu.Unlock()
+}
+
+// PrependProto prepends a proto to the front of the object's protos list.
+func (o *Object) PrependProto(proto *Object) {
+	o.protos.mu.Lock()
+	old := (*Object)(atomic.SwapPointer((*unsafe.Pointer)(unsafe.Pointer(&o.protos.p)), unsafe.Pointer(logicalDeleted)))
+	if old == nil {
+		// There was no head.
+		atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&o.protos.p)), unsafe.Pointer(proto))
+		o.protos.mu.Unlock()
+		return
+	}
+	next := &protoLink{p: o.protos.p, n: o.protos.n}
+	atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&o.protos.n)), unsafe.Pointer(next))
+	atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&o.protos.p)), unsafe.Pointer(proto))
+	o.protos.mu.Unlock()
+}
+
+// RemoveProto removes all instances of a proto from the object's protos list.
+// Comparison is done by identity only.
+func (o *Object) RemoveProto(proto *Object) {
+	o.protos.mu.Lock()
+	for atomic.CompareAndSwapPointer((*unsafe.Pointer)(unsafe.Pointer(&o.protos.p)), unsafe.Pointer(proto), unsafe.Pointer(logicalDeleted)) {
+		if o.protos.n == nil {
+			o.protos.mu.Unlock()
+			return
+		}
+		n := o.protos.n
+		n.mu.Lock()
+		atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&n)), unsafe.Pointer(n.n))
+		atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&o.protos.p)), unsafe.Pointer(n.p))
+		n.mu.Unlock()
+	}
+	if atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&o.protos.p))) == nil {
+		o.protos.mu.Unlock()
+		return
+	}
+	prev := &o.protos
+	cur := o.protos.n
+	for cur != nil {
+		cur.mu.Lock()
+		p := (*Object)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&cur.p))))
+		if p == proto {
+			atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&prev.n)), atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&cur.n))))
+			cur.mu.Unlock()
+		} else {
+			prev.mu.Unlock()
+			prev, cur = cur, cur.n
+		}
+	}
+	prev.mu.Unlock()
+}
 
 // syncSlot is a synchronized slot. Once a particular VM accesses this slot,
 // it becomes the slot's owner for the duration of the access, and other coros
@@ -471,70 +661,51 @@ func (vm *VM) GetSlotSync(obj *Object, slot string) (value, proto *Object, relea
 func (vm *VM) getSlotAncestor(obj *Object, slot string) (sy *syncSlot, proto *Object) {
 	vm.protoSet.Reset()
 	vm.protoSet.Add(obj.UniqueID())
-	for {
-		obj.Lock()
-		switch {
-		case obj.proto == nil:
-			// The slot does not exist.
-			obj.Unlock()
-			return nil, nil
-		case len(obj.plusproto) == 0:
-			// One proto. We don't need to use vm.protoStack.
-			rp := obj.proto
-			obj.Unlock()
-			obj = rp
-			if !vm.protoSet.Add(obj.UniqueID()) {
-				return nil, nil
-			}
-			if sy := vm.localSyncSlot(obj, slot); sy != nil {
-				return sy, obj
-			}
-			// Try again with the proto.
-		default:
-			// Several protos. Using vm.protoStack is more efficient than using
-			// the goroutine stack for explicit recursion.
-			for i := len(obj.plusproto) - 1; i >= 0; i-- {
-				if p := obj.plusproto[i]; vm.protoSet.Add(p.UniqueID()) {
-					vm.protoStack = append(vm.protoStack, p)
-				}
-			}
-			if vm.protoSet.Add(obj.proto.UniqueID()) {
-				vm.protoStack = append(vm.protoStack, obj.proto)
-			}
-			obj.Unlock()
-			if len(vm.protoStack) == 0 {
-				// If all this object's protos have been checked already, stop.
-				return nil, nil
-			}
-			for len(vm.protoStack) > 1 {
-				obj = vm.protoStack[len(vm.protoStack)-1] // grab the top
-				if sy := vm.localSyncSlot(obj, slot); sy != nil {
-					vm.protoStack = vm.protoStack[:0]
-					return sy, obj
-				}
-				vm.protoStack = vm.protoStack[:len(vm.protoStack)-1] // actually pop
-				obj.Lock()
-				if obj.proto != nil {
-					for i := len(obj.plusproto) - 1; i >= 0; i-- {
-						if p := obj.plusproto[i]; vm.protoSet.Add(p.UniqueID()) {
-							vm.protoStack = append(vm.protoStack, p)
-						}
-					}
-					if vm.protoSet.Add(obj.proto.UniqueID()) {
-						vm.protoStack = append(vm.protoStack, obj.proto)
-					}
-				}
-				obj.Unlock()
-			}
-			// The stack is down to one object. Check it, then try to return to
-			// faster cases.
-			obj = vm.protoStack[0]
-			vm.protoStack = vm.protoStack[:0]
-			if sy := vm.localSyncSlot(obj, slot); sy != nil {
-				return sy, obj
-			}
+	obj = obj.protoHead()
+	if obj == nil {
+		return nil, nil
+	}
+	// Append protos onto the stack in reverse order. To do this, we first
+	// append them in forward order, then reverse the ones we added on.
+	start := len(vm.protoStack)
+	if vm.protoSet.Add(obj.UniqueID()) {
+		vm.protoStack = append(vm.protoStack, obj)
+	}
+	for p, link := obj.protos.nextR(); link != nil; p, link = link.nextR() {
+		if vm.protoSet.Add(p.UniqueID()) {
+			vm.protoStack = append(vm.protoStack, p)
 		}
 	}
+	n := (len(vm.protoStack) - start) / 2
+	for i := 0; i < n; i++ {
+		vm.protoStack[start+i], vm.protoStack[len(vm.protoStack)-i-1] = vm.protoStack[len(vm.protoStack)-i-1], vm.protoStack[start+i]
+	}
+	for len(vm.protoStack) > 0 {
+		obj = vm.protoStack[len(vm.protoStack)-1] // grab the top
+		if sy := vm.localSyncSlot(obj, slot); sy != nil {
+			vm.protoStack = vm.protoStack[:0]
+			return sy, obj
+		}
+		vm.protoStack = vm.protoStack[:len(vm.protoStack)-1] // actually pop
+		start = len(vm.protoStack)
+		p := obj.protoHead()
+		if p == nil {
+			continue
+		}
+		if vm.protoSet.Add(p.UniqueID()) {
+			vm.protoStack = append(vm.protoStack, p)
+		}
+		for p, link := obj.protos.nextR(); link != nil; p, link = link.nextR() {
+			if vm.protoSet.Add(p.UniqueID()) {
+				vm.protoStack = append(vm.protoStack, p)
+			}
+		}
+		n := (len(vm.protoStack) - start) / 2
+		for i := 0; i < n; i++ {
+			vm.protoStack[start+i], vm.protoStack[len(vm.protoStack)-i-1] = vm.protoStack[len(vm.protoStack)-i-1], vm.protoStack[start+i]
+		}
+	}
+	return nil, nil
 }
 
 // GetLocalSlot checks only obj's own slots for a slot.
