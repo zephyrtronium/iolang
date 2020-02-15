@@ -35,19 +35,20 @@ func (vm *VM) VMFor(coro *Object) *VM {
 	coro.Lock()
 	c := coro.Value.(Coroutine)
 	r := &VM{
-		Lobby:      vm.Lobby,
-		Core:       vm.Core,
-		Addons:     vm.Addons,
-		BaseObject: vm.BaseObject,
-		True:       vm.True,
-		False:      vm.False,
-		Nil:        vm.Nil,
-		Operators:  vm.Operators,
-		Sched:      vm.Sched,
-		Control:    c.Control,
-		Coro:       coro,
-		addonmaps:  vm.addonmaps,
-		StartTime:  vm.StartTime,
+		Lobby:       vm.Lobby,
+		Core:        vm.Core,
+		Addons:      vm.Addons,
+		BaseObject:  vm.BaseObject,
+		True:        vm.True,
+		False:       vm.False,
+		Nil:         vm.Nil,
+		Operators:   vm.Operators,
+		Sched:       vm.Sched,
+		Control:     c.Control,
+		Coro:        coro,
+		addonmaps:   vm.addonmaps,
+		numberCache: vm.numberCache,
+		StartTime:   vm.StartTime,
 	}
 	c.Debug = &r.Debug
 	coro.Value = c

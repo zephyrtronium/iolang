@@ -12,8 +12,21 @@ import (
 // NumberTag is the tag for Number objects.
 const NumberTag = BasicTag("Number")
 
+// Limits of cached number objects. Each integer within this range, inclusive,
+// always has an identical object, i.e. 2 isIdenticalTo(1 +(1)).
+const (
+	numberCacheMin = -10
+	numberCacheMax = 256
+)
+
 // NewNumber creates a Number object with a given value.
 func (vm *VM) NewNumber(value float64) *Object {
+	if numberCacheMin <= value && value <= numberCacheMax {
+		x := int(value)
+		if float64(x) == value {
+			return vm.numberCache[x-numberCacheMin]
+		}
+	}
 	return vm.ObjectWith(nil, vm.CoreProto("Number"), value, NumberTag)
 }
 
@@ -119,8 +132,15 @@ func (vm *VM) initNumber() {
 	slots["minMax"] = slots["clip"]
 	vm.coreInstall("Number", slots, float64(0), NumberTag)
 
-	// Now that Core Number exists, we can use NewNumber. Grab the proto and
-	// set these new slots on it.
+	// Set up number caches. We can't use NewNumber yet because that expects
+	// the cache to be ready.
+	number, _ := vm.GetLocalSlot(vm.Core, "Number")
+	vm.numberCache = make([]*Object, numberCacheMax-numberCacheMin+1)
+	for i := numberCacheMin; i <= numberCacheMax; i++ {
+		vm.numberCache[i-numberCacheMin] = vm.ObjectWith(nil, []*Object{number}, float64(i), NumberTag)
+	}
+
+	// Now that Core Number and cached numbers exist, we can use NewNumber.
 	slots = Slots{
 		"floatMax":        vm.NewNumber(math.MaxFloat64),
 		"floatMin":        vm.NewNumber(math.SmallestNonzeroFloat64),
@@ -149,7 +169,6 @@ func (vm *VM) initNumber() {
 			"nan":     vm.NewNumber(math.NaN()),
 		}),
 	}
-	number, _ := vm.GetLocalSlot(vm.Core, "Number")
 	vm.SetSlots(number, slots)
 }
 

@@ -47,6 +47,9 @@ type VM struct {
 	// addonmaps manages the VM's knowledge of addons.
 	addonmaps *addonmaps
 
+	// numberCache is a list of cached Number objects.
+	numberCache []*Object
+
 	// StartTime is the time at which VM initialization began, used for the
 	// Date clock method.
 	StartTime time.Time
