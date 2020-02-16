@@ -92,6 +92,30 @@ func PassEqual(want *Object) func(*Object, Stop) bool {
 	}
 }
 
+// PassUnequal returns a Pass function for a SourceTestCase that predicates on
+// non-equality by checking that the result of testVM.Compare(want, result) is
+// not 0.
+func PassUnequal(want *Object) func(*Object, Stop) bool {
+	return func(result *Object, control Stop) bool {
+		vm := TestingVM()
+		if control != NoStop {
+			return false
+		}
+		if want == result {
+			return false
+		}
+		v, stop := vm.Compare(want, result)
+		if stop != NoStop {
+			return false
+		}
+		n, ok := v.Value.(float64)
+		if !ok {
+			return false
+		}
+		return n != 0
+	}
+}
+
 // PassIdentical returns a Pass function for a SourceTestCase that predicates
 // on identity equality.
 func PassIdentical(want *Object) func(*Object, Stop) bool {

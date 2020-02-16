@@ -618,6 +618,25 @@ func TestObjectMethods(t *testing.T) {
 			"same": {`testValues justSerializedStream := SerializationStream clone; testValues obj justSerialized(testValues justSerializedStream); doString(testValues justSerializedStream output)`, PassEqualSlots(vm.GetAllSlots(config["obj"]))},
 		},
 		// launchFile needs special testing
+		"lazySlot": {
+			"initial1": {`lazySlot(1)`, PassUnequal(vm.NewNumber(1))},
+			"initial2": {`testValues lazySlot("lazySlotValue", 1); testValues getSlot("lazySlotValue")`, PassUnequal(vm.NewNumber(1))},
+			"eval1":    {`testValues lazySlotValue := lazySlot(1); testValues lazySlotValue`, PassEqual(vm.NewNumber(1))},
+			"eval2":    {`testValues lazySlot("lazySlotValue", 1); testValues lazySlotValue`, PassEqual(vm.NewNumber(1))},
+			"replace1": {`testValues lazySlotValue := lazySlot(1); testValues lazySlotValue; testValues getSlot("lazySlotValue")`, PassEqual(vm.NewNumber(1))},
+			"replace2": {`testValues lazySlot("lazySlotValue", 1); testValues lazySlotValue; testValues getSlot("lazySlotValue")`, PassEqual(vm.NewNumber(1))},
+			"once1":    {`testValues lazySlotCount := 0; testValues lazySlotValue := lazySlot(testValues lazySlotCount = testValues lazySlotCount + 1; 1); testValues lazySlotValue; testValues lazySlotValue; testValues lazySlotValue; testValues lazySlotCount`, PassEqual(vm.NewNumber(1))},
+			"once2":    {`testValues lazySlotCount := 0; testValues lazySlot("lazySlotValue", testValues lazySlotCount = testValues lazySlotCount + 1; 1); testValues lazySlotValue; testValues lazySlotValue; testValues lazySlotValue; testValues lazySlotCount`, PassEqual(vm.NewNumber(1))},
+		},
+		"lexicalDo": {
+			// These tests have to be careful not to call lexicalDo on an
+			// object that already has the lexical context as a proto.
+			"result":    {`Lobby lexicalDo(Object)`, PassIdentical(vm.Lobby)},
+			"context":   {`testValues lexicalDoValue := 0; testValues lexicalDo(lexicalDoValue := 1); testValues lexicalDoValue`, PassEqual(vm.NewNumber(1))},
+			"lexical":   {`testValues lexicalDo(lexicalDoHasProto := thisContext protos containsIdenticalTo(Lobby)); testValues lexicalDoHasProto`, PassIdentical(vm.True)},
+			"continue":  {`Object clone lexicalDo(continue)`, PassControl(vm.Nil, ContinueStop)},
+			"exception": {`Object clone lexicalDo(Exception raise)`, PassFailure()},
+		},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {

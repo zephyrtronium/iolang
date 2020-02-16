@@ -97,6 +97,30 @@ func PassEqual(want *iolang.Object) func(*iolang.Object, iolang.Stop) bool {
 	}
 }
 
+// PassUnequal returns a Pass function for a SourceTestCase that predicates on
+// non-equality by checking that the result of testVM.Compare(want, result) is
+// not 0.
+func PassUnequal(want *iolang.Object) func(*iolang.Object, iolang.Stop) bool {
+	return func(result *iolang.Object, control iolang.Stop) bool {
+		vm := TestingVM()
+		if control != iolang.NoStop {
+			return false
+		}
+		if want == result {
+			return false
+		}
+		v, stop := vm.Compare(want, result)
+		if stop != iolang.NoStop {
+			return false
+		}
+		n, ok := v.Value.(float64)
+		if !ok {
+			return false
+		}
+		return n != 0
+	}
+}
+
 // PassIdentical returns a Pass function for a SourceTestCase that predicates
 // on identity equality, i.e. the result must be exactly the given object. If
 // the Stop is not NoStop, then the predicate returns false.
