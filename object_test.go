@@ -637,6 +637,31 @@ func TestObjectMethods(t *testing.T) {
 			"continue":  {`Object clone lexicalDo(continue)`, PassControl(vm.Nil, ContinueStop)},
 			"exception": {`Object clone lexicalDo(Exception raise)`, PassFailure()},
 		},
+		"list": {
+			// Object list is List with, but still test it in both places.
+			"zero":      {`Object list`, PassEqual(vm.NewList())},
+			"one":       {`Object list(nil)`, PassEqual(vm.NewList(vm.Nil))},
+			"five":      {`Object list(nil, nil, nil, nil, nil)`, PassEqual(vm.NewList(vm.Nil, vm.Nil, vm.Nil, vm.Nil, vm.Nil))},
+			"continue":  {`Object list(nil, nil, nil, nil, continue)`, PassControl(vm.Nil, ContinueStop)},
+			"exception": {`Object list(nil, nil, nil, nil, Exception raise)`, PassFailure()},
+		},
+		"loop": {
+			"loop":      {`testValues loopCount := 0; loop(testValues loopCount = testValues loopCount + 1; if(testValues loopCount >= 5, break)); testValues loopCount`, PassEqual(vm.NewNumber(5))},
+			"continue":  {`testValues loopCount := 0; loop(testValues loopCount = testValues loopCount + 1; if(testValues loopCount < 5, continue); break); testValues loopCount`, PassEqual(vm.NewNumber(5))},
+			"break":     {`testValues loopCount := 0; loop(break; testValues loopCount = 1); testValues loopCount`, PassEqual(vm.NewNumber(0))},
+			"return":    {`testValues loopCount := 0; loop(return nil; testValues loopCount = 1); testValues loopCount`, PassControl(vm.Nil, ReturnStop)},
+			"exception": {`testValues loopCount := 0; loop(Exception raise; testValues loopCount = 1); testValues loopCount`, PassFailure()},
+		},
+		"message": {
+			"nothing":   {`message`, PassIdentical(vm.Nil)},
+			"message":   {`message(message)`, PassTag(MessageTag)},
+			"continue":  {`message(continue)`, PassTag(MessageTag)},
+			"exception": {`message(Exception raise)`, PassTag(MessageTag)},
+		},
+		"method": {
+			"noMessage": {`method`, PassTag(BlockTag)},
+			"exception": {`method(Exception raise)`, PassSuccess()},
+		},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
