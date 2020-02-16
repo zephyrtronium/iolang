@@ -199,12 +199,13 @@ func (o *Object) RemoveProto(proto *Object) {
 	o.protos.mu.Lock()
 	for atomic.CompareAndSwapPointer((*unsafe.Pointer)(unsafe.Pointer(&o.protos.p)), unsafe.Pointer(proto), unsafe.Pointer(logicalDeleted)) {
 		if o.protos.n == nil {
+			atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&o.protos.p)), nil)
 			o.protos.mu.Unlock()
 			return
 		}
 		n := o.protos.n
 		n.mu.Lock()
-		atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&n)), unsafe.Pointer(n.n))
+		atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&o.protos.n)), unsafe.Pointer(n.n))
 		atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&o.protos.p)), unsafe.Pointer(n.p))
 		n.mu.Unlock()
 	}
@@ -218,8 +219,10 @@ func (o *Object) RemoveProto(proto *Object) {
 		cur.mu.Lock()
 		p := (*Object)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&cur.p))))
 		if p == proto {
-			atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&prev.n)), atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&cur.n))))
+			next := (*protoLink)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&cur.n))))
+			atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&prev.n)), unsafe.Pointer(next))
 			cur.mu.Unlock()
+			cur = next
 		} else {
 			prev.mu.Unlock()
 			prev, cur = cur, cur.n
