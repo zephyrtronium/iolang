@@ -662,6 +662,23 @@ func TestObjectMethods(t *testing.T) {
 			"noMessage": {`method`, PassTag(BlockTag)},
 			"exception": {`method(Exception raise)`, PassSuccess()},
 		},
+		"newSlot": {
+			"makes":  {`testValues newSlot("newSlotValue"); testValues`, PassLocalSlots([]string{"newSlotValue", "setNewSlotValue"}, nil)},
+			"value":  {`testValues newSlot("newSlotValue", 1); testValues newSlotValue`, PassEqual(vm.NewNumber(1))},
+			"setter": {`testValues newSlot("newSlotValue", 1); testValues setNewSlotValue(2); testValues newSlotValue`, PassEqual(vm.NewNumber(2))},
+			"result": {`testValues newSlot("newSlotValue", 1)`, PassEqual(vm.NewNumber(1))},
+		},
+		"not": {
+			"nil": {`Object not`, PassIdentical(vm.Nil)},
+		},
+		"or": {
+			// It might be nice to change or to be a coalescing operator like
+			// Python's or, by changing it to thisContext.
+			"true": {`Object or`, PassIdentical(vm.True)},
+		},
+		"pause": {
+			"pause": {`testValues pauseValue := 0; testValues pauseCoro := coroDo(testValues pauseValue = 1; Object pause; testValues pauseValue = 2); while(testValues pauseValue == 0, yield); while(Scheduler coroCount > 0, yield); testValues pauseObs := testValues pauseValue; testValues pauseCoro resume; while(testValues pauseValue < 2, yield); testValues pauseObs`, PassEqual(vm.NewNumber(1))},
+		},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
