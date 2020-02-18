@@ -234,6 +234,13 @@ func (o *Object) RemoveProto(proto *Object) {
 // syncSlot is a synchronized slot. Once a particular VM accesses this slot,
 // it becomes the slot's owner for the duration of the access, and other coros
 // must wait until the owner releases it before they can access the slot.
+//
+// To set the slot value, the current coroutine must claim the slot and then
+// set the value atomically. To read the slot value, the current coroutine must
+// claim the slot and then may read the value non-atomically. To check whether
+// the slot is valid, any coroutine may atomically load its value and check
+// whether it is nil without claiming, but it must claim the slot to use its
+// value regardless, hence a second validity check must follow claiming.
 type syncSlot struct {
 	mu    sync.Mutex
 	cond  sync.Cond // cond.L is &mu
@@ -284,12 +291,28 @@ func (s *syncSlot) release() {
 	s.mu.Unlock()
 }
 
-// snap returns a snapshot of the value in s.
+// snap returns a snapshot of the value in s. This claims the slot, retrieves
+// its value, and then releases the slot.
 func (s *syncSlot) snap(vm *VM) *Object {
 	s.claim(vm)
-	r := s.value
+	r := s.load()
 	s.release()
 	return r
+}
+
+// load returns the slot's value. The slot must be claimed by the current coro.
+func (s *syncSlot) load() *Object {
+	return s.value
+}
+
+// set sets the slot's value. The slot must be claimed by the current coro.
+func (s *syncSlot) set(v *Object) {
+	atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&s.value)), unsafe.Pointer(v))
+}
+
+// valid returns true if the slot currently holds a value.
+func (s *syncSlot) valid() bool {
+	return atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&s.value))) != nil
 }
 
 // actualSlots is a synchronized trie structure that implements slots.
@@ -348,7 +371,8 @@ const recordChildren = 4 << (^uintptr(0) >> 32 & 1)
 // recordPop has the first bit in each byte set and all others clear.
 const recordPop = ^uintptr(0) / 0xff
 
-// load finds the given slot, or returns nil if there is no such slot.
+// load finds the given slot, or returns nil if there is no such slot. This may
+// return a slot for which valid() returns false.
 func (s *actualSlots) load(slot string) *syncSlot {
 	branch := (*slotBranch)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&s.root))))
 	if branch == nil {
@@ -535,7 +559,7 @@ func (s *actualSlots) open(vm *VM, slot string) *syncSlot {
 
 // foreach executes a function for each slot. If exec returns false, then the
 // iteration ceases. The slots passed to exec are claimed by VM and will be
-// released afterward.
+// released afterward. Each slot passed to exec is guaranteed to be valid.
 func (s *actualSlots) foreach(vm *VM, exec func(name string, sy *syncSlot) bool) {
 	cur := (*slotBranch)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&s.root))))
 	if cur == nil {
@@ -547,10 +571,13 @@ func (s *actualSlots) foreach(vm *VM, exec func(name string, sy *syncSlot) bool)
 // foreachIter executes actualSlots.foreach for a single depth of the trie.
 func (r *slotBranch) foreachIter(vm *VM, exec func(name string, sy *syncSlot) bool, b []byte) []byte {
 	sy := (*syncSlot)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&r.leaf))))
-	if sy != nil {
+	if sy != nil && sy.valid() {
 		r := true
 		sy.claim(vm)
-		if sy.value != nil {
+		// We checked that the slot is valid before, but it may have been
+		// deleted between then and the time we could actually claim it. Check
+		// again for validity.
+		if sy.valid() {
 			r = exec(string(b), sy)
 		}
 		sy.release()
@@ -617,21 +644,20 @@ type Slots = map[string]*Object
 
 // GetSlot checks obj and its ancestors in depth-first order without
 // cycles for a slot, returning the slot value and the proto which had it.
-// proto is nil if and only if the slot was not found. This method may acquire
-// the object's lock, as well as the lock of each ancestor in turn.
+// proto is nil if and only if the slot was not found.
 func (vm *VM) GetSlot(obj *Object, slot string) (value, proto *Object) {
 	if obj == nil {
 		return nil, nil
 	}
 	// Check obj itself before using the graph traversal mechanisms.
 	if sy := vm.localSyncSlot(obj, slot); sy != nil {
-		value = sy.value
+		value = sy.load()
 		sy.release()
 		return value, obj
 	}
 	sy, proto := vm.getSlotAncestor(obj, slot)
 	if proto != nil {
-		value = sy.value
+		value = sy.load()
 		sy.release()
 	}
 	return
@@ -650,11 +676,11 @@ func (vm *VM) GetSlotSync(obj *Object, slot string) (value, proto *Object, relea
 		// It'd be trivial to wrap sy.release in a *sync.Once so we don't have
 		// to worry about multiple calls, but that would be slow and would mean
 		// every call to this allocates.
-		return sy.value, obj, sy.release
+		return sy.load(), obj, sy.release
 	}
 	sy, proto := vm.getSlotAncestor(obj, slot)
 	if proto != nil {
-		value = sy.value
+		value = sy.load()
 		release = sy.release
 	}
 	return
@@ -717,7 +743,7 @@ func (vm *VM) GetLocalSlot(obj *Object, slot string) (value *Object, ok bool) {
 		return nil, false
 	}
 	if sy := vm.localSyncSlot(obj, slot); sy != nil {
-		value = sy.value
+		value = sy.load()
 		sy.release()
 		return value, true
 	}
@@ -735,7 +761,7 @@ func (vm *VM) GetLocalSlotSync(obj *Object, slot string) (value *Object, release
 	}
 	sy := vm.localSyncSlot(obj, slot)
 	if sy != nil {
-		return sy.value, sy.release
+		return sy.load(), sy.release
 	}
 	return nil, nil
 }
@@ -763,9 +789,7 @@ func (vm *VM) localSyncSlot(obj *Object, slot string) *syncSlot {
 func (vm *VM) GetAllSlots(obj *Object) Slots {
 	slots := Slots{}
 	obj.slots.foreach(vm, func(key string, value *syncSlot) bool {
-		if value.value != nil {
-			slots[key] = value.value
-		}
+		slots[key] = value.load()
 		return true
 	})
 	return slots
@@ -774,7 +798,7 @@ func (vm *VM) GetAllSlots(obj *Object) Slots {
 // SetSlot sets the value of a slot on obj.
 func (vm *VM) SetSlot(obj *Object, slot string, value *Object) {
 	sy := obj.slots.open(vm, slot)
-	sy.value = value
+	sy.set(value)
 	sy.release()
 }
 
@@ -794,7 +818,7 @@ func (vm *VM) SetSlot(obj *Object, slot string, value *Object) {
 func (vm *VM) SetSlotSync(obj *Object, slot string) (set func(*Object)) {
 	sy := obj.slots.open(vm, slot)
 	return func(value *Object) {
-		sy.value = value
+		sy.set(value)
 		sy.release()
 	}
 }
