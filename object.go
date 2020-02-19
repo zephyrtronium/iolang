@@ -317,13 +317,12 @@ func ObjectSetSlot(vm *VM, target, locals *Object, msg *Message) *Object {
 	if stop != NoStop {
 		return vm.Stop(exc, stop)
 	}
-	set := vm.SetSlotSync(target, slot)
+	sy := vm.SetSlotSync(target, slot)
 	v, stop := msg.EvalArgAt(vm, locals, 1)
 	if stop == NoStop {
-		set(v)
-	} else {
-		set(nil)
+		sy.Set(v)
 	}
+	sy.Unlock()
 	return vm.Stop(v, stop)
 }
 
@@ -341,13 +340,12 @@ func ObjectUpdateSlot(vm *VM, target, locals *Object, msg *Message) *Object {
 	if proto == nil {
 		return vm.RaiseExceptionf("slot %s not found", slot)
 	}
-	set := vm.SetSlotSync(target, slot)
+	sy := vm.SetSlotSync(target, slot)
 	v, stop := msg.EvalArgAt(vm, locals, 1)
 	if stop == NoStop {
-		set(v)
-	} else {
-		set(nil)
+		sy.Set(v)
 	}
+	sy.Unlock()
 	return vm.Stop(v, stop)
 }
 
@@ -394,8 +392,10 @@ func ObjectHasLocalSlot(vm *VM, target, locals *Object, msg *Message) *Object {
 // slotNames returns a list of the names of the slots on this object.
 func ObjectSlotNames(vm *VM, target, locals *Object, msg *Message) *Object {
 	v := []*Object{}
-	target.slots.foreach(vm, func(key string, value *syncSlot) bool {
-		v = append(v, vm.NewString(key))
+	vm.ForeachSlot(target, func(key string, value SyncSlot) bool {
+		if value.Valid() {
+			v = append(v, vm.NewString(key))
+		}
 		return true
 	})
 	return vm.NewList(v...)
@@ -406,8 +406,12 @@ func ObjectSlotNames(vm *VM, target, locals *Object, msg *Message) *Object {
 // slotValues returns a list of the values of the slots on this obect.
 func ObjectSlotValues(vm *VM, target, locals *Object, msg *Message) *Object {
 	v := []*Object{}
-	target.slots.foreach(vm, func(key string, value *syncSlot) bool {
-		v = append(v, value.value)
+	vm.ForeachSlot(target, func(key string, value SyncSlot) bool {
+		value.Lock()
+		if value.Valid() {
+			v = append(v, value.Load())
+		}
+		value.Unlock()
 		return true
 	})
 	return vm.NewList(v...)
@@ -786,13 +790,16 @@ func ObjectForeachSlot(vm *VM, target, locals *Object, msg *Message) (result *Ob
 	if !hvn {
 		return vm.RaiseExceptionf("foreachSlot requires 2 or 3 args")
 	}
-	var control Stop
-	target.slots.foreach(vm, func(key string, value *syncSlot) bool {
-		v := value.snap(vm)
+	vm.ForeachSlot(target, func(key string, value SyncSlot) bool {
+		v := value.Snap()
+		if v == nil {
+			return true
+		}
 		vm.SetSlot(locals, vn, v)
 		if hkn {
 			vm.SetSlot(locals, kn, vm.NewString(key))
 		}
+		var control Stop
 		result, control = ev.Eval(vm, locals)
 		switch control {
 		case NoStop, ContinueStop: // do nothing
@@ -919,12 +926,7 @@ func ObjectRemoveAllProtos(vm *VM, target, locals *Object, msg *Message) *Object
 //
 // removeAllSlots removes all slots from the object.
 func ObjectRemoveAllSlots(vm *VM, target, locals *Object, msg *Message) *Object {
-	keys := []string{}
-	target.slots.foreach(vm, func(key string, value *syncSlot) bool {
-		keys = append(keys, key)
-		return true
-	})
-	vm.RemoveSlot(target, keys...)
+	vm.RemoveAllSlots(target)
 	return target
 }
 
@@ -986,8 +988,12 @@ func ObjectShallowCopy(vm *VM, target, locals *Object, msg *Message) *Object {
 	// The shallow copy in Io doesn't actually copy the protos...
 	protos := target.Protos()
 	r := vm.ObjectWith(nil, protos, nil, nil)
-	target.slots.foreach(vm, func(key string, value *syncSlot) bool {
-		vm.SetSlot(r, key, value.snap(vm))
+	vm.ForeachSlot(target, func(key string, value SyncSlot) bool {
+		value.Lock()
+		if value.Valid() {
+			vm.SetSlot(r, key, value.Load())
+		}
+		value.Unlock()
 		return true
 	})
 	return r

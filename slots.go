@@ -315,6 +315,64 @@ func (s *syncSlot) valid() bool {
 	return atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&s.value))) != nil
 }
 
+// SyncSlot proxies synchronized access to a single slot. A SyncSlot value may
+// be copied, but it must never be accessed with a VM other than the one which
+// originally obtained it.
+type SyncSlot struct {
+	sy    *syncSlot
+	owner *VM
+}
+
+// Lock locks the slot for the owning coroutine. The same coroutine may lock
+// the slot multiple times without blocking, but each call to Lock must be
+// followed eventually by exactly one corresponding call to Unlock. Each Sync
+// slot accessor logically makes one call to Lock.
+func (s SyncSlot) Lock() {
+	s.sy.claim(s.owner)
+}
+
+// Unlock unlocks the slot. Each call to Unlock must be preceded by exactly one
+// call to Lock or any of the Sync slot accessors. In the latter case, Unlock
+// should be called even if the slot is not valid.
+func (s SyncSlot) Unlock() {
+	if s.sy != nil {
+		s.sy.release()
+	}
+}
+
+// Load obtains the slot's value. The slot must be locked.
+func (s SyncSlot) Load() *Object {
+	return s.sy.load()
+}
+
+// Snap returns a snapshot of the slot's value by locking, loading, and
+// unlocking it. If the slot is not valid, the result is nil, and Snap may or
+// may not block.
+func (s SyncSlot) Snap() *Object {
+	if s.sy == nil {
+		return nil
+	}
+	return s.sy.snap(s.sy.owner)
+}
+
+// Set sets the slot's value. The slot must be locked. Setting a value of nil
+// marks the slot as deleted.
+func (s SyncSlot) Set(value *Object) {
+	s.sy.set(value)
+}
+
+// Delete calls Set(nil). The slot must be locked.
+func (s SyncSlot) Delete() {
+	s.Set(nil)
+}
+
+// Valid returns true if the slot currently has a value or false if it is
+// deleted. The slot does not need to be locked, but its validity may change at
+// any time if it is not locked.
+func (s SyncSlot) Valid() bool {
+	return s.sy != nil && s.sy.valid()
+}
+
 // actualSlots is a synchronized trie structure that implements slots.
 //
 // The trie is grow-only. A leaf value of nil indicates an empty slot that has
@@ -557,31 +615,23 @@ func (s *actualSlots) open(vm *VM, slot string) *syncSlot {
 	return sy
 }
 
-// foreach executes a function for each slot. If exec returns false, then the
-// iteration ceases. The slots passed to exec are claimed by VM and will be
-// released afterward. Each slot passed to exec is guaranteed to be valid.
-func (s *actualSlots) foreach(vm *VM, exec func(name string, sy *syncSlot) bool) {
-	cur := (*slotBranch)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&s.root))))
+// ForeachSlot executes a function for each slot on obj. If exec returns false,
+// then the iteration ceases. The slots passed to exec are not locked and may
+// not be valid, but it is guaranteed that calling Lock on them will not cause
+// a nil dereference.
+func (vm *VM) ForeachSlot(obj *Object, exec func(name string, sy SyncSlot) bool) {
+	cur := (*slotBranch)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&obj.slots.root))))
 	if cur == nil {
 		return
 	}
 	cur.foreachIter(vm, exec, nil)
 }
 
-// foreachIter executes actualSlots.foreach for a single depth of the trie.
-func (r *slotBranch) foreachIter(vm *VM, exec func(name string, sy *syncSlot) bool, b []byte) []byte {
+// foreachIter executes vm.ForeachSlot for a single depth of the trie.
+func (r *slotBranch) foreachIter(vm *VM, exec func(name string, sy SyncSlot) bool, b []byte) []byte {
 	sy := (*syncSlot)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&r.leaf))))
 	if sy != nil && sy.valid() {
-		r := true
-		sy.claim(vm)
-		// We checked that the slot is valid before, but it may have been
-		// deleted between then and the time we could actually claim it. Check
-		// again for validity.
-		if sy.valid() {
-			r = exec(string(b), sy)
-		}
-		sy.release()
-		if !r {
+		if !exec(string(b), SyncSlot{sy: sy, owner: vm}) {
 			return nil
 		}
 	}
@@ -663,25 +713,22 @@ func (vm *VM) GetSlot(obj *Object, slot string) (value, proto *Object) {
 	return
 }
 
-// GetSlotSync is like GetSlot, but it returns an extra function to synchronize
-// accesses to the slot. Other VMs will block on attempts to read or write the
-// same slot, whether it is on obj or an ancestor, until release is called.
-// If it is not nil, release must be called exactly once. Both proto and
-// release are nil if and only if the slot is not found.
-func (vm *VM) GetSlotSync(obj *Object, slot string) (value, proto *Object, release func()) {
+// GetSlotSync is like GetSlot, but it returns a SyncSlot object rather than
+// the slot value directly. The SyncSlot is locked at the time GetSlotSync
+// returns. Other VMs will block on attempts to read or write the same slot,
+// whether it is on obj or an ancestor, until the SyncSlot is unlocked. The
+// slot is guaranteed to be valid if it is not nil. proto is nil if and only if
+// the slot is not found.
+func (vm *VM) GetSlotSync(obj *Object, slot string) (s SyncSlot, proto *Object) {
 	if obj == nil {
-		return nil, nil, nil
+		return
 	}
 	if sy := vm.localSyncSlot(obj, slot); sy != nil {
-		// It'd be trivial to wrap sy.release in a *sync.Once so we don't have
-		// to worry about multiple calls, but that would be slow and would mean
-		// every call to this allocates.
-		return sy.load(), obj, sy.release
+		return SyncSlot{sy: sy, owner: vm}, obj
 	}
 	sy, proto := vm.getSlotAncestor(obj, slot)
 	if proto != nil {
-		value = sy.load()
-		release = sy.release
+		s = SyncSlot{sy: sy, owner: vm}
 	}
 	return
 }
@@ -750,20 +797,20 @@ func (vm *VM) GetLocalSlot(obj *Object, slot string) (value *Object, ok bool) {
 	return nil, false
 }
 
-// GetLocalSlotSync is like GetLocalSlot, but it returns a function to
-// synchronize accesses to the slot. Other VMs will block on attempts to read
-// or write the same slot until release is called. If it is not nil, release
-// must be called exactly once. release is nil if and only if the slot does not
-// exist on obj.
-func (vm *VM) GetLocalSlotSync(obj *Object, slot string) (value *Object, release func()) {
+// GetLocalSlotSync is like GetLocalSlot, but it returns a SyncSlot object
+// rather than the slot value directly. The SyncSlot is valid if and only if
+// the slot exists on obj, and it is locked if it is valid. Other VMs will
+// block on attempts to read or write the same slot until the SyncSlot is
+// unlocked.
+func (vm *VM) GetLocalSlotSync(obj *Object, slot string) SyncSlot {
 	if obj == nil {
-		return nil, nil
+		return SyncSlot{}
 	}
 	sy := vm.localSyncSlot(obj, slot)
 	if sy != nil {
-		return sy.load(), sy.release
+		return SyncSlot{sy: sy, owner: vm}
 	}
-	return nil, nil
+	return SyncSlot{}
 }
 
 // localSyncSlot claims a slot if it exists on obj.
@@ -788,8 +835,12 @@ func (vm *VM) localSyncSlot(obj *Object, slot string) *syncSlot {
 // coroutine is accessing any slot on the object.
 func (vm *VM) GetAllSlots(obj *Object) Slots {
 	slots := Slots{}
-	obj.slots.foreach(vm, func(key string, value *syncSlot) bool {
-		slots[key] = value.load()
+	vm.ForeachSlot(obj, func(key string, value SyncSlot) bool {
+		value.Lock()
+		if value.Valid() {
+			slots[key] = value.Load()
+		}
+		value.Unlock()
 		return true
 	})
 	return slots
@@ -802,25 +853,21 @@ func (vm *VM) SetSlot(obj *Object, slot string, value *Object) {
 	sy.release()
 }
 
-// SetSlotSync creates a synchronized setter for a slot on obj. set must be
-// called exactly once with the new slot value. Users should call SetSlotSync
-// before evaluating the Io code that will determine the value, e.g.:
+// SetSlotSync returns a locked SyncSlot for the given slot on obj, creating
+// the slot if it does not exist. The SyncSlot is not guaranteed to be valid,
+// so its current value should not be accessed. Users should call SetSlotSync
+// before evaluating Io messages that will determine the value, e.g.:
 //
-// 	set := vm.SetSlotSync(obj, slot)
+// 	sy := vm.SetSlotSync(obj, slot)
+// 	defer sy.Unlock()
 // 	value, stop := msg.Eval(vm, locals)
 // 	if stop != NoStop {
-// 		set(nil)
 // 		return vm.Stop(value, stop)
 // 	}
-// 	set(value)
-//
-// set must be called exactly once.
-func (vm *VM) SetSlotSync(obj *Object, slot string) (set func(*Object)) {
+// 	sy.Set(value)
+func (vm *VM) SetSlotSync(obj *Object, slot string) SyncSlot {
 	sy := obj.slots.open(vm, slot)
-	return func(value *Object) {
-		sy.set(value)
-		sy.release()
-	}
+	return SyncSlot{sy: sy, owner: vm}
 }
 
 // SetSlots sets the values of multiple slots on obj.
@@ -843,7 +890,15 @@ func (vm *VM) definitelyNewSlots(obj *Object, slots Slots) {
 // RemoveSlot removes slots from obj's local slots, if they are present.
 func (vm *VM) RemoveSlot(obj *Object, slots ...string) {
 	for _, slot := range slots {
-		// TODO: only remove slots that exist
-		vm.SetSlot(obj, slot, nil)
+		sy := vm.GetLocalSlotSync(obj, slot)
+		if sy.Valid() {
+			sy.Delete()
+		}
+		sy.Unlock()
 	}
+}
+
+// RemoveAllSlots removes all slots from obj in a single operation.
+func (vm *VM) RemoveAllSlots(obj *Object) {
+	atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&obj.slots.root)), nil)
 }
