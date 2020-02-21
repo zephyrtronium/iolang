@@ -679,6 +679,21 @@ func TestObjectMethods(t *testing.T) {
 		"pause": {
 			"pause": {`testValues pauseValue := 0; testValues pauseCoro := coroDo(testValues pauseValue = 1; Object pause; testValues pauseValue = 2); while(testValues pauseValue == 0, yield); while(Scheduler coroCount > 0, yield); testValues pauseObs := testValues pauseValue; testValues pauseCoro resume; while(testValues pauseValue < 2, yield); testValues pauseObs`, PassEqual(vm.NewNumber(1))},
 		},
+		"perform": {
+			"string":    {`testValues performValue := 0; testValues perform("setSlot", "performValue", 1); testValues performValue`, PassEqual(vm.NewNumber(1))},
+			"message":   {`testValues performValue := 0; testValues perform(message(setSlot("performValue", 1))); testValues performValue`, PassEqual(vm.NewNumber(1))},
+			"single":    {`testValues performValue := 0; testValues perform(message(nil; setSlot("performValue", 1))); testValues performValue`, PassEqual(vm.NewNumber(0))},
+			"several":   {`testValues perform(message(nil), message(nil))`, PassFailure()},
+			"wrong":     {`testValues perform(nil)`, PassFailure()},
+			"continue":  {`testValues perform(continue)`, PassControl(vm.Nil, ContinueStop)},
+			"exception": {`testValues perform(Exception raise)`, PassFailure()},
+		},
+		"performWithArgList": {
+			"perform":   {`testValues performWithValue := 0; testValues performWithArgList("setSlot", list("performWithValue", 1)); testValues performWithValue`, PassEqual(vm.NewNumber(1))},
+			"wrong":     {`testValues performWithArgList("nil", "nil")`, PassFailure()},
+			"continue":  {`testValues performWithArgList(continue, list)`, PassControl(vm.Nil, ContinueStop)},
+			"exception": {`testValues performWithArgList(Exception raise, list)`, PassFailure()},
+		},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
