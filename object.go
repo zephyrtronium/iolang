@@ -859,11 +859,11 @@ func ObjectPerform(vm *VM, target, locals *Object, msg *Message) *Object {
 		return vm.Stop(r, stop)
 	}
 	r.Lock()
+	defer r.Unlock()
 	switch a := r.Value.(type) {
 	case Sequence:
 		// String name, arguments are messages.
 		name := a.String()
-		r.Unlock()
 		m := vm.IdentMessage(name, msg.Args[1:]...)
 		for i, arg := range m.Args {
 			m.Args[i] = arg.DeepCopy()
@@ -871,7 +871,6 @@ func ObjectPerform(vm *VM, target, locals *Object, msg *Message) *Object {
 		return vm.Stop(vm.Perform(target, locals, m))
 	case *Message:
 		// Message argument, which provides both the name and the args.
-		r.Unlock()
 		if msg.ArgCount() > 1 {
 			return vm.RaiseExceptionf("perform takes a single argument when using a Message as an argument")
 		}
