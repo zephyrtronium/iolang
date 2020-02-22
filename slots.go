@@ -187,7 +187,7 @@ func (o *Object) PrependProto(proto *Object) {
 		o.protos.mu.Unlock()
 		return
 	}
-	next := &protoLink{p: o.protos.p, n: o.protos.n}
+	next := &protoLink{p: old, n: o.protos.n}
 	atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&o.protos.n)), unsafe.Pointer(next))
 	atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&o.protos.p)), unsafe.Pointer(proto))
 	o.protos.mu.Unlock()
