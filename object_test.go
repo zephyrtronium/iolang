@@ -251,6 +251,11 @@ func TestObjectMethods(t *testing.T) {
 		"coroWaitTime": vm.NewNumber(0.02),
 		// obj is a generic object with some slots to simplify some tests.
 		"obj": vm.NewObject(Slots{"x": vm.NewNumber(1), "y": vm.NewNumber(2), "z": vm.NewNumber(0)}),
+		// manyProtos is an object that has many protos.
+		"manyProtos": vm.ObjectWith(nil, []*Object{vm.BaseObject, vm.Nil, vm.Nil, vm.Nil, vm.Nil, vm.Nil, vm.Nil, vm.Nil, vm.Nil, vm.Nil, vm.Nil}, nil, nil),
+		// manyProtosToRemove is an object that has many protos to test that
+		// removeAllProtos succeeds.
+		"manyProtosToRemove": vm.ObjectWith(nil, []*Object{vm.BaseObject, vm.Nil, vm.Nil, vm.Nil, vm.Nil, vm.Nil, vm.Nil, vm.Nil, vm.Nil, vm.Nil, vm.Nil}, nil, nil),
 	}
 	vm.SetSlot(vm.Lobby, "testValues", vm.NewObject(config))
 	cases := map[string]map[string]SourceTestCase{
@@ -693,6 +698,35 @@ func TestObjectMethods(t *testing.T) {
 			"wrong":     {`testValues performWithArgList("nil", "nil")`, PassFailure()},
 			"continue":  {`testValues performWithArgList(continue, list)`, PassControl(vm.Nil, ContinueStop)},
 			"exception": {`testValues performWithArgList(Exception raise, list)`, PassFailure()},
+		},
+		"prependProto": {
+			"none":      {`testValues prependProtoObj := Object clone removeAllProtos; Object getSlot("prependProto") performOn(testValues prependProtoObj, thisLocalContext, message(prependProto(Lobby))); Object getSlot("protos") performOn(testValues prependProtoObj)`, PassEqual(vm.NewList(vm.Lobby))},
+			"one":       {`testValues prependProtoObj := Object clone; testValues prependProtoObj prependProto(Lobby); testValues prependProtoObj protos`, PassEqual(vm.NewList(vm.Lobby, vm.BaseObject))},
+			"ten":       {`testValues prependProtoObj := Object clone; testValues prependProtoObj prependProto(Lobby) prependProto(Lobby) prependProto(Lobby) prependProto(Lobby) prependProto(Lobby) prependProto(Lobby) prependProto(Lobby) prependProto(Lobby) prependProto(Lobby) prependProto(Lobby); testValues prependProtoObj protos`, PassEqual(vm.NewList(vm.Lobby, vm.Lobby, vm.Lobby, vm.Lobby, vm.Lobby, vm.Lobby, vm.Lobby, vm.Lobby, vm.Lobby, vm.Lobby, vm.BaseObject))},
+			"continue":  {`Object clone prependProto(continue)`, PassControl(vm.Nil, ContinueStop)},
+			"exception": {`Object clone prependProto(Exception raise)`, PassFailure()},
+		},
+		// print and println need special tests
+		"proto": {
+			"proto": {`testValues proto`, PassIdentical(vm.BaseObject)},
+		},
+		"protos": {
+			"none": {`Object getSlot("protos") performOn(Object clone removeAllProtos)`, PassEqual(vm.NewList())},
+			"one":  {`Object clone protos`, PassEqual(vm.NewList(vm.BaseObject))},
+			"ten":  {`testValues manyProtos protos`, PassEqual(vm.NewList(vm.BaseObject, vm.Nil, vm.Nil, vm.Nil, vm.Nil, vm.Nil, vm.Nil, vm.Nil, vm.Nil, vm.Nil, vm.Nil))},
+		},
+		"raiseIfError": {
+			"nothing": {`Object raiseIfError`, PassSuccess()},
+		},
+		// relativeDoFile needs special tests
+		"removeAllProtos": {
+			// There is no way to test from an Io script that both protos and
+			// removeAllProtos work. We only test that removeAllProtos does not
+			// completely fail here and save tests that it actually works for
+			// another test function.
+			"none": {`Object getSlot("removeAllProtos") performOn(Object clone removeAllProtos)`, PassSuccess()},
+			"one":  {`Object clone removeAllProtos`, PassSuccess()},
+			"ten":  {`testValues manyProtosToRemove removeAllProtos`, PassSuccess()},
 		},
 	}
 	for name, c := range cases {
