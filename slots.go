@@ -62,8 +62,16 @@ var logicalDeleted = new(Object)
 // protoHead returns the object's first proto.
 func (o *Object) protoHead() *Object {
 	p := (*Object)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&o.protos.p))))
-	for p == logicalDeleted {
-		p = (*Object)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&o.protos.p))))
+	if p == logicalDeleted {
+		// If the head is logically deleted, then someone holds its lock.
+		// Rather than simply spinning while waiting for it to become valid
+		// again, we can try to acquire the lock so the runtime can park this
+		// goroutine. Then, since we hold the lock, we can be certain the node
+		// is in a valid state and there are no concurrent writers, so we can
+		// read it normally once.
+		o.protos.mu.Lock()
+		p = o.protos.p
+		o.protos.mu.Unlock()
 	}
 	return p
 }
