@@ -140,11 +140,11 @@ outer:
 			return vm.Stop(r, stop)
 		}
 		for _, v := range l {
-			c, stop := vm.Compare(v, r)
+			c, obj, stop := vm.Compare(v, r)
 			if stop != NoStop {
-				return vm.Stop(c, stop)
+				return vm.Stop(obj, stop)
 			}
-			if c.Tag() == NumberTag && c.Value.(float64) == 0 {
+			if obj == nil && c == 0 {
 				continue outer
 			}
 		}
@@ -328,12 +328,12 @@ func ListCompare(vm *VM, target, locals *Object, msg *Message) *Object {
 		u := r[i]
 		target.Unlock()
 		v.Unlock()
-		x, stop := vm.Compare(t, u)
+		x, obj, stop := vm.Compare(t, u)
 		if stop != NoStop {
-			return vm.Stop(x, stop)
+			return vm.Stop(obj, stop)
 		}
-		if n, ok := x.Value.(float64); ok && n != 0 {
-			return x
+		if obj == nil && x != 0 {
+			return vm.NewNumber(float64(x))
 		}
 		target.Lock()
 		v.Lock()
@@ -359,11 +359,11 @@ func ListContains(vm *VM, target, locals *Object, msg *Message) *Object {
 	for i := 0; i < len(l); i++ {
 		v := l[i]
 		target.Unlock()
-		c, stop := vm.Compare(v, r)
+		c, obj, stop := vm.Compare(v, r)
 		if stop != NoStop {
-			return vm.Stop(c, stop)
+			return vm.Stop(obj, stop)
 		}
-		if n, ok := c.Value.(float64); ok && n == 0 {
+		if obj == nil && c == 0 {
 			return vm.True
 		}
 		target.Lock()
@@ -393,11 +393,11 @@ outer:
 		for i := 0; i < len(l); i++ {
 			u := l[i]
 			target.Unlock()
-			c, stop := vm.Compare(u, v)
+			c, obj, stop := vm.Compare(u, v)
 			if stop != NoStop {
-				return vm.Stop(c, stop)
+				return vm.Stop(obj, stop)
 			}
-			if n, ok := c.Value.(float64); ok && n == 0 {
+			if obj == nil && c == 0 {
 				continue outer
 			}
 			target.Lock()
@@ -429,12 +429,11 @@ func ListContainsAny(vm *VM, target, locals *Object, msg *Message) *Object {
 		v := l[i]
 		target.Unlock()
 		for _, ri := range r {
-			// FIXME: performing code while holding a lock
-			c, stop := vm.Compare(ri, v)
+			c, obj, stop := vm.Compare(ri, v)
 			if stop != NoStop {
-				return vm.Stop(c, stop)
+				return vm.Stop(obj, stop)
 			}
-			if n, ok := c.Value.(float64); ok && n == 0 {
+			if obj == nil && c == 0 {
 				return vm.True
 			}
 		}
@@ -520,11 +519,11 @@ func ListIndexOf(vm *VM, target, locals *Object, msg *Message) *Object {
 	for i := 0; i < len(l); i++ {
 		v := l[i]
 		target.Unlock()
-		c, stop := vm.Compare(v, r)
+		c, obj, stop := vm.Compare(v, r)
 		if stop != NoStop {
-			return vm.Stop(c, stop)
+			return vm.Stop(obj, stop)
 		}
-		if n, ok := c.Value.(float64); ok && n == 0 {
+		if obj == nil && c == 0 {
 			return vm.NewNumber(float64(i))
 		}
 		target.Lock()
@@ -610,12 +609,12 @@ func ListRemove(vm *VM, target, locals *Object, msg *Message) *Object {
 			is = true
 		} else {
 			for r := range rv {
-				c, stop := vm.Compare(v, r)
+				c, obj, stop := vm.Compare(v, r)
 				if stop != NoStop {
 					target.Value = l[:len(l)-j]
-					return vm.Stop(c, stop)
+					return vm.Stop(obj, stop)
 				}
-				if n, ok := c.Value.(float64); ok && n == 0 {
+				if obj == nil && c == 0 {
 					is = true
 				}
 			}
@@ -946,15 +945,15 @@ func (l *listSorter) Less(i, j int) bool {
 				return i < j
 			}
 		}
-		r, stop := l.vm.Compare(a, b)
+		r, obj, stop := l.vm.Compare(a, b)
 		if stop != NoStop {
-			l.err, l.c = r, stop
+			l.err, l.c = obj, stop
 			return i < j
 		}
-		if n, ok := r.Value.(float64); ok {
-			return n < 0
+		if obj == nil {
+			return r < 0
 		}
-		return l.vm.AsBool(r)
+		return l.vm.AsBool(obj)
 	}
 	l.mu.Lock()
 	l.m.Args[0].Memo, l.m.Args[1].Memo = l.v[i], l.v[j]

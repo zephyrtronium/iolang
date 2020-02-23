@@ -511,16 +511,29 @@ func ObjectAsGoRepr(vm *VM, target, locals *Object, msg *Message) *Object {
 	return vm.NewString(fmt.Sprintf("%#v", target.Value))
 }
 
-// Compare uses the compare method of x to compare to y. The result should be a
-// *Number holding -1, 0, or 1, if the compare method is proper and no
-// exception occurs. Any Stop will be returned.
-func (vm *VM) Compare(x, y *Object) (*Object, Stop) {
+// Compare uses the compare method of x to compare to y. If the result is a
+// Number, then its value is converted to int and returned as c along with nil
+// for obj and NoStop for stop. Otherwise, c is 0, and obj and stop are the
+// results of evaluation.
+func (vm *VM) Compare(x, y *Object) (c int, obj *Object, stop Stop) {
 	cmp, proto := vm.GetSlot(x, "compare")
 	if proto == nil {
 		// No compare method.
-		return vm.NewNumber(float64(PtrCompare(x, y))), NoStop
+		return PtrCompare(x, y), nil, NoStop
 	}
-	return vm.Status(cmp.Activate(vm, x, x, proto, vm.IdentMessage("compare", vm.CachedMessage(y))))
+	obj, stop = vm.Status(cmp.Activate(vm, x, x, proto, vm.IdentMessage("compare", vm.CachedMessage(y))))
+	if stop != NoStop {
+		vm.Stop(obj, stop)
+		return
+	}
+	obj.Lock()
+	if obj.Tag() != NumberTag {
+		obj.Unlock()
+		return
+	}
+	c = int(obj.Value.(float64))
+	obj.Unlock()
+	return c, nil, NoStop
 }
 
 // ObjectCompare is an Object method.
@@ -558,14 +571,14 @@ func ObjectLess(vm *VM, target, locals *Object, msg *Message) *Object {
 	if stop != NoStop {
 		return vm.Stop(x, stop)
 	}
-	c, stop := vm.Compare(target, x)
+	c, obj, stop := vm.Compare(target, x)
 	if stop != NoStop {
-		return vm.Stop(c, stop)
+		return vm.Stop(obj, stop)
 	}
-	if n, ok := c.Value.(float64); ok {
-		return vm.IoBool(n < 0)
+	if obj != nil {
+		return vm.IoBool(PtrCompare(target, obj) < 0)
 	}
-	return vm.IoBool(PtrCompare(target, c) < 0)
+	return vm.IoBool(c < 0)
 }
 
 // ObjectLessOrEqual is an Object method.
@@ -576,14 +589,14 @@ func ObjectLessOrEqual(vm *VM, target, locals *Object, msg *Message) *Object {
 	if stop != NoStop {
 		return vm.Stop(x, stop)
 	}
-	c, stop := vm.Compare(target, x)
+	c, obj, stop := vm.Compare(target, x)
 	if stop != NoStop {
-		return vm.Stop(c, stop)
+		return vm.Stop(obj, stop)
 	}
-	if n, ok := c.Value.(float64); ok {
-		return vm.IoBool(n <= 0)
+	if obj != nil {
+		return vm.IoBool(PtrCompare(target, obj) <= 0)
 	}
-	return vm.IoBool(PtrCompare(target, c) <= 0)
+	return vm.IoBool(c <= 0)
 }
 
 // ObjectEqual is an Object method.
@@ -594,14 +607,14 @@ func ObjectEqual(vm *VM, target, locals *Object, msg *Message) *Object {
 	if stop != NoStop {
 		return vm.Stop(x, stop)
 	}
-	c, stop := vm.Compare(target, x)
+	c, obj, stop := vm.Compare(target, x)
 	if stop != NoStop {
-		return vm.Stop(c, stop)
+		return vm.Stop(obj, stop)
 	}
-	if n, ok := c.Value.(float64); ok {
-		return vm.IoBool(n == 0)
+	if obj != nil {
+		return vm.IoBool(PtrCompare(target, obj) == 0)
 	}
-	return vm.IoBool(PtrCompare(target, c) == 0)
+	return vm.IoBool(c == 0)
 }
 
 // ObjectNotEqual is an Object method.
@@ -612,14 +625,14 @@ func ObjectNotEqual(vm *VM, target, locals *Object, msg *Message) *Object {
 	if stop != NoStop {
 		return vm.Stop(x, stop)
 	}
-	c, stop := vm.Compare(target, x)
+	c, obj, stop := vm.Compare(target, x)
 	if stop != NoStop {
-		return vm.Stop(c, stop)
+		return vm.Stop(obj, stop)
 	}
-	if n, ok := c.Value.(float64); ok {
-		return vm.IoBool(n != 0)
+	if obj != nil {
+		return vm.IoBool(PtrCompare(target, obj) != 0)
 	}
-	return vm.IoBool(PtrCompare(target, c) != 0)
+	return vm.IoBool(c != 0)
 }
 
 // ObjectGreaterOrEqual is an Object method.
@@ -630,14 +643,14 @@ func ObjectGreaterOrEqual(vm *VM, target, locals *Object, msg *Message) *Object 
 	if stop != NoStop {
 		return vm.Stop(x, stop)
 	}
-	c, stop := vm.Compare(target, x)
+	c, obj, stop := vm.Compare(target, x)
 	if stop != NoStop {
-		return vm.Stop(c, stop)
+		return vm.Stop(obj, stop)
 	}
-	if n, ok := c.Value.(float64); ok {
-		return vm.IoBool(n >= 0)
+	if obj != nil {
+		return vm.IoBool(PtrCompare(target, obj) >= 0)
 	}
-	return vm.IoBool(PtrCompare(target, c) >= 0)
+	return vm.IoBool(c >= 0)
 }
 
 // ObjectGreater is an Object method.
@@ -648,14 +661,14 @@ func ObjectGreater(vm *VM, target, locals *Object, msg *Message) *Object {
 	if stop != NoStop {
 		return vm.Stop(x, stop)
 	}
-	c, stop := vm.Compare(target, x)
+	c, obj, stop := vm.Compare(target, x)
 	if stop != NoStop {
-		return vm.Stop(c, stop)
+		return vm.Stop(obj, stop)
 	}
-	if n, ok := c.Value.(float64); ok {
-		return vm.IoBool(n > 0)
+	if obj != nil {
+		return vm.IoBool(PtrCompare(target, obj) > 0)
 	}
-	return vm.IoBool(PtrCompare(target, c) > 0)
+	return vm.IoBool(c > 0)
 }
 
 // ObjectTry is an Object method.

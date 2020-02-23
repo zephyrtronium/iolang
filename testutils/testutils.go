@@ -77,24 +77,7 @@ func (c SourceTestCase) TestFunc(name string) func(*testing.T) {
 // not, it checks that the result of TestingVM().Compare(want, result) is 0. If
 // the Stop is not NoStop, then the predicate returns false.
 func PassEqual(want *iolang.Object) func(*iolang.Object, iolang.Stop) bool {
-	return func(result *iolang.Object, control iolang.Stop) bool {
-		vm := TestingVM()
-		if control != iolang.NoStop {
-			return false
-		}
-		if want == result {
-			return true
-		}
-		v, stop := vm.Compare(want, result)
-		if stop != iolang.NoStop {
-			return false
-		}
-		n, ok := v.Value.(float64)
-		if !ok {
-			return false
-		}
-		return n == 0
-	}
+	return PassControl(want, iolang.NoStop)
 }
 
 // PassUnequal returns a Pass function for a SourceTestCase that predicates on
@@ -109,15 +92,14 @@ func PassUnequal(want *iolang.Object) func(*iolang.Object, iolang.Stop) bool {
 		if want == result {
 			return false
 		}
-		v, stop := vm.Compare(want, result)
+		v, obj, stop := vm.Compare(want, result)
 		if stop != iolang.NoStop {
 			return false
 		}
-		n, ok := v.Value.(float64)
-		if !ok {
+		if obj != nil {
 			return false
 		}
-		return n != 0
+		return v != 0
 	}
 }
 
@@ -145,15 +127,14 @@ func PassControl(want *iolang.Object, stop iolang.Stop) func(*iolang.Object, iol
 		if want == result {
 			return true
 		}
-		v, stop := vm.Compare(want, result)
+		v, obj, stop := vm.Compare(want, result)
 		if stop != iolang.NoStop {
 			return false
 		}
-		n, ok := v.Value.(float64)
-		if !ok {
+		if obj != nil {
 			return false
 		}
-		return n == 0
+		return v == 0
 	}
 }
 
@@ -231,14 +212,14 @@ func PassEqualSlots(want iolang.Slots) func(*iolang.Object, iolang.Stop) bool {
 			if !ok {
 				return false
 			}
-			v, stop := vm.Compare(x, value)
+			v, obj, stop := vm.Compare(x, value)
 			if stop != iolang.NoStop {
 				return false
 			}
-			n, ok := v.Value.(float64)
-			if !ok || n != 0 {
+			if obj != nil {
 				return false
 			}
+			return v == 0
 		}
 		return true
 	}

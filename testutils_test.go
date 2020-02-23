@@ -72,24 +72,7 @@ func (c SourceTestCase) TestFunc(name string) func(*testing.T) {
 // equality. To determine equality, this first checks for equal identities; if
 // not, it checks that the result of TestVM.Compare(want, result) is 0.
 func PassEqual(want *Object) func(*Object, Stop) bool {
-	return func(result *Object, control Stop) bool {
-		vm := TestingVM()
-		if control != NoStop {
-			return false
-		}
-		if want == result {
-			return true
-		}
-		v, stop := vm.Compare(want, result)
-		if stop != NoStop {
-			return false
-		}
-		n, ok := v.Value.(float64)
-		if !ok {
-			return false
-		}
-		return n == 0
-	}
+	return PassControl(want, NoStop)
 }
 
 // PassUnequal returns a Pass function for a SourceTestCase that predicates on
@@ -104,15 +87,14 @@ func PassUnequal(want *Object) func(*Object, Stop) bool {
 		if want == result {
 			return false
 		}
-		v, stop := vm.Compare(want, result)
+		v, obj, stop := vm.Compare(want, result)
 		if stop != NoStop {
 			return false
 		}
-		n, ok := v.Value.(float64)
-		if !ok {
+		if obj != nil {
 			return false
 		}
-		return n != 0
+		return v != 0
 	}
 }
 
@@ -139,15 +121,14 @@ func PassControl(want *Object, stop Stop) func(*Object, Stop) bool {
 		if want == result {
 			return true
 		}
-		v, stop := vm.Compare(want, result)
+		v, obj, stop := vm.Compare(want, result)
 		if stop != NoStop {
 			return false
 		}
-		n, ok := v.Value.(float64)
-		if !ok {
+		if obj != nil {
 			return false
 		}
-		return n == 0
+		return v == 0
 	}
 }
 
@@ -223,14 +204,14 @@ func PassEqualSlots(want Slots) func(*Object, Stop) bool {
 			if !ok {
 				return false
 			}
-			v, stop := vm.Compare(x, value)
+			v, obj, stop := vm.Compare(x, value)
 			if stop != NoStop {
 				return false
 			}
-			n, ok := v.Value.(float64)
-			if !ok || n != 0 {
+			if obj != nil {
 				return false
 			}
+			return v == 0
 		}
 		return true
 	}
