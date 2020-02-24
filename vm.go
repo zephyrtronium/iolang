@@ -4,10 +4,10 @@
 package iolang
 
 import (
-	"bytes"
 	"compress/zlib"
 	"fmt"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/zephyrtronium/contains"
@@ -203,7 +203,7 @@ func (vm *VM) initCore() {
 func (vm *VM) finalInit() {
 	for i, data := range coreIo {
 		name := coreFiles[i]
-		r, err := zlib.NewReader(bytes.NewReader(data))
+		r, err := zlib.NewReader(strings.NewReader(data))
 		if err != nil {
 			panic(fmt.Errorf("iolang: error decompressing initialization code from %s: %w", name, err))
 		}
