@@ -18,5 +18,12 @@ Call do(
 		target doMessage(self message clone setNext setName(name), self sender)
 	) setPassStops(true)
 
+	resetStopStatus := method(setStopStatus(Normal))
+	relayStopStatus := method(
+		stop := stopStatus(r := call evalArgAt(0))
+		call sender call setStopStatus(stop)
+		getSlot("r")
+	)
+
 	type := "Call"
 )

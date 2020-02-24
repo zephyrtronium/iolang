@@ -96,6 +96,7 @@ func NewVM(args ...string) *VM {
 	vm.initNumber()
 	vm.initException()
 	vm.initBlock()
+	vm.initCall()
 	vm.initMap()
 	vm.initOpTable()
 	vm.initObject()

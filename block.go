@@ -3,6 +3,7 @@ package iolang
 import (
 	"bytes"
 	"strings"
+	"sync/atomic"
 )
 
 // A Block is a reusable, lexically scoped message. Essentially a function.
@@ -27,6 +28,26 @@ type Block struct {
 	// PassStops controls whether the block resends control flow signals that
 	// are returned from evaluating its message.
 	PassStops bool
+}
+
+// Call wraps information about the activation of a Block.
+type Call struct {
+	// status is a relayed control flow status represented as a uint32,
+	// allowing a block to propagate control flow into its caller. This field
+	// must be accessed atomically.
+	status int32
+	// Sender is the local context in which the block was activated.
+	Sender *Object
+	// Actor is the block which is being activated.
+	Actor *Object
+	// Msg is the message which was sent to activate the block.
+	Msg *Message
+	// Target is the receiver of the message which activated the block.
+	Target *Object
+	// Context is the object that actually held the slot containing the block.
+	Context *Object
+	// Coro is the coroutine in which the block was activated.
+	Coro *VM
 }
 
 // tagBlock is the Tag type for Block objects.
@@ -62,6 +83,35 @@ func (tagBlock) String() string {
 // with a deep copy of the parent's message.
 var BlockTag tagBlock
 
+// tagCall is the Tag type for Call objects.
+type tagCall struct{}
+
+func (tagCall) Activate(vm *VM, self, target, locals, context *Object, msg *Message) *Object {
+	return self
+}
+
+func (tagCall) CloneValue(value interface{}) interface{} {
+	return Call{}
+}
+
+func (tagCall) String() string {
+	return "Call"
+}
+
+// CallTag is the Tag for Call objects. Activate returns self. CloneValue
+// creates a Call with all fields set to nil.
+var CallTag tagCall
+
+// Status returns the call's relayed control flow status.
+func (c *Call) Status() Stop {
+	return Stop(atomic.LoadInt32(&c.status))
+}
+
+// SetStatus sets the call's relayed control flow status.
+func (c *Call) SetStatus(s Stop) {
+	atomic.StoreInt32(&c.status, int32(s))
+}
+
 // ActivateBlock activates a block directly, regardless of the value of its
 // Activatable flag. Panics if blk is not a Block object.
 func (vm *VM) ActivateBlock(blk, target, locals, context *Object, msg *Message) *Object {
@@ -86,10 +136,10 @@ func (vm *VM) ActivateBlock(blk, target, locals, context *Object, msg *Message) 
 		vm.SetSlot(blkLocals, arg, x)
 	}
 	result, stop := m.Eval(vm, blkLocals)
-	if pass || stop == ExceptionStop {
+	if pass || stop == ExceptionStop || stop == ExitStop {
 		return vm.Stop(result, stop)
 	}
-	return result
+	return vm.Stop(result, call.Value.(*Call).Status())
 }
 
 // NewBlock creates a new Block object for a message. If scope is nil, then the
@@ -120,15 +170,15 @@ func (vm *VM) NewLocals(self, call *Object) *Object {
 // NewCall creates a Call object sent from sender to the target's actor using
 // the message msg.
 func (vm *VM) NewCall(sender, actor *Object, msg *Message, target, context *Object) *Object {
-	slots := Slots{
-		"activated":   actor,
-		"coroutine":   vm.Coro,
-		"message":     vm.MessageObject(msg),
-		"sender":      sender,
-		"slotContext": context,
-		"target":      target,
+	call := Call{
+		Sender:  sender,
+		Actor:   actor,
+		Msg:     msg,
+		Target:  target,
+		Context: context,
+		Coro:    vm,
 	}
-	return vm.ObjectWith(slots, vm.CoreProto("Call"), nil, nil)
+	return vm.ObjectWith(nil, vm.CoreProto("Call"), &call, CallTag)
 }
 
 func (vm *VM) initBlock() {
@@ -148,8 +198,6 @@ func (vm *VM) initBlock() {
 	}
 	slots["code"] = slots["asString"]
 	vm.coreInstall("Block", slots, &Block{}, BlockTag)
-	// Call doesn't have anything special, so we'll set it up here.
-	vm.coreInstall("Call", nil, nil, nil)
 }
 
 func (vm *VM) initLocals() {
@@ -168,6 +216,20 @@ func (vm *VM) initLocals() {
 	slots["updateSlot"] = vm.NewCFunction(LocalsUpdateSlot, nil)
 	// Don't use coreInstall because Locals have no protos.
 	vm.SetSlot(vm.Core, "Locals", vm.ObjectWith(slots, nil, nil, nil))
+}
+
+func (vm *VM) initCall() {
+	slots := Slots{
+		"activated":     vm.NewCFunction(CallActivated, CallTag),
+		"coroutine":     vm.NewCFunction(CallCoroutine, CallTag),
+		"message":       vm.NewCFunction(CallMessage, CallTag),
+		"sender":        vm.NewCFunction(CallSender, CallTag),
+		"setStopStatus": vm.NewCFunction(CallSetStopStatus, CallTag),
+		"slotContext":   vm.NewCFunction(CallSlotContext, CallTag),
+		"stopStatus":    vm.NewCFunction(CallStopStatus, CallTag),
+		"target":        vm.NewCFunction(CallTarget, CallTag),
+	}
+	vm.coreInstall("Call", slots, &Call{}, CallTag)
 }
 
 // ObjectBlock is an Object method.
@@ -413,4 +475,93 @@ func LocalsUpdateSlot(vm *VM, target, locals *Object, msg *Message) *Object {
 		return vm.Stop(vm.Perform(self, locals, msg))
 	}
 	return vm.RaiseExceptionf("no slot named %s in %s", slot, vm.TypeName(target))
+}
+
+// CallActivated is a Call method.
+//
+// activated returns the currently executing block.
+func CallActivated(vm *VM, target, locals *Object, msg *Message) *Object {
+	return target.Value.(*Call).Actor
+}
+
+// CallCoroutine is a Call method.
+//
+// coroutine returns the coroutine in which this block is executing.
+func CallCoroutine(vm *VM, target, locals *Object, msg *Message) *Object {
+	c := target.Value.(*Call).Coro
+	if c == nil {
+		return vm.Nil
+	}
+	return c.Coro
+}
+
+// CallMessage is a Call method.
+//
+// message returns the message which caused the current block to activate.
+func CallMessage(vm *VM, target, locals *Object, msg *Message) *Object {
+	return vm.MessageObject(target.Value.(*Call).Msg)
+}
+
+// CallSender is a Call method.
+//
+// sender returns the local context in which this block was activated.
+func CallSender(vm *VM, target, locals *Object, msg *Message) *Object {
+	return target.Value.(*Call).Sender
+}
+
+// CallSetStopStatus is a Call method.
+//
+// setStopStatus sets a control flow status to propagate to the caller.
+func CallSetStopStatus(vm *VM, target, locals *Object, msg *Message) *Object {
+	call := target.Value.(*Call)
+	s, stop := msg.EvalArgAt(vm, locals, 0)
+	if stop != NoStop {
+		return vm.Stop(s, stop)
+	}
+	if c, _ := vm.GetLocalSlot(vm.Core, "Continue"); s == c {
+		call.SetStatus(ContinueStop)
+	} else if c, _ := vm.GetLocalSlot(vm.Core, "Break"); s == c {
+		call.SetStatus(BreakStop)
+	} else if c, _ := vm.GetLocalSlot(vm.Core, "Return"); s == c {
+		call.SetStatus(ReturnStop)
+	} else {
+		// Default to NoStop. Other Stop values don't have objects, because the
+		// original handles those types of control flow in other ways.
+		call.SetStatus(NoStop)
+	}
+	return target
+}
+
+// CallSlotContext is a Call method.
+//
+// slotContext returns the object which held the slot containing the executing
+// block.
+func CallSlotContext(vm *VM, target, locals *Object, msg *Message) *Object {
+	return target.Value.(*Call).Context
+}
+
+// CallStopStatus is a Call method.
+//
+// stopStatus returns the control flow type that will propagate to the caller.
+func CallStopStatus(vm *VM, target, locals *Object, msg *Message) *Object {
+	var r *Object
+	switch target.Value.(*Call).Status() {
+	case ContinueStop:
+		r, _ = vm.GetLocalSlot(vm.Core, "Continue")
+	case BreakStop:
+		r, _ = vm.GetLocalSlot(vm.Core, "Break")
+	case ReturnStop:
+		r, _ = vm.GetLocalSlot(vm.Core, "Return")
+	default:
+		r, _ = vm.GetLocalSlot(vm.Core, "Normal")
+	}
+	return r
+}
+
+// CallTarget is a Call method.
+//
+// target returns the object to which the message which activated the executing
+// block was sent.
+func CallTarget(vm *VM, target, locals *Object, msg *Message) *Object {
+	return target.Value.(*Call).Target
 }
