@@ -728,6 +728,10 @@ func TestObjectMethods(t *testing.T) {
 			"one":  {`Object clone removeAllProtos`, PassSuccess()},
 			"ten":  {`testValues manyProtosToRemove removeAllProtos`, PassSuccess()},
 		},
+		"removeAllSlots": {
+			"none": {`Object clone removeAllSlots`, PassSuccess()},
+			"one":  {`testValues slotsObj := Object clone do(x := 0); testValues slotsObj clone do(x := 1) removeAllSlots x`, PassEqual(vm.NewNumber(0))},
+		},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
