@@ -23,8 +23,8 @@ jobs:
     - name: Install the repository and dependencies
       run: go get -v -t github.com/$GITHUB_REPOSITORY@$GITHUB_SHA
 
-    - name: Check that all subpackages build
-      run: go build -v github.com/$GITHUB_REPOSITORY/...
+    - name: Check that subpackages build
+      run: go build -v -tags static_addons github.com/$GITHUB_REPOSITORY github.com/$GITHUB_REPOSITORY/coreext/... github.com/$GITHUB_REPOSITORY/cmd/... github.com/$GITHUB_REPOSITORY/testutils
         
     - name: Run tests
       run: |
