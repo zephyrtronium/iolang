@@ -14,10 +14,9 @@ jobs:
         go-version: 1.14
       id: go
 
-    - name: Set up environment variables
+    - name: Set up environment
       run: |
         go env -w GO111MODULE=on
-        go env -w GOPATH=$HOME
         go mod init CI
       
     - name: Install the repository and dependencies (non-Windows)
