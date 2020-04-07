@@ -20,13 +20,30 @@ jobs:
         go env -w GOPATH=$HOME
         go mod init CI
       
-    - name: Install the repository and dependencies
+    - name: Install the repository and dependencies (non-Windows)
       run: go get -v -t github.com/$GITHUB_REPOSITORY@$GITHUB_SHA
+      if: runner.os != 'Windows'
 
-    - name: Check that subpackages build
+    - name: Install the repository and dependencies (Windows)
+      run: go get -v -t github.com/${env:GITHUB_REPOSITORY}@${env:GITHUB_SHA}
+      if: runner.os == 'Windows'
+
+    - name: Check that subpackages build (non-Windows)
       run: go build -v -tags static_addons github.com/$GITHUB_REPOSITORY github.com/$GITHUB_REPOSITORY/coreext/... github.com/$GITHUB_REPOSITORY/cmd/... github.com/$GITHUB_REPOSITORY/testutils
+      if: runner.os != 'Windows'
+
+    - name: Check that subpackages build (Windows)
+      run: go build -v -tags static_addons github.com/${env:GITHUB_REPOSITORY} github.com/${env:GITHUB_REPOSITORY}/coreext/... github.com/${env:GITHUB_REPOSITORY}/cmd/... github.com/${env:GITHUB_REPOSITORY}/testutils
+      if: runner.os == 'Windows'
         
-    - name: Run tests
+    - name: Run tests (non-Windows)
       run: |
         go test github.com/$GITHUB_REPOSITORY/...
         go test -race -count=3 github.com/$GITHUB_REPOSITORY/...
+      if: runner.os != 'Windows'
+
+    - name: Run tests (Windows)
+      run: |
+        go test github.com/${env:GITHUB_REPOSITORY}/...
+        go test -race -count=3 github.com/${env:GITHUB_REPOSITORY}/...
+      if: runner.os == 'Windows'
