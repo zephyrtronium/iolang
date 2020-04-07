@@ -14,11 +14,14 @@ jobs:
         go-version: 1.14
       id: go
 
-    - name: Ensure module mode
-      run: go env -w GO111MODULE=on
+    - name: Set up environment variables
+      run: |
+        go env -w GO111MODULE=on
+        go env -w GOPATH=$GITHUB_WORKSPACE
+        go mod init CI
       
     - name: Install the repository and dependencies
-      run: go get -t github.com/$GITHUB_REPOSITORY@$GITHUB_SHA
+      run: go get -v -t github.com/$GITHUB_REPOSITORY@$GITHUB_SHA
 
     - name: Check that all subpackages build
       run: go build -v github.com/$GITHUB_REPOSITORY/...
