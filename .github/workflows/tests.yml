@@ -13,6 +13,9 @@ jobs:
       with:
         go-version: 1.14
       id: go
+
+    - name: Ensure module mode
+      run: go env -w GO111MODULE=on
       
     - name: Install the repository and dependencies
       run: go get -t github.com/$GITHUB_REPOSITORY@$GITHUB_SHA
