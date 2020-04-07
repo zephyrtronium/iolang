@@ -6,6 +6,8 @@ import (
 	"os"
 
 	"github.com/zephyrtronium/iolang"
+	// import for side effects
+	_ "github.com/zephyrtronium/iolang/coreext"
 
 	"runtime"
 	"runtime/pprof"

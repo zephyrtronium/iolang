@@ -7,10 +7,11 @@ import (
 	"compress/zlib"
 
 	"github.com/zephyrtronium/iolang"
+	"github.com/zephyrtronium/iolang/coreext/addon"
 )
 
 // IoAddon returns a loader for the Range addon.
-func IoAddon() iolang.Addon {
+func IoAddon() addon.Interface {
 	return addonRange{}
 }
 

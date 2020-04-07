@@ -163,10 +163,11 @@ import (
 	"compress/zlib"
 
 	"github.com/zephyrtronium/iolang"
+	"github.com/zephyrtronium/iolang/coreext/addon"
 )
 
 // IoAddon returns a loader for the {{.Addon}} addon.
-func IoAddon() iolang.Addon {
+func IoAddon() addon.Interface {
 	return addon{{.Addon}}{}
 }
 
@@ -224,12 +225,12 @@ var plugin = template.Must(template.New("plugin").Parse(pluginsource))
 const pluginsource = `package main
 
 import (
-	"github.com/zephyrtronium/iolang"
+	"github.com/zephyrtronium/iolang/coreext/addon"
 	{{printf "%q" .Import}}
 )
 
 // IoAddon returns an object to load the addon.
-func IoAddon() iolang.Addon {
+func IoAddon() addon.Interface {
 	return {{.Addon}}.IoAddon()
 }
 `

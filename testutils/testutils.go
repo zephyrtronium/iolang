@@ -15,16 +15,16 @@ var testVM *iolang.VM
 
 var testVMInit sync.Once
 
-// TestingVM returns a VM for testing Io. The VM is shared by all tests that
+// VM returns a VM for testing Io. The VM is shared by all tests that
 // use this package.
-func TestingVM() *iolang.VM {
-	testVMInit.Do(ResetTestingVM)
+func VM() *iolang.VM {
+	testVMInit.Do(ResetVM)
 	return testVM
 }
 
-// ResetTestingVM reinitializes the VM returned by TestVM. It is not safe to
+// ResetVM reinitializes the VM returned by TestVM. It is not safe to
 // call this in parallel tests.
-func ResetTestingVM() {
+func ResetVM() {
 	testVM = iolang.NewVM()
 }
 
@@ -42,7 +42,7 @@ type SourceTestCase struct {
 // parse and execute the code.
 func (c SourceTestCase) TestFunc(name string) func(*testing.T) {
 	return func(t *testing.T) {
-		vm := TestingVM()
+		vm := VM()
 		msg, err := vm.ParseScanner(strings.NewReader(c.Source), name)
 		if err != nil {
 			t.Fatalf("could not parse %q: %v", c.Source, err)
@@ -85,7 +85,7 @@ func PassEqual(want *iolang.Object) func(*iolang.Object, iolang.Stop) bool {
 // not 0.
 func PassUnequal(want *iolang.Object) func(*iolang.Object, iolang.Stop) bool {
 	return func(result *iolang.Object, control iolang.Stop) bool {
-		vm := TestingVM()
+		vm := VM()
 		if control != iolang.NoStop {
 			return false
 		}
@@ -120,7 +120,7 @@ func PassIdentical(want *iolang.Object) func(*iolang.Object, iolang.Stop) bool {
 // the value check. Equality here has the same semantics as in PassEqual.
 func PassControl(want *iolang.Object, stop iolang.Stop) func(*iolang.Object, iolang.Stop) bool {
 	return func(result *iolang.Object, control iolang.Stop) bool {
-		vm := TestingVM()
+		vm := VM()
 		if control != stop {
 			return false
 		}
@@ -174,7 +174,7 @@ func PassSuccess() func(*iolang.Object, iolang.Stop) bool {
 // false.
 func PassLocalSlots(want, exclude []string) func(*iolang.Object, iolang.Stop) bool {
 	return func(result *iolang.Object, control iolang.Stop) bool {
-		vm := TestingVM()
+		vm := VM()
 		if control != iolang.NoStop {
 			return false
 		}
@@ -197,7 +197,7 @@ func PassLocalSlots(want, exclude []string) func(*iolang.Object, iolang.Stop) bo
 // compare equal. If the Stop is not NoStop, then the predicate returns false.
 func PassEqualSlots(want iolang.Slots) func(*iolang.Object, iolang.Stop) bool {
 	return func(result *iolang.Object, control iolang.Stop) bool {
-		vm := TestingVM()
+		vm := VM()
 		if control != iolang.NoStop {
 			return false
 		}
@@ -230,7 +230,7 @@ func PassEqualSlots(want iolang.Slots) func(*iolang.Object, iolang.Stop) bool {
 func CheckSlots(t *testing.T, obj *iolang.Object, slots []string) {
 	t.Helper()
 	checked := make(map[string]bool, len(slots))
-	on := TestingVM().GetAllSlots(obj)
+	on := VM().GetAllSlots(obj)
 	for _, name := range slots {
 		checked[name] = true
 		t.Run("Have_"+name, func(t *testing.T) {
@@ -264,7 +264,7 @@ func CheckObjectIsProto(t *testing.T, obj *iolang.Object) {
 	default:
 		t.Error("incorrect number of protos: expected 1, have", len(protos))
 	}
-	vm := TestingVM()
+	vm := VM()
 	if p := protos[0]; p != vm.BaseObject {
 		t.Errorf("wrong proto: expected %T@%p, have %T@%p", vm.BaseObject, vm.BaseObject, p, p)
 	}
