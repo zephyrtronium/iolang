@@ -1,6 +1,6 @@
 module github.com/zephyrtronium/iolang
 
-go 1.13
+go 1.14
 
 require (
 	github.com/zephyrtronium/contains v0.0.0-20191109101209-403ebe7b0b60
