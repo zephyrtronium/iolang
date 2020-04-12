@@ -5,16 +5,13 @@ import (
 	"os"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
+	"unsafe" // for UniqueID
 
 	"github.com/zephyrtronium/contains"
 )
 
 // Object is the basic type of Io. Everything is an Object.
-//
-// Always use NewObject, ObjectWith, or a type-specific constructor to obtain
-// new objects. Creating objects directly will result in arbitrary failures.
 type Object struct {
 	// slots is the set of messages to which this object responds.
 	slots actualSlots
@@ -29,9 +26,6 @@ type Object struct {
 	Value interface{}
 	// tag is the type indicator of the object.
 	tag Tag
-
-	// id is the object's unique ID.
-	id uintptr
 }
 
 // Tag is a type indicator for iolang objects. Tag values must be comparable.
@@ -86,7 +80,6 @@ func (o *Object) Clone() *Object {
 		protos: protoLink{p: o},
 		Value:  v,
 		tag:    o.Tag(),
-		id:     nextObject(),
 	}
 }
 
@@ -125,7 +118,10 @@ func (o *Object) Tag() Tag {
 
 // UniqueID returns the object's unique ID.
 func (o *Object) UniqueID() uintptr {
-	return o.id
+	// This implementation depends on Go's garbage collector remaining
+	// non-compacting. Should that change, then either this or contains.Set
+	// will need to change as well.
+	return uintptr(unsafe.Pointer(o))
 }
 
 // BasicTag is a special Tag type for basic primitive types which do not have
@@ -146,16 +142,6 @@ func (t BasicTag) CloneValue(value interface{}) interface{} {
 // String returns the receiver.
 func (t BasicTag) String() string {
 	return string(t)
-}
-
-// objcounter is the global counter for object IDs. All accesses to this must
-// be atomic.
-var objcounter uintptr
-
-// nextObject increments the object counter and returns its value as a unique
-// ID for a new object.
-func nextObject() uintptr {
-	return atomic.AddUintptr(&objcounter, 1)
 }
 
 // initObject sets up the "base" object that is the first proto of all other
@@ -254,7 +240,6 @@ func (vm *VM) ObjectWith(slots Slots, protos []*Object, value interface{}, tag T
 	r := &Object{
 		Value: value,
 		tag:   tag,
-		id:    nextObject(),
 	}
 	r.SetProtos(protos...)
 	vm.definitelyNewSlots(r, slots)
@@ -266,7 +251,6 @@ func (vm *VM) ObjectWith(slots Slots, protos []*Object, value interface{}, tag T
 func (vm *VM) NewObject(slots Slots) *Object {
 	r := &Object{
 		protos: protoLink{p: vm.BaseObject},
-		id:     nextObject(),
 	}
 	vm.definitelyNewSlots(r, slots)
 	return r

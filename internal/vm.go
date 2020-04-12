@@ -77,15 +77,15 @@ func NewVM(args ...string) *VM {
 	haveVM = true // TODO: atomic?
 
 	vm := VM{
-		Lobby: &Object{id: nextObject()},
+		Lobby: &Object{},
 
-		Core:   &Object{id: nextObject()},
-		Addons: &Object{id: nextObject()},
+		Core:   &Object{},
+		Addons: &Object{},
 
-		BaseObject: &Object{id: nextObject()},
-		True:       &Object{id: nextObject()},
-		False:      &Object{id: nextObject()},
-		Nil:        &Object{id: nextObject()},
+		BaseObject: &Object{},
+		True:       &Object{},
+		False:      &Object{},
+		Nil:        &Object{},
 
 		Control: make(chan RemoteStop, 1),
 
