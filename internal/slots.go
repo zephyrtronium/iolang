@@ -684,7 +684,7 @@ func recordBranch(vm *VM, branch string) (trunk *slotBranch, slot *syncSlot) {
 	for i := 0; i < len(branch); i++ {
 		cur.rec = slotRecord{
 			mask:     uintptr(branch[i]),
-			children: [recordChildren]*slotBranch{0: &slotBranch{}},
+			children: [recordChildren]*slotBranch{0: {}},
 		}
 		cur = cur.rec.children[0]
 	}
