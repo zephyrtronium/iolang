@@ -259,7 +259,8 @@ func CheckObjectIsProto(t *testing.T, obj *iolang.Object) {
 	protos := obj.Protos()
 	switch len(protos) {
 	case 0:
-		t.Fatal("no protos")
+		t.Error("no protos")
+		return
 	case 1: // do nothing
 	default:
 		t.Error("incorrect number of protos: expected 1, have", len(protos))
