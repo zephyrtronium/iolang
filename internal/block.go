@@ -122,21 +122,15 @@ func (vm *VM) ActivateBlock(blk, target, locals, context *Object, msg *Message) 
 	}
 	call := vm.NewCall(locals, blk, msg, target, context)
 	blkLocals := vm.NewLocals(scope, call)
-	// We don't want to be holding the block's lock while evaluating its code
-	// or arguments in case any of them refer to the block itself. Copy out the
-	// information we need while we are still holding the lock.
-	args := append([]string{}, b.ArgNames...)
-	m := b.Message
-	pass := b.PassStops
-	for i, arg := range args {
+	for i, arg := range b.ArgNames {
 		x, stop := msg.EvalArgAt(vm, locals, i)
 		if stop != NoStop {
 			return vm.Stop(x, stop)
 		}
 		vm.SetSlot(blkLocals, arg, x)
 	}
-	result, stop := m.Eval(vm, blkLocals)
-	if pass || stop == ExceptionStop || stop == ExitStop {
+	result, stop := b.Message.Eval(vm, blkLocals)
+	if b.PassStops || stop == ExceptionStop || stop == ExitStop {
 		return vm.Stop(result, stop)
 	}
 	return vm.Stop(result, call.Value.(*Call).Status())
