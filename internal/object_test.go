@@ -113,8 +113,6 @@ func TestObjectSlots(t *testing.T) {
 		">",
 		">=",
 		"?",
-		// "@", // TODO: coreext
-		// "@@", // TODO: coreext
 		// "actorProcessQueue",
 		// "actorRun",
 		"addTrait",
@@ -127,7 +125,6 @@ func TestObjectSlots(t *testing.T) {
 		"asGoRepr",
 		"asSimpleString",
 		"asString",
-		// "asyncSend", // TODO: coreext
 		"block",
 		"break",
 		"clone",
@@ -135,11 +132,6 @@ func TestObjectSlots(t *testing.T) {
 		"compare",
 		"contextWithSlot",
 		"continue",
-		// "coroDo", // TODO: coreext
-		// "coroDoLater", // TODO: coreext
-		// "coroFor", // TODO: coreext
-		// "coroWith", // TODO: coreext
-		// "currentCoro", // TODO: coreext
 		"deprecatedWarning",
 		"do",
 		"doFile",
@@ -151,7 +143,6 @@ func TestObjectSlots(t *testing.T) {
 		"evalArgAndReturnSelf",
 		"for",
 		"foreachSlot",
-		// "futureSend", // TODO: coreext
 		"getLocalSlot",
 		"getSlot",
 		// "handleActorException",
@@ -186,7 +177,6 @@ func TestObjectSlots(t *testing.T) {
 		"newSlot",
 		"not",
 		"or",
-		// "pause", // TODO: coreext
 		"perform",
 		"performWithArgList",
 		"prependProto",
@@ -232,7 +222,6 @@ func TestObjectSlots(t *testing.T) {
 		"while",
 		"write",
 		"writeln",
-		// "yield", // TODO: coreext
 	}
 	testutils.CheckSlots(t, testutils.VM().BaseObject, slots)
 }
