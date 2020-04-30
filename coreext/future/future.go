@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 
 	"github.com/zephyrtronium/iolang"
-	_ "github.com/zephyrtronium/iolang/coreext/coroutine"
+	_ "github.com/zephyrtronium/iolang/coreext/coroutine" // dependency
 	"github.com/zephyrtronium/iolang/internal"
 )
 
