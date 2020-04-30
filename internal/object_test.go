@@ -248,6 +248,12 @@ func TestObjectMethods(t *testing.T) {
 		// manyProtosToRemove is an object that has many protos to test that
 		// removeAllProtos succeeds.
 		"manyProtosToRemove": vm.ObjectWith(nil, []*iolang.Object{vm.BaseObject, vm.Nil, vm.Nil, vm.Nil, vm.Nil, vm.Nil, vm.Nil, vm.Nil, vm.Nil, vm.Nil, vm.Nil}, nil, nil),
+		// manyProtosToRemoveOne is an object that has many protos to test
+		// that removeProto succeeds.
+		"manyProtosToRemoveOne": vm.ObjectWith(nil, []*iolang.Object{vm.Nil, vm.BaseObject, vm.Nil, vm.Nil, vm.Nil, vm.Nil, vm.Nil, vm.Nil, vm.Nil, vm.Nil, vm.Nil}, nil, nil),
+		// manyProtosNotToRemove is an object that has many protos to test
+		// that removeProto removes none of them.
+		"manyProtosNotToRemove": vm.ObjectWith(nil, []*iolang.Object{vm.BaseObject, vm.BaseObject, vm.BaseObject, vm.BaseObject, vm.BaseObject, vm.BaseObject, vm.BaseObject, vm.BaseObject, vm.BaseObject, vm.BaseObject}, nil, nil),
 	}
 	vm.SetSlot(vm.Lobby, "testValues", vm.NewObject(config))
 	cases := map[string]map[string]testutils.SourceTestCase{
@@ -679,6 +685,18 @@ func TestObjectMethods(t *testing.T) {
 		"removeAllSlots": {
 			"none": {Source: `Object clone removeAllSlots`, Pass: testutils.PassSuccess()},
 			"one":  {Source: `testValues slotsObj := Object clone do(x := 0); testValues slotsObj clone do(x := 1) removeAllSlots x`, Pass: testutils.PassEqual(vm.NewNumber(0))},
+		},
+		"removeProto": {
+			"none":      {Source: `Object getSlot("removeProto") performOn(Object clone removeAllProtos)`, Pass: testutils.PassSuccess()},
+			"one":       {Source: `Object getSlot("protos") performOn(Object clone removeProto(nil))`, Pass: testutils.PassEqual(vm.NewList(vm.BaseObject))},
+			"oneRemove": {Source: `Object getSlot("protos") performOn(Object clone removeProto(Object))`, Pass: testutils.PassEqual(vm.NewList())},
+			"ten":       {Source: `Object getSlot("protos") performOn(testValues manyProtosNotToRemove removeProto(nil))`, Pass: testutils.PassEqual(vm.NewList(vm.BaseObject, vm.BaseObject, vm.BaseObject, vm.BaseObject, vm.BaseObject, vm.BaseObject, vm.BaseObject, vm.BaseObject, vm.BaseObject, vm.BaseObject))},
+			"tenRemove": {Source: `Object getSlot("protos") performOn(testValues manyProtosToRemoveOne removeProto(nil))`, Pass: testutils.PassEqual(vm.NewList(vm.BaseObject))},
+		},
+		"removeSlot": {
+			"none":      {Source: `Object clone removeSlot("nothing")`, Pass: testutils.PassSuccess()},
+			"one":       {Source: `testValues slotsObj := Object clone do(x := 0); testValues slotsObj clone do(x := 1) removeSlot("y") x`, Pass: testutils.PassEqual(vm.NewNumber(1))},
+			"oneRemove": {Source: `testValues slotsObj := Object clone do(x := 0); testValues slotsObj clone do(x := 1) removeSlot("x") x`, Pass: testutils.PassEqual(vm.NewNumber(0))},
 		},
 	}
 	for name, c := range cases {
