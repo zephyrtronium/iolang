@@ -8,6 +8,17 @@ import (
 	"github.com/zephyrtronium/iolang/testutils"
 )
 
+func TestObjectSlots(t *testing.T) {
+	vm := testutils.VM()
+	slots := []string{
+		"@",
+		"@@",
+		"asyncSend",
+		"futureSend",
+	}
+	testutils.CheckNewSlots(t, vm.BaseObject, slots)
+}
+
 func TestObjectMethods(t *testing.T) {
 	vm := testutils.VM()
 	config := iolang.Slots{

@@ -226,7 +226,7 @@ func PassEqualSlots(want iolang.Slots) func(*iolang.Object, iolang.Stop) bool {
 }
 
 // CheckSlots is a testing helper to check whether an object has exactly the
-// slots we expect.
+// listed slots.
 func CheckSlots(t *testing.T, obj *iolang.Object, slots []string) {
 	t.Helper()
 	checked := make(map[string]bool, len(slots))
@@ -236,17 +236,35 @@ func CheckSlots(t *testing.T, obj *iolang.Object, slots []string) {
 		t.Run("Have_"+name, func(t *testing.T) {
 			slot, ok := on[name]
 			if !ok {
-				t.Fatal("no slot", name)
+				t.Error("no slot", name)
 			}
 			if slot == nil {
-				t.Fatal("slot", name, "is nil")
+				t.Error("slot", name, "is nil")
 			}
 		})
 	}
 	for name := range on {
 		t.Run("Want_"+name, func(t *testing.T) {
 			if !checked[name] {
-				t.Fatal("unexpected slot", name)
+				t.Error("unexpected slot", name)
+			}
+		})
+	}
+}
+
+// CheckNewSlots is a testing helper to check whether an object has the given
+// slots, and possibly others.
+func CheckNewSlots(t *testing.T, obj *iolang.Object, slots []string) {
+	t.Helper()
+	on := VM().GetAllSlots(obj)
+	for _, name := range slots {
+		t.Run("Have_"+name, func(t *testing.T) {
+			slot, ok := on[name]
+			if !ok {
+				t.Error("no slot", name)
+			}
+			if slot == nil {
+				t.Error("slot", name, "is nil")
 			}
 		})
 	}

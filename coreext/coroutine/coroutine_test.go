@@ -8,6 +8,20 @@ import (
 	"github.com/zephyrtronium/iolang/testutils"
 )
 
+func TestObjectSlots(t *testing.T) {
+	vm := testutils.VM()
+	slots := []string{
+		"coroDo",
+		"coroDoLater",
+		"coroFor",
+		"coroWith",
+		"currentCoro",
+		"pause",
+		"yield",
+	}
+	testutils.CheckNewSlots(t, vm.BaseObject, slots)
+}
+
 func TestObjectMethods(t *testing.T) {
 	vm := testutils.VM()
 	config := iolang.Slots{
