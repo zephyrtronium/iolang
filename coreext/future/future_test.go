@@ -4,9 +4,14 @@ import (
 	"testing"
 
 	"github.com/zephyrtronium/iolang"
-	_ "github.com/zephyrtronium/iolang/coreext/future"
+	_ "github.com/zephyrtronium/iolang/coreext/future" // side effects
 	"github.com/zephyrtronium/iolang/testutils"
 )
+
+func TestRegister(t *testing.T) {
+	// Coroutine is a dependency.
+	testutils.CheckNewSlots(t, testutils.VM().Core, []string{"Coroutine", "Future"})
+}
 
 func TestObjectSlots(t *testing.T) {
 	vm := testutils.VM()

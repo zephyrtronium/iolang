@@ -8,6 +8,10 @@ import (
 	"github.com/zephyrtronium/iolang/testutils"
 )
 
+func TestRegister(t *testing.T) {
+	testutils.CheckNewSlots(t, testutils.VM().Core, []string{"Coroutine"})
+}
+
 func TestObjectSlots(t *testing.T) {
 	vm := testutils.VM()
 	slots := []string{
