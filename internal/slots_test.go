@@ -1,8 +1,10 @@
 package internal
 
 import (
+	"sync/atomic"
 	"testing"
 	"time"
+	"unsafe"
 )
 
 // TestProtoHead tests that the internal means to synchronize accesses to an
@@ -23,8 +25,9 @@ func TestProtoHead(t *testing.T) {
 			obj := vm.ObjectWith(nil, []*Object{logicalDeleted}, nil, nil)
 			obj.protos.mu.Lock()
 			ch := make(chan *Object)
+			sig := new(Object)
 			go func() {
-				ch <- nil // Signal that this goroutine is running.
+				ch <- sig // Signal that this goroutine is running.
 				ch <- obj.protoHead()
 				close(ch) // Avoid hanging if protoHead succeeds immediately.
 			}()
@@ -34,10 +37,13 @@ func TestProtoHead(t *testing.T) {
 				t.Errorf("unexpected send of proto head: (logicalDeleted is @%p,) got %[2]v@%[2]p", logicalDeleted, r)
 			case <-time.After(30 * time.Millisecond):
 			}
-			obj.protos.p = vm.BaseObject // probably should be atomic
+			atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&obj.protos.p)), unsafe.Pointer(vm.BaseObject))
 			obj.protos.mu.Unlock()
-			r := <-ch
-			if r != vm.BaseObject {
+			switch r := <-ch; r {
+			case sig:
+				t.Log("protoHead may not have been contested during 30 ms sleep")
+			case vm.BaseObject: // success; do nothing
+			default:
 				t.Errorf("wrong proto: expected %[1]v@%[1]p, (logicalDeleted is @%[3]p,) got %[2]v@%[2]v", vm.BaseObject, r, logicalDeleted)
 			}
 		},
