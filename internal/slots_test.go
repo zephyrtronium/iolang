@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -84,9 +85,13 @@ func TestProtos(t *testing.T) {
 		for name, c := range cases {
 			c := c // redeclare loop variable
 			t.Run(name, func(t *testing.T) {
+				wg := sync.WaitGroup{}
 				obj := vm.ObjectWith(nil, c, nil, nil)
-				for k := 0; k < 128; k++ {
+				const n = 128
+				wg.Add(n)
+				for k := 0; k < n; k++ {
 					go func() {
+						defer wg.Done()
 						p := obj.Protos()
 						for i, v := range p {
 							if i > len(c) {
@@ -102,6 +107,7 @@ func TestProtos(t *testing.T) {
 						}
 					}()
 				}
+				wg.Wait()
 			})
 		}
 	})
