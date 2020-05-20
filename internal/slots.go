@@ -105,29 +105,10 @@ func (o *Object) Protos() []*Object {
 	return r
 }
 
-// NumProtos returns the number of protos the object has. This is more
-// efficient than using ForeachProto to count the protos.
-func (o *Object) NumProtos() int {
-	r := 0
-	p := o.protoHead()
-	if p == nil {
-		return 0
-	}
-	r++
-	for _, n := o.protos.nextR(); n != nil; _, n = n.nextR() {
-		r++
-	}
-	return r
-}
-
 // ForeachProto calls exec on each of the object's protos. exec must not modify
 // o's protos list. If exec returns false, then the iteration ceases.
 func (o *Object) ForeachProto(exec func(p *Object) bool) {
-	p := (*Object)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&o.protos.p))))
-	for p == logicalDeleted {
-		p = (*Object)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&o.protos.p))))
-	}
-	if p == nil || !exec(p) {
+	if p := o.protoHead(); p == nil || !exec(p) {
 		return
 	}
 	for p, n := o.protos.nextR(); n != nil; p, n = n.nextR() {
