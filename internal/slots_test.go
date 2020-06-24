@@ -113,6 +113,8 @@ func TestProtos(t *testing.T) {
 	})
 }
 
+// TestForeachProto tests that ForeachProto visits each of an object's protos
+// exactly once.
 func TestForeachProto(t *testing.T) {
 	vm := NewVM()
 	cases := map[string]struct {
@@ -187,6 +189,22 @@ func TestForeachProto(t *testing.T) {
 					}()
 				}
 				wg.Wait()
+			})
+		}
+	})
+	t.Run("cease", func(t *testing.T) {
+		// This test is trivial for zero or one protos, but ranging is easy.
+		for name, c := range cases {
+			t.Run(name, func(t *testing.T) {
+				n := 0
+				obj := vm.ObjectWith(nil, c.p, nil, nil)
+				obj.ForeachProto(func(p *Object) bool {
+					n++
+					if n != 1 {
+						t.Errorf("iterator ran %d times; expected 0 or 1", n)
+					}
+					return false
+				})
 			})
 		}
 	})
