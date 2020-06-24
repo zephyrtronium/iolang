@@ -94,7 +94,7 @@ func TestProtos(t *testing.T) {
 						defer wg.Done()
 						p := obj.Protos()
 						for i, v := range p {
-							if i > len(c) {
+							if i >= len(c) {
 								t.Errorf("too many protos: have %v at %d", v, i)
 								continue // report every unexpected proto
 							}
@@ -104,6 +104,85 @@ func TestProtos(t *testing.T) {
 						}
 						for i := len(p); i < len(c); i++ {
 							t.Errorf("too few protos: missing %v at %d", c[i], i)
+						}
+					}()
+				}
+				wg.Wait()
+			})
+		}
+	})
+}
+
+func TestForeachProto(t *testing.T) {
+	vm := NewVM()
+	cases := map[string]struct {
+		p []*Object
+		e []float64
+	}{
+		"none": {nil, nil},
+		"one":  {[]*Object{vm.NewNumber(0)}, []float64{0}},
+		"ten": {
+			[]*Object{vm.NewNumber(0), vm.NewNumber(1), vm.NewNumber(2), vm.NewNumber(3), vm.NewNumber(4), vm.NewNumber(5), vm.NewNumber(6), vm.NewNumber(7), vm.NewNumber(8), vm.NewNumber(9)},
+			[]float64{0, 1, 2, 3, 4, 5, 6, 7, 8, 9},
+		},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			obj := vm.ObjectWith(nil, c.p, nil, nil)
+			r := []float64{}
+			obj.ForeachProto(func(p *Object) bool {
+				if p.Tag() != NumberTag {
+					t.Errorf("proto is %v, not Number", p.Tag())
+					return false
+				}
+				r = append(r, p.Value.(float64))
+				return true
+			})
+			for i, x := range r {
+				if i >= len(c.e) {
+					t.Errorf("too many protos; have %v at %d", x, i)
+					continue // report every unexpected protos
+				}
+				if x != c.e[i] {
+					t.Errorf("wrong proto value: expected %v, got %v", c.e[i], x)
+				}
+			}
+			if len(r) < len(c.e) {
+				t.Errorf("not enough protos; expected %v, have %v (missing %v)", c.e, r, c.e[len(r):])
+			}
+		})
+	}
+	t.Run("concurrent", func(t *testing.T) {
+		for name, c := range cases {
+			c := c // redeclare loop variable
+			t.Run(name, func(t *testing.T) {
+				wg := sync.WaitGroup{}
+				obj := vm.ObjectWith(nil, c.p, nil, nil)
+				const n = 128
+				wg.Add(n)
+				for k := 0; k < n; k++ {
+					go func() {
+						defer wg.Done()
+						r := []float64{}
+						obj.ForeachProto(func(p *Object) bool {
+							if p.Tag() != NumberTag {
+								t.Errorf("proto is %v, not Number", p.Tag())
+								return false
+							}
+							r = append(r, p.Value.(float64))
+							return true
+						})
+						for i, x := range r {
+							if i >= len(c.e) {
+								t.Errorf("too many protos; have %v at %d", x, i)
+								continue // report every unexpected proto
+							}
+							if x != c.e[i] {
+								t.Errorf("wrong proto value: expected %v, got %v", c.e[i], x)
+							}
+						}
+						if len(r) < len(c.e) {
+							t.Errorf("not enough protos; expected %v, have %v (missing %v)", c.e, r, c.e[len(r):])
 						}
 					}()
 				}
