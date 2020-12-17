@@ -8,10 +8,10 @@ jobs:
         platform: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.platform }}
     steps:
-    - name: Set up Go 1.14
+    - name: Set up Go 1.15
       uses: actions/setup-go@v1
       with:
-        go-version: 1.14
+        go-version: 1.15
       id: go
 
     - name: Set up environment
