@@ -14,7 +14,7 @@ func TestProtoHead(t *testing.T) {
 	cases := map[string]func(t *testing.T){
 		"uncontested": func(t *testing.T) {
 			obj := vm.ObjectWith(nil, []*Object{vm.BaseObject}, nil, nil)
-			r := obj.protoHead()
+			r, _ := obj.protoHead()
 			if r != vm.BaseObject {
 				t.Errorf("wrong protoHead: wanted %v, got %v", vm.BaseObject, r)
 			}
@@ -28,7 +28,8 @@ func TestProtoHead(t *testing.T) {
 			sig := new(Object)
 			go func() {
 				ch <- sig // Signal that this goroutine is running.
-				ch <- obj.protoHead()
+				r, _ := obj.protoHead()
+				ch <- r
 				close(ch) // Avoid hanging if protoHead succeeds immediately.
 			}()
 			<-ch // Wait for the new goroutine to start.
