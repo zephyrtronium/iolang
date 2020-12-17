@@ -1,6 +1,6 @@
 # iolang
 
-[![stability-experimental](https://img.shields.io/badge/stability-experimental-orange.svg)](https://github.com/emersion/stability-badges#experimental) [![GoDoc](https://godoc.org/github.com/zephyrtronium/iolang?status.svg)](https://godoc.org/github.com/zephyrtronium/iolang) ![Tests](https://github.com/zephyrtronium/iolang/workflows/Tests/badge.svg)
+[![stability-experimental](https://img.shields.io/badge/stability-experimental-orange.svg)](https://github.com/emersion/stability-badges#experimental) [![Go Reference](https://pkg.go.dev/badge/github.com/zephyrtronium/iolang.svg)](https://pkg.go.dev/github.com/zephyrtronium/iolang) ![Tests](https://github.com/zephyrtronium/iolang/workflows/Tests/badge.svg)
 
 This is a pure Go implementation of [Io](http://iolanguage.org/). Much of the hard work has been done, but hard work still remains.
 
