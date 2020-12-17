@@ -672,12 +672,13 @@ func (r *slotBranch) foreachIter(vm *VM, exec func(name string, sy SyncSlot) boo
 
 // recordBranch allocates an entire new branch of a slots trie.
 func recordBranch(vm *VM, branch string) (trunk *slotBranch, slot *syncSlot) {
-	trunk = &slotBranch{}
+	b := make([]slotBranch, len(branch)+1)
+	trunk = &b[0]
 	cur := trunk
 	for i := 0; i < len(branch); i++ {
 		cur.rec = slotRecord{
 			mask:     uintptr(branch[i]),
-			children: [recordChildren]*slotBranch{0: {}},
+			children: [recordChildren]*slotBranch{0: &b[i+1]},
 		}
 		cur = cur.rec.children[0]
 	}
